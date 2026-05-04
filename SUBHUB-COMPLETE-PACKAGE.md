@@ -45,30 +45,16 @@
 - **Project URL:** https://klthwrzyyrdgaoemrrhl.supabase.co
 - **Project Ref:** klthwrzyyrdgaoemrrhl
 - **Region:** us-east-1
-- **Dashboard Login:** jessegentile@gmail.com / H3D3HGkLU1dOpxOx (username: 5041)
-- **DB Password:** jdrsYslb1Qa0xKBo (reset 2026-05-03)
+- **Dashboard Login:** jessegentile@gmail.com (password in `.env.secrets`)
+- **DB Password:** See `.env.secrets`
 
 #### API Keys
-- **Anon Key (browser-safe):**
-  ```
-  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsdGh3cnp5eXJkZ2FvZW1ycmhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NDgzNTYsImV4cCI6MjA5MzQyNDM1Nn0.jCtQjpEYEKUSN0cKKsIcMdszDu_cBwAWT5_RysS7BW4
-  ```
-- **Service Role Key (server-only, bypasses RLS):**
-  ```
-  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsdGh3cnp5eXJkZ2FvZW1ycmhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzg0ODM1NiwiZXhwIjoyMDkzNDI0MzU2fQ.4PmcQHfZBRC7fLRF7nGUy8g_kfLKwQUnBJzSllCNWTM
-  ```
-- **Publishable Key (new format):** `sb_publishable_dH8dAQdeAngCw5aNGb7_wA_eM-An3td`
-- **Secret Key:** `sb_secret_bcyBt...` (partially visible, check Supabase dashboard for full key)
+- **Anon Key & Service Role Key:** See `.env.local` and `.env.secrets` (gitignored for security)
+- **Publishable Key:** See `.env.secrets`
+- **Secret Key:** See Supabase dashboard
 
 #### Database Connection Strings
-- **Transaction Pooler (for app queries):**
-  ```
-  postgresql://postgres.klthwrzyyrdgaoemrrhl:jdrsYslb1Qa0xKBo@aws-1-us-east-1.pooler.supabase.com:6543/postgres
-  ```
-- **Direct Connection (for migrations):**
-  ```
-  postgresql://postgres:jdrsYslb1Qa0xKBo@db.klthwrzyyrdgaoemrrhl.supabase.co:5432/postgres
-  ```
+- **Transaction Pooler & Direct Connection:** See `.env.local` (gitignored for security)
 
 ### SiteGround (substitutes.us hosting)
 - **Host:** gcam1060.siteground.biz
@@ -81,18 +67,17 @@
 - **Note:** SiteGround is for the marketing site only. The app runs on Vercel.
 
 ### Twilio (for Phase 4 — SMS)
-- **Account SID:** REDACTED
-- **Auth Token:** REDACTED
 - **Phone Number:** +1 657 300 6005 (Huntington Beach, CA)
-- **Status:** Trial account ($14.35 remaining)
+- **Status:** Trial account
 - **Limitation:** Needs A2P 10DLC registration for production SMS
+- **Credentials:** See `.env.secrets` (not in repo for security)
 
 ### Test Logins (seeded in database)
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | jessegentile@gmail.com | SubHub2026! |
-| Teacher | sarah.johnson@school.test | Teacher2026! |
-| Substitute | gary.surdam@sub.test | Sub2026! |
+| Admin | jessegentile@gmail.com | See `.env.secrets` |
+| Teacher | sarah.johnson@school.test | See `.env.secrets` |
+| Substitute | gary.surdam@sub.test | See `.env.secrets` |
 
 ---
 
