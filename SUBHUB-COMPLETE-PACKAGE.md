@@ -11,10 +11,10 @@
 |------|-------|
 | **App Name** | SubHub |
 | **Tagline** | Substitute Teacher Management |
-| **Live URL** | https://subhub-theta.vercel.app |
+| **Live URL** | https://app.substitutes.us |
 | **GitHub Repo** | https://github.com/jmg5041/subhub (private) |
 | **Local Dev** | http://localhost:3333 |
-| **Domain** | substitutes.us (owned, DNS at SiteGround) |
+| **Domain** | app.substitutes.us (Vercel) + substitutes.us (SiteGround marketing) |
 | **Current Phase** | Phase 1 Complete — Foundation deployed |
 
 ---
@@ -28,7 +28,8 @@
 - **Repo:** private, auto-deploys to Vercel on push to `main`
 
 ### Vercel
-- **URL:** https://subhub-theta.vercel.app
+- **App URL:** https://app.substitutes.us (custom domain, production)
+- **Vercel default:** https://subhub-theta.vercel.app (also works)
 - **Dashboard:** https://vercel.com/jesse-gentiles-projects/subhub
 - **Project ID:** `prj_3XFbmkqyIGQ8RIee45wewiKtLAXe`
 - **Team:** Jesse Gentile's projects (Hobby plan)
@@ -94,7 +95,7 @@
 | Auth | Supabase Auth | Built-in RLS, email + Google OAuth |
 | SMS | Twilio | 98% open rate for sub outreach |
 | Hosting | Vercel | Auto-deploy from GitHub, edge functions |
-| Domain | substitutes.us (SiteGround DNS) | Owned by Jesse |
+| Domain | app.substitutes.us (Vercel) + substitutes.us (GoDaddy DNS) | Owned by Jesse |
 
 ### Database Schema (9 tables)
 1. **organizations** — Multi-tenant school districts
@@ -220,7 +221,7 @@ substitute-app/
 2. `cd substitute-app && git add -A && git commit -m "description"`
 3. `git push origin main`
 4. Vercel auto-deploys in ~60 seconds
-5. Live at https://subhub-theta.vercel.app
+5. Live at https://app.substitutes.us
 
 No manual steps needed after push.
 
@@ -228,28 +229,15 @@ No manual steps needed after push.
 
 ## 🌐 DNS & Domain Strategy
 
-**Current state:**
-- `substitutes.us` → SiteGround (marketing site, static HTML)
-- `subhub-theta.vercel.app` → Vercel (the app)
+**Current state (LIVE):**
+- `substitutes.us` → SiteGround (marketing site, static HTML) ✅
+- `app.substitutes.us` → Vercel (the SubHub app) ✅
+- `subhub-theta.vercel.app` → Vercel default URL (also works, redirects)
 
-**Options for going live:**
-
-### Option A: Point substitutes.us to Vercel (recommended)
-1. In SiteGround DNS, add CNAME record: `substitutes.us` → `cname.vercel-dns.com`
-2. In Vercel, add `substitutes.us` as a custom domain
-3. Move marketing site to `www.substitutes.us` or a subdomain
-4. Vercel handles SSL automatically
-
-### Option B: Use app.substitutes.us
-1. In SiteGround DNS, add CNAME: `app.substitutes.us` → `cname.vercel-dns.com`
-2. In Vercel, add `app.substitutes.us` as custom domain
-3. Marketing site stays at `substitutes.us`
-4. Cleanest separation, no downtime
-
-### Option C: Vercel + SiteGround side by side
-1. Keep marketing site at `substitutes.us` (SiteGround)
-2. Keep app at `app.substitutes.us` (Vercel)
-3. Add "Login" button on marketing site that links to app
+**DNS configuration:**
+- CNAME record in GoDaddy: `app` → `2f8922eb5111d17a.vercel-dns-017.com.`
+- Vercel domain configured: `app.substitutes.us` (Valid, Production)
+- Marketing site at `substitutes.us` is completely separate and untouched
 
 ---
 
