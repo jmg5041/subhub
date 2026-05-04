@@ -1,13 +1,12 @@
 'use client'
 
 /**
- * Client-side auth confirm page — handles implicit flow tokens from URL hash.
+ * Handles implicit-flow auth tokens that arrive in the URL hash (#access_token=...).
  *
- * Supabase recovery/magic-link emails use the implicit flow: tokens arrive
- * in the URL hash (#access_token=...) which servers never see. This client
- * component lets the Supabase browser SDK process those tokens, establish
- * a session (written to cookies), then hands off to /auth/portal for role-based
- * redirect. The server-side /auth/callback handles PKCE flow (OAuth, email invites).
+ * The @supabase/ssr browser client is configured for PKCE flow and doesn't
+ * automatically parse hash fragments. We parse them manually and call
+ * setSession() directly, which writes the session to cookies so the
+ * server-side /auth/portal route can read it for role-based redirect.
  */
 
 import { useEffect, useState } from 'react'
@@ -20,17 +19,33 @@ export default function AuthConfirmPage() {
     const supabase = createClient()
 
     async function processHash() {
-      // getSession() triggers the browser SDK to read the hash fragment and
-      // exchange the tokens, writing the session to cookies automatically.
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Parse tokens from the URL hash
+      const hash = window.location.hash.slice(1)
+      const params = new URLSearchParams(hash)
 
-      if (error || !session) {
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const errorCode = params.get('error_code')
+
+      if (errorCode || !accessToken || !refreshToken) {
+        console.error('[auth/confirm] Missing tokens or error in hash:', errorCode)
         setStatus('error')
         return
       }
 
-      // Session is now in cookies — /auth/portal will create the users row
-      // from user_metadata (role, orgId, etc.) if this is a first-time accept.
+      // Explicitly set the session — writes to cookies so server routes can read it
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+
+      if (error || !data.session) {
+        console.error('[auth/confirm] setSession failed:', error)
+        setStatus('error')
+        return
+      }
+
+      // Session established — portal will create users row and redirect by role
       window.location.href = '/auth/portal'
     }
 
