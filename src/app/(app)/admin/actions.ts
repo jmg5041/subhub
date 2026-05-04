@@ -128,6 +128,7 @@ export async function resendInvite(formData: FormData) {
     email,
     options: {
       redirectTo: `${appUrl}/auth/confirm`,
+      expiresIn: 604800, // 7 days in seconds
     },
   })
 

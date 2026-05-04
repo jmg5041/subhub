@@ -170,7 +170,7 @@ export default function ManageUsersClient({
               Dismiss
             </button>
           </div>
-          <p className="text-xs text-blue-600">This link expires in 24 hours.</p>
+          <p className="text-xs text-blue-600">This link expires in 7 days.</p>
         </div>
       )}
 
