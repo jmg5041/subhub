@@ -119,12 +119,13 @@ export async function resendInvite(formData: FormData) {
   const email = formData.get('email') as string
   const role = formData.get('role') as string
 
+  // 'recovery' works on existing auth users (unlike 'invite' which fails if user exists).
+  // user_metadata from the original invite (role, orgId, etc.) persists on the auth user.
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'invite',
+    type: 'recovery',
     email,
     options: {
       redirectTo: `${appUrl}/auth/callback`,
-      data: { role, orgId },
     },
   })
 
