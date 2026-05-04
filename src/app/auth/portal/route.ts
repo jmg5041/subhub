@@ -1,16 +1,14 @@
 /**
- * Portal redirect — called after email/password login to send users to the right portal.
- * Reads the current session, looks up the user's role, and redirects accordingly.
- *
- *   admin / principal / staff → /dashboard
- *   teacher                   → /teacher
- *   substitute                → /sub/dashboard
+ * Portal redirect — reads the current session and sends the user to the right portal.
+ * Also handles first-time invited users: creates their users row from user_metadata
+ * and marks the invitation as used. This covers both PKCE (from /auth/callback) and
+ * implicit flow (from /auth/confirm) entry points.
  */
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, invitations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 function roleToPortal(role: string | null | undefined): string {
@@ -30,9 +28,40 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/auth/login`)
   }
 
-  const profile = await db.query.users.findFirst({
+  // Look up profile by Supabase auth ID
+  let profile = await db.query.users.findFirst({
     where: eq(users.id, user.id),
   })
+
+  // Seeded user with placeholder ID — link them
+  if (!profile && user.email) {
+    const byEmail = await db.query.users.findFirst({
+      where: eq(users.email, user.email),
+    })
+    if (byEmail) {
+      await db.update(users).set({ id: user.id }).where(eq(users.email, user.email))
+      profile = { ...byEmail, id: user.id }
+    }
+  }
+
+  // Brand-new invited user — create their users row from invite metadata
+  if (!profile && user.email && user.user_metadata?.orgId) {
+    const meta = user.user_metadata
+    const role = (meta.role as string) || 'teacher'
+    await db.insert(users).values({
+      id: user.id,
+      email: user.email,
+      firstName: (meta.firstName as string) || user.email.split('@')[0],
+      lastName: (meta.lastName as string) || '',
+      role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+      organizationId: meta.orgId as string,
+      schoolId: (meta.schoolId as string) || null,
+    })
+    await db.update(invitations)
+      .set({ usedAt: new Date() })
+      .where(eq(invitations.email, user.email))
+    return NextResponse.redirect(`${origin}${roleToPortal(role)}`)
+  }
 
   return NextResponse.redirect(`${origin}${roleToPortal(profile?.role)}`)
 }

@@ -121,11 +121,13 @@ export async function resendInvite(formData: FormData) {
 
   // 'recovery' works on existing auth users (unlike 'invite' which fails if user exists).
   // user_metadata from the original invite (role, orgId, etc.) persists on the auth user.
+  // Recovery links use implicit flow (hash fragment) — must land on the
+  // client-side /auth/confirm page, not the server-side /auth/callback.
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: {
-      redirectTo: `${appUrl}/auth/callback`,
+      redirectTo: `${appUrl}/auth/confirm`,
     },
   })
 
