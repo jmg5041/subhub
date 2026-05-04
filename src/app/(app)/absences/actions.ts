@@ -23,6 +23,10 @@ import {
   schools,
   absenceReasons,
   teacherTimeOff,
+  substitutes,
+  subAssignments,
+  assignmentTimeOff,
+  subPriorityOrders,
 } from '@/db/schema'
 import { eq, and, asc, lt, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -323,4 +327,169 @@ export async function reconcileAbsence(formData: FormData) {
 
   revalidatePath('/absences/reconcile')
   revalidatePath('/dashboard')
+}
+
+// ─── Find Sub actions ─────────────────────────────────────────────────────────
+
+/**
+ * Loads full details for one absence, used on the Find Sub page.
+ * Includes teacher name, school, reason, and any existing sub assignment.
+ */
+export async function getAbsenceWithDetails(id: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  return db.query.teacherTimeOff.findFirst({
+    where: and(
+      eq(teacherTimeOff.id, id),
+      eq(teacherTimeOff.organizationId, orgId)
+    ),
+    with: {
+      employee: {
+        with: { user: true },
+      },
+      school: true,
+      reason: true,
+      requestedSub: {
+        with: { user: true },
+      },
+      assignmentLinks: {
+        with: {
+          assignment: {
+            with: {
+              substitute: {
+                with: { user: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+}
+
+/**
+ * Returns all active subs for the org, sorted by admin-set priority rank.
+ * Unranked subs come last. Used to populate the sub picker on Find Sub page.
+ */
+export async function getAvailableSubs() {
+  const { orgId } = await getOrgAndUserId()
+
+  // Get priority rankings set by admin
+  const priorityRows = await db
+    .select()
+    .from(subPriorityOrders)
+    .where(eq(subPriorityOrders.organizationId, orgId))
+    .orderBy(asc(subPriorityOrders.priorityRank))
+
+  const rankMap = new Map(priorityRows.map(r => [r.substituteId, r.priorityRank]))
+
+  const allSubs = await db
+    .select({
+      id: substitutes.id,
+      userId: substitutes.userId,
+      status: substitutes.status,
+      preferredAtSchools: substitutes.preferredAtSchools,
+      excludedFromSchools: substitutes.excludedFromSchools,
+      notificationPreference: substitutes.notificationPreference,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      phone: users.phone,
+    })
+    .from(substitutes)
+    .innerJoin(users, eq(substitutes.userId, users.id))
+    .where(
+      and(
+        eq(users.organizationId, orgId),
+        eq(substitutes.status, 'active')
+      )
+    )
+    .orderBy(asc(users.lastName), asc(users.firstName))
+
+  // Sort by priority rank (unranked = 999)
+  return allSubs
+    .map(s => ({ ...s, priorityRank: rankMap.get(s.id) ?? 999 }))
+    .sort((a, b) => a.priorityRank - b.priorityRank || a.lastName.localeCompare(b.lastName))
+}
+
+/**
+ * Admin assigns a specific sub directly — no notification sent.
+ * Creates the sub_assignment and assignment_time_off rows, marks absence as filled.
+ */
+export async function assignSubDirectly(formData: FormData) {
+  const timeOffId = formData.get('timeOffId') as string
+  const substituteId = formData.get('substituteId') as string
+
+  const { orgId } = await getOrgAndUserId()
+
+  // Load the absence to get date/time/school
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(
+      eq(teacherTimeOff.id, timeOffId),
+      eq(teacherTimeOff.organizationId, orgId)
+    ),
+  })
+  if (!absence) throw new Error('Absence not found')
+
+  // Compute total hours
+  const [sh, sm] = absence.startTime.split(':').map(Number)
+  const [eh, em] = absence.endTime.split(':').map(Number)
+  const totalHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+
+  // Create the sub assignment
+  const [assignment] = await db
+    .insert(subAssignments)
+    .values({
+      organizationId: orgId,
+      schoolId: absence.schoolId,
+      substituteId,
+      date: absence.date,
+      startTime: absence.startTime,
+      endTime: absence.endTime,
+      totalHours: totalHours.toFixed(2),
+      status: 'assigned',
+      assignedByAdmin: true,
+    })
+    .returning()
+
+  // Link the assignment to this absence
+  await db.insert(assignmentTimeOff).values({
+    assignmentId: assignment.id,
+    timeOffId,
+  })
+
+  // Mark absence as filled
+  await db
+    .update(teacherTimeOff)
+    .set({ subOutreachStatus: 'filled', updatedAt: new Date() })
+    .where(eq(teacherTimeOff.id, timeOffId))
+
+  revalidatePath('/dashboard')
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  return { success: true }
+}
+
+/**
+ * Triggers the notification blast — emails all available subs with accept/decline links.
+ * First sub to accept gets the position.
+ */
+export async function notifyAllSubsAction(timeOffId: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  // Verify this absence belongs to the admin's org
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(
+      eq(teacherTimeOff.id, timeOffId),
+      eq(teacherTimeOff.organizationId, orgId)
+    ),
+  })
+  if (!absence) throw new Error('Absence not found')
+
+  const { notifyAllSubs } = await import('@/lib/notifications')
+  const result = await notifyAllSubs(timeOffId)
+
+  revalidatePath('/dashboard')
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+
+  return result
 }

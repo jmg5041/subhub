@@ -14,6 +14,10 @@ export const organizations = pgTable('organizations', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
+  autoNotifySubs: boolean('auto_notify_subs').default(true),
+  notifyBySms: boolean('notify_by_sms').default(true),
+  notifyByEmail: boolean('notify_by_email').default(true),
+  notifyByPhone: boolean('notify_by_phone').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -71,6 +75,8 @@ export const substitutes = pgTable('substitutes', {
   ratingCount: integer('rating_count').default(0),
   preferredAtSchools: jsonb('preferred_at_schools').default([]),
   excludedFromSchools: jsonb('excluded_from_schools').default([]),
+  notificationPreference: text('notification_preference').default('all'),
+  // 'sms' | 'email' | 'phone' | 'all'
 });
 
 // Absence Reasons (per organization)
@@ -104,6 +110,9 @@ export const teacherTimeOff = pgTable('teacher_time_off', {
   holdUntil: text('hold_until').default('no_hold'),
   accountingCode: text('accounting_code'),
   payCode: text('pay_code'),
+  subOutreachStatus: text('sub_outreach_status').default('not_started'),
+  // 'not_started' | 'not_needed' | 'sent' | 'filled'
+  requestedSubId: uuid('requested_sub_id').references(() => substitutes.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -120,6 +129,9 @@ export const subAssignments = pgTable('sub_assignments', {
   endTime: time('end_time').notNull(),
   totalHours: numeric('total_hours', { precision: 4, scale: 2 }),
   status: assignmentStatusEnum('status').default('assigned'),
+  assignedByAdmin: boolean('assigned_by_admin').default(false),
+  payRate: numeric('pay_rate', { precision: 6, scale: 2 }),
+  totalPay: numeric('total_pay', { precision: 8, scale: 2 }),
   subFeedbackRating: integer('sub_feedback_rating'),
   subFeedbackNotes: text('sub_feedback_notes'),
   confirmedAt: timestamp('confirmed_at'),
@@ -132,6 +144,27 @@ export const assignmentTimeOff = pgTable('assignment_time_off', {
   id: uuid('id').primaryKey().defaultRandom(),
   assignmentId: uuid('assignment_id').references(() => subAssignments.id).notNull(),
   timeOffId: uuid('time_off_id').references(() => teacherTimeOff.id).notNull(),
+});
+
+// Sub priority order — admin ranks which subs to contact first
+export const subPriorityOrders = pgTable('sub_priority_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  substituteId: uuid('substitute_id').references(() => substitutes.id).notNull(),
+  priorityRank: integer('priority_rank').default(999),
+});
+
+// Tokens for sub accept/decline deep links (no login required)
+export const subNotificationTokens = pgTable('sub_notification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  token: text('token').unique().notNull(),
+  teacherTimeOffId: uuid('teacher_time_off_id').references(() => teacherTimeOff.id).notNull(),
+  substituteId: uuid('substitute_id').references(() => substitutes.id).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  action: text('action'),
+  // 'accepted' | 'declined' | null
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 // File Attachments (for sub plans, notes, etc.)
@@ -155,6 +188,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   absenceReasons: many(absenceReasons),
   teacherTimeOff: many(teacherTimeOff),
   subAssignments: many(subAssignments),
+  subPriorityOrders: many(subPriorityOrders),
 }));
 
 export const schoolsRelations = relations(schools, ({ one, many }) => ({
@@ -197,6 +231,8 @@ export const substitutesRelations = relations(substitutes, ({ one, many }) => ({
     references: [users.id],
   }),
   assignments: many(subAssignments),
+  priorityOrders: many(subPriorityOrders),
+  notificationTokens: many(subNotificationTokens),
 }));
 
 export const teacherTimeOffRelations = relations(teacherTimeOff, ({ one, many }) => ({
@@ -220,7 +256,12 @@ export const teacherTimeOffRelations = relations(teacherTimeOff, ({ one, many })
     fields: [teacherTimeOff.approvedBy],
     references: [users.id],
   }),
+  requestedSub: one(substitutes, {
+    fields: [teacherTimeOff.requestedSubId],
+    references: [substitutes.id],
+  }),
   assignmentLinks: many(assignmentTimeOff),
+  notificationTokens: many(subNotificationTokens),
   attachments: many(attachments),
 }));
 
@@ -249,5 +290,27 @@ export const assignmentTimeOffRelations = relations(assignmentTimeOff, ({ one })
   timeOff: one(teacherTimeOff, {
     fields: [assignmentTimeOff.timeOffId],
     references: [teacherTimeOff.id],
+  }),
+}));
+
+export const subPriorityOrdersRelations = relations(subPriorityOrders, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [subPriorityOrders.organizationId],
+    references: [organizations.id],
+  }),
+  substitute: one(substitutes, {
+    fields: [subPriorityOrders.substituteId],
+    references: [substitutes.id],
+  }),
+}));
+
+export const subNotificationTokensRelations = relations(subNotificationTokens, ({ one }) => ({
+  teacherTimeOff: one(teacherTimeOff, {
+    fields: [subNotificationTokens.teacherTimeOffId],
+    references: [teacherTimeOff.id],
+  }),
+  substitute: one(substitutes, {
+    fields: [subNotificationTokens.substituteId],
+    references: [substitutes.id],
   }),
 }));

@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed-teachers": "tsx src/db/seed-teachers.ts",
+    "db:seed-subs": "tsx src/db/seed-subs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -25,6 +27,7 @@
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "resend": "^6.12.2",
     "shadcn": "^4.6.0",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",

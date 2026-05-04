@@ -21,6 +21,7 @@ import {
   ClipboardList,
   AlertCircle,
   CalendarDays,
+  Users,
 } from 'lucide-react'
 
 // Helper: format 'YYYY-MM-DD' → 'Mon, May 3'
@@ -74,6 +75,7 @@ export default async function DashboardPage() {
           endTime: teacherTimeOff.endTime,
           approvalStatus: teacherTimeOff.approvalStatus,
           substituteRequired: teacherTimeOff.substituteRequired,
+          subOutreachStatus: teacherTimeOff.subOutreachStatus,
           teacherFirstName: users.firstName,
           teacherLastName: users.lastName,
           schoolName: schools.name,
@@ -98,6 +100,9 @@ export default async function DashboardPage() {
     pending: todayAbsences.filter((a) => a.approvalStatus === 'unapproved').length,
     approved: todayAbsences.filter((a) => a.approvalStatus === 'approved').length,
     noSubNeeded: todayAbsences.filter((a) => !a.substituteRequired).length,
+    unfilled: todayAbsences.filter(
+      (a) => a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus === 'not_started'
+    ).length,
   }
 
   // Pending absences = those needing attention right now
@@ -144,7 +149,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick action buttons */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/absences/create"
           className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
@@ -165,7 +170,6 @@ export default async function DashboardPage() {
             <p className="font-semibold text-gray-900">Approve Absences</p>
             <p className="text-sm text-gray-500">Review pending requests</p>
           </div>
-          {/* Badge showing pending count */}
           {stats.pending > 0 && (
             <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white">
               {stats.pending}
@@ -183,6 +187,21 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-500">Confirm sub assignments</p>
           </div>
         </Link>
+
+        <div
+          className="relative flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+        >
+          <Users className="h-8 w-8 text-orange-500" />
+          <div>
+            <p className="font-semibold text-gray-900">Unfilled</p>
+            <p className="text-sm text-gray-500">Need a sub assigned</p>
+          </div>
+          {stats.unfilled > 0 && (
+            <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
+              {stats.unfilled}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Today's absences table */}
@@ -246,9 +265,25 @@ export default async function DashboardPage() {
                   </span>
                 )}
 
+                {/* Find Sub link for approved unfilled absences */}
+                {absence.approvalStatus === 'approved' && absence.substituteRequired && (
+                  absence.subOutreachStatus === 'filled' ? (
+                    <span className="ml-auto rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                      Filled
+                    </span>
+                  ) : (
+                    <Link
+                      href={`/absences/find-sub/${absence.id}`}
+                      className="ml-auto rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-200 transition-colors"
+                    >
+                      Find Sub →
+                    </Link>
+                  )
+                )}
+
                 {/* Approval status badge */}
                 <span
-                  className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  className={`${absence.approvalStatus === 'approved' && absence.substituteRequired ? '' : 'ml-auto'} rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     absence.approvalStatus === 'approved'
                       ? 'bg-green-100 text-green-700'
                       : absence.approvalStatus === 'denied'

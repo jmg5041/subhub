@@ -1,36 +1,35 @@
 /**
- * Settings page — organization and school configuration.
- * 
- * Frontline settings include:
- * - General Info (org name, contact, timezone)
- * - Time Settings (school day start/end, period schedules)
- * - Preferred Subs (rank subs for each teacher)
- * - Excluded Subs (block subs from certain teachers/schools)
- * - Shared Files (upload sub plans, policies, etc.)
- * 
- * This is where admins configure the system for their district.
+ * Settings page — notification preferences and sub priority order.
+ *
+ * Section 1: Auto-notify toggle — auto-send notifications on approval vs manual
+ * Section 2: Notification channels — Email, SMS (coming soon), Phone (Phase 4)
+ * Section 3: Sub priority order — rank which subs are called first
  */
 
-import { Settings } from 'lucide-react';
+import { Settings } from 'lucide-react'
+import { getOrgSettings } from './actions'
+import SettingsClient from './SettingsClient'
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const { org, subs } = await getOrgSettings()
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
         <Settings className="h-8 w-8 text-gray-600" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-500">Configure your organization and school settings</p>
+          <p className="text-gray-500">Configure how substitutes are notified and contacted.</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-gray-500">Settings coming in Phase 2.</p>
-        <p className="mt-2 text-sm text-gray-400">
-          Will include: general info, time settings, preferred/excluded subs, 
-          and shared files.
-        </p>
-      </div>
+      <SettingsClient
+        initialAutoNotify={org?.autoNotifySubs ?? true}
+        initialEmail={org?.notifyByEmail ?? true}
+        initialSms={org?.notifyBySms ?? true}
+        initialPhone={org?.notifyByPhone ?? false}
+        subs={subs}
+      />
     </div>
-  );
+  )
 }
