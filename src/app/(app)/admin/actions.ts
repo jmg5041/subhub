@@ -1,16 +1,5 @@
 'use server'
 
-/**
- * Server Actions for Admin: Manage Users page.
- *
- * Admin-only actions for:
- * - Inviting new teachers, staff, and substitutes via email
- * - Viewing all users in the org
- * - Changing a user's role
- * - Setting a temporary password (manual override when invite email doesn't work)
- * - Resending invite emails
- */
-
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
@@ -65,18 +54,26 @@ export async function getOrgUsers() {
       .orderBy(schools.name),
   ])
 
-  return { users: allUsers, invites: allInvites, schools: allSchools }
+  // Only show users who have accepted their invite (not pending ones)
+  // Pending users are shown in the Invitations section instead
+  const pendingEmails = new Set(
+    allInvites.filter(i => !i.usedAt).map(i => i.email)
+  )
+  const acceptedUsers = allUsers.filter(u => !pendingEmails.has(u.email ?? ''))
+
+  return { users: acceptedUsers, invites: allInvites, schools: allSchools }
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
 /**
- * Invites a user via Supabase admin API (sends them an email to set their password).
- * Also records the invitation in our invitations table for tracking.
+ * Invites a user via Supabase admin API (sends them the invite email).
+ * Does NOT pre-create a users row — that happens in /auth/callback when they accept.
  */
 export async function inviteUser(formData: FormData) {
   const { orgId, adminUserId } = await getAdminContext()
   const supabaseAdmin = createAdminClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
   const email = formData.get('email') as string
   const firstName = formData.get('firstName') as string
@@ -85,8 +82,8 @@ export async function inviteUser(formData: FormData) {
   const schoolId = formData.get('schoolId') as string || null
 
   // Supabase sends the invite email and creates the auth user
-  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+  const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${appUrl}/auth/callback`,
     data: { firstName, lastName, role, orgId, schoolId },
   })
 
@@ -94,21 +91,7 @@ export async function inviteUser(formData: FormData) {
     return { error: error.message }
   }
 
-  // If no users row exists yet for this email, create a placeholder
-  const existing = await db.query.users.findFirst({ where: eq(users.email, email) })
-  if (!existing && data.user) {
-    await db.insert(users).values({
-      id: data.user.id,
-      email,
-      firstName,
-      lastName,
-      role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
-      organizationId: orgId,
-      schoolId,
-    })
-  }
-
-  // Record the invitation for tracking
+  // Record the invitation for tracking (used to create the users row on accept)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   await db.insert(invitations).values({
     organizationId: orgId,
@@ -124,30 +107,56 @@ export async function inviteUser(formData: FormData) {
 }
 
 /**
- * Resends an invite email for a user.
+ * Resends an invite by generating a new invite link via Supabase admin generateLink.
+ * Works for existing auth users (unlike inviteUserByEmail which fails if user exists).
+ * Returns the link for the admin to share if no email service is configured.
  */
 export async function resendInvite(formData: FormData) {
   const { orgId } = await getAdminContext()
   const supabaseAdmin = createAdminClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
   const email = formData.get('email') as string
   const role = formData.get('role') as string
 
-  const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-    data: { role, orgId },
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: {
+      redirectTo: `${appUrl}/auth/callback`,
+      data: { role, orgId },
+    },
   })
 
   if (error) return { error: error.message }
 
+  const inviteLink = data.properties.action_link
+
+  // Send via Resend if configured; otherwise return the link for the admin to share
+  if (process.env.RESEND_API_KEY) {
+    const { Resend } = await import('resend')
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    await resend.emails.send({
+      from: 'SubHub <no-reply@substitutes.us>',
+      to: email,
+      subject: "You've been invited to SubHub",
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+        <h2>You've been invited to SubHub</h2>
+        <p>You've been invited as a <strong>${role}</strong>. Click below to set your password and get started.</p>
+        <p><a href="${inviteLink}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Accept the invite</a></p>
+        <p style="color:#6b7280;font-size:13px">This link expires in 24 hours.</p>
+      </div>`,
+      text: `You've been invited to SubHub as a ${role}. Accept here: ${inviteLink}`,
+    })
+    revalidatePath('/admin/users')
+    return { success: true }
+  }
+
+  // No email service — return the link for the admin to copy and share
   revalidatePath('/admin/users')
-  return { success: true }
+  return { success: true, inviteLink }
 }
 
-/**
- * Changes a user's role in the org.
- * Only admin/principal can call this.
- */
 export async function updateUserRole(formData: FormData) {
   const { orgId } = await getAdminContext()
 
@@ -163,10 +172,6 @@ export async function updateUserRole(formData: FormData) {
   return { success: true }
 }
 
-/**
- * Sets a temporary password for a user (manual override when invite email fails).
- * The user will need to change it on first login.
- */
 export async function setTempPassword(formData: FormData) {
   const { orgId } = await getAdminContext()
   const supabaseAdmin = createAdminClient()
@@ -174,7 +179,6 @@ export async function setTempPassword(formData: FormData) {
   const userId = formData.get('userId') as string
   const password = formData.get('password') as string
 
-  // Verify this user belongs to our org before touching their account
   const profile = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!profile || profile.organizationId !== orgId) {
     return { error: 'User not found in your organization' }
@@ -186,9 +190,6 @@ export async function setTempPassword(formData: FormData) {
   return { success: true }
 }
 
-/**
- * Deactivates a user (sets status to inactive, doesn't delete).
- */
 export async function deactivateUser(formData: FormData) {
   const { orgId } = await getAdminContext()
 
@@ -197,6 +198,25 @@ export async function deactivateUser(formData: FormData) {
   await db
     .update(users)
     .set({ status: 'inactive' })
+    .where(eq(users.id, userId))
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
+export async function reactivateUser(formData: FormData) {
+  const { orgId } = await getAdminContext()
+
+  const userId = formData.get('userId') as string
+
+  const profile = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!profile || profile.organizationId !== orgId) {
+    return { error: 'User not found in your organization' }
+  }
+
+  await db
+    .update(users)
+    .set({ status: 'active' })
     .where(eq(users.id, userId))
 
   revalidatePath('/admin/users')

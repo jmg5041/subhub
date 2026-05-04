@@ -1,12 +1,7 @@
 'use client'
 
-/**
- * Manage Users — interactive client component.
- * Handles the invite form, role changes, and resend/deactivate actions.
- */
-
 import { useState, useTransition } from 'react'
-import { inviteUser, resendInvite, updateUserRole, setTempPassword, deactivateUser } from '../actions'
+import { inviteUser, resendInvite, updateUserRole, setTempPassword, deactivateUser, reactivateUser } from '../actions'
 
 type User = {
   id: string
@@ -57,7 +52,8 @@ export default function ManageUsersClient({
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [tempPasswordUserId, setTempPasswordUserId] = useState<string | null>(null)
-  const [tempPassword, setTempPassValue] = useState('')
+  const [tempPassValue, setTempPassValue] = useState('')
+  const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
 
   function showMessage(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -80,8 +76,13 @@ export default function ManageUsersClient({
       fd.set('email', email)
       fd.set('role', role)
       const res = await resendInvite(fd)
-      if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
-      else showMessage(`Invite resent to ${email}`, 'success')
+      if ('error' in res) {
+        showMessage(res.error ?? 'Unknown error', 'error')
+      } else if ('inviteLink' in res && res.inviteLink) {
+        setPendingInviteLink(res.inviteLink as string)
+      } else {
+        showMessage(`Invite resent to ${email}`, 'success')
+      }
     })
   }
 
@@ -96,14 +97,14 @@ export default function ManageUsersClient({
   }
 
   function handleSetTempPassword(userId: string) {
-    if (!tempPassword || tempPassword.length < 8) {
+    if (!tempPassValue || tempPassValue.length < 8) {
       showMessage('Password must be at least 8 characters.', 'error')
       return
     }
     startTransition(async () => {
       const fd = new FormData()
       fd.set('userId', userId)
-      fd.set('password', tempPassword)
+      fd.set('password', tempPassValue)
       const res = await setTempPassword(fd)
       if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
       else {
@@ -124,6 +125,16 @@ export default function ManageUsersClient({
     })
   }
 
+  function handleReactivate(userId: string, name: string) {
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set('userId', userId)
+      const res = await reactivateUser(fd)
+      if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
+      else showMessage(`${name} has been reactivated.`, 'success')
+    })
+  }
+
   const pendingInvites = invites.filter(i => !i.usedAt && new Date() < new Date(i.expiresAt))
   const expiredInvites = invites.filter(i => !i.usedAt && new Date() >= new Date(i.expiresAt))
 
@@ -132,6 +143,34 @@ export default function ManageUsersClient({
       {message && (
         <div className={`rounded-lg border p-4 text-sm ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
           {message.text}
+        </div>
+      )}
+
+      {/* Invite link to share (when no email service is configured) */}
+      {pendingInviteLink && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
+          <p className="text-sm font-medium text-blue-900">Share this invite link directly with the user:</p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={pendingInviteLink}
+              className="flex-1 text-xs font-mono border border-blue-200 rounded px-2 py-1.5 bg-white text-gray-700"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(pendingInviteLink)
+                showMessage('Link copied to clipboard!', 'success')
+                setPendingInviteLink(null)
+              }}
+              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+            >
+              Copy
+            </button>
+            <button onClick={() => setPendingInviteLink(null)} className="text-xs text-gray-400 hover:text-gray-600">
+              Dismiss
+            </button>
+          </div>
+          <p className="text-xs text-blue-600">This link expires in 24 hours.</p>
         </div>
       )}
 
@@ -216,7 +255,7 @@ export default function ManageUsersClient({
                   <input
                     type="password"
                     placeholder="New temp password"
-                    value={tempPassword}
+                    value={tempPassValue}
                     onChange={e => setTempPassValue(e.target.value)}
                     className="text-xs border border-gray-300 rounded px-2 py-1 w-36 focus:outline-none"
                   />
@@ -228,8 +267,16 @@ export default function ManageUsersClient({
                   Set password
                 </button>
               )}
-              {/* Deactivate */}
-              {u.status !== 'inactive' && (
+              {/* Deactivate / Reactivate */}
+              {u.status === 'inactive' ? (
+                <button
+                  onClick={() => handleReactivate(u.id, `${u.firstName} ${u.lastName}`)}
+                  disabled={isPending}
+                  className="text-xs text-green-600 hover:text-green-800"
+                >
+                  Reactivate
+                </button>
+              ) : (
                 <button
                   onClick={() => handleDeactivate(u.id, `${u.firstName} ${u.lastName}`)}
                   disabled={isPending}

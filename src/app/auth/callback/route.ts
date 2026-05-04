@@ -1,23 +1,25 @@
 /**
- * Auth callback handler — processes OAuth redirects (Google Sign-in) and invite links.
+ * Auth callback — handles OAuth redirects, invite link acceptance, and magic links.
  *
- * After session exchange, looks up the user's role and redirects them to
- * the correct portal. Also handles ID linkage: seeded users in the `users`
- * table have placeholder UUIDs — when they first sign in via invite or OAuth,
- * we update their row to use the real Supabase auth user ID.
+ * After session exchange:
+ * 1. Look up the user's profile by Supabase auth ID.
+ * 2. If not found by ID, check by email (seeded users have placeholder IDs → update them).
+ * 3. If still not found (brand-new invited user), create the users row from invite metadata
+ *    stored in user_metadata by inviteUserByEmail/generateLink, then mark the invitation used.
+ * 4. Redirect to the correct portal by role.
  */
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, invitations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 function roleToPortal(role: string | null | undefined): string {
   switch (role) {
     case 'teacher': return '/teacher'
     case 'substitute': return '/sub/dashboard'
-    default: return '/dashboard'  // admin, principal, staff
+    default: return '/dashboard'
   }
 }
 
@@ -38,19 +40,17 @@ export async function GET(request: Request) {
 
   const authUser = data.session.user
 
-  // Look up the user's profile by their Supabase auth ID first
+  // 1. Look up by Supabase auth ID
   let profile = await db.query.users.findFirst({
     where: eq(users.id, authUser.id),
   })
 
-  // If not found by ID, check by email (seeded users have placeholder IDs)
+  // 2. Look up by email (seeded users have placeholder IDs)
   if (!profile && authUser.email) {
     const byEmail = await db.query.users.findFirst({
       where: eq(users.email, authUser.email),
     })
-
     if (byEmail) {
-      // Link: update the placeholder UUID to the real Supabase auth user ID
       await db
         .update(users)
         .set({ id: authUser.id })
@@ -59,11 +59,38 @@ export async function GET(request: Request) {
     }
   }
 
-  // If still no profile (brand new user not seeded), create a minimal one
-  // They'll get assigned an org/role through the admin invite flow
+  // 3. Brand-new invited user — create their users row from invite metadata
+  if (!profile && authUser.email) {
+    const meta = authUser.user_metadata ?? {}
+    const firstName = (meta.firstName as string) || authUser.email.split('@')[0]
+    const lastName = (meta.lastName as string) || ''
+    const role = (meta.role as string) || 'teacher'
+    const orgId = meta.orgId as string | undefined
+    const schoolId = (meta.schoolId as string) || null
+
+    if (orgId) {
+      await db.insert(users).values({
+        id: authUser.id,
+        email: authUser.email,
+        firstName,
+        lastName,
+        role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+        organizationId: orgId,
+        schoolId,
+      })
+
+      // Mark invitation as used
+      await db
+        .update(invitations)
+        .set({ usedAt: new Date() })
+        .where(eq(invitations.email, authUser.email))
+
+      return NextResponse.redirect(`${origin}${roleToPortal(role)}`)
+    }
+  }
+
   if (!profile) {
-    const portal = roleToPortal(null)
-    return NextResponse.redirect(`${origin}${portal}`)
+    return NextResponse.redirect(`${origin}/auth/login?error=no_profile`)
   }
 
   return NextResponse.redirect(`${origin}${roleToPortal(profile.role)}`)
