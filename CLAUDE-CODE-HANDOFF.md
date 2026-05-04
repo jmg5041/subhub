@@ -4,7 +4,11 @@
 SubHub is a modern substitute teacher management SaaS replacing Frontline Education's Absence Management (Aesop). Built for K-12 schools, starting with Southlands Christian Schools.
 
 ## Current Status (Phase 1 — Foundation COMPLETE)
-The Next.js project is running locally at `http://localhost:3333` with:
+The Next.js project is deployed and running at:
+- **Vercel (production):** https://subhub-theta.vercel.app
+- **Local dev:** http://localhost:3333
+
+The app is live with:
 - ✅ Database schema pushed to Supabase (9 tables live)
 - ✅ Database seeded with Southlands data
 - ✅ Auth system (login, signup, Google OAuth, middleware protection)
@@ -14,21 +18,29 @@ The Next.js project is running locally at `http://localhost:3333` with:
 
 **What needs to be built next:** Phase 2 (Create Absence wizard, Approve, Reconcile) and beyond.
 
-## Important: Build on SiteGround, NOT Local
-Jesse wants the project deployed to **SiteGround** (not just Vercel). The SiteGround server hosts the domain `substitutes.us` and should serve the app.
+## Deployment
 
-### SiteGround SSH Access (WORKING ✅)
-- **Host:** gcam1060.siteground.biz
-- **Port:** 18765
-- **User:** u2611-oamblepll6zm
-- **SSH Key:** `~/.ssh/exchanj_clem` (works with the SiteGround username)
+### Vercel (PRODUCTION — Live ✅)
+- **URL:** https://subhub-theta.vercel.app
+- **GitHub repo:** https://github.com/jmg5041/subhub (private)
+- **Env vars set:** NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+- **Auto-deploys:** Push to `main` branch on GitHub → Vercel auto-deploys
+- **SSH key for GitHub:** `~/.ssh/id_ed25519` (ed25519, added May 3 2026)
+
+### SiteGround (Marketing Site + Domain)
+- **Domain:** substitutes.us (DNS at SiteGround)
+- **Marketing site:** Already live at substitutes.us (static HTML in public_html/)
+- **SSH Host:** gcam1060.siteground.biz
+- **SSH Port:** 18765
+- **SSH User:** u2611-oamblepll6zm
+- **SSH Key:** `~/.ssh/exchanj_clem`
 - **Server:** Fedora 43, Node.js v22.22.0
 - **Web root:** ~/www/substitutes.us/public_html/
-- **Marketing site already live:** substitutes.us (static HTML)
 
-### Domain
-- **Domain:** substitutes.us (owned by Jesse, DNS at SiteGround)
-- Currently serves a marketing site from public_html/index.html
+### DNS Consideration
+Currently substitutes.us points to SiteGround (marketing site). To point the domain to Vercel instead, update DNS at SiteGround:
+- Option A: Point substitutes.us to Vercel, move marketing site to a subdomain (e.g., www.substitutes.us)
+- Option B: Use app.substitutes.us for the SubHub app on Vercel, keep substitutes.us for marketing
 
 ## Supabase Credentials (Production Database)
 - **Project URL:** https://klthwrzyyrdgaoemrrhl.supabase.co
@@ -192,4 +204,5 @@ Full Frontline feature analysis is in `/Users/jessegentile/.openclaw/workspace/f
 - **Twilio is trial** — needs A2P 10DLC registration for production SMS
 - **All code has comments** explaining what each file/function does — Jesse requested this
 - **Jesse is a school principal** at Southlands Christian Schools, not a developer. Code should be well-documented.
-- **The SSH key for SiteGround** may need re-authorization — it failed auth on the last attempt.
+- **Push to deploy:** Just push to `main` on GitHub and Vercel auto-deploys. No manual steps needed.
+- **.env.secrets** is in `.gitignore` — never commit secrets to the repo
