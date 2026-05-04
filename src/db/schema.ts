@@ -1,8 +1,8 @@
-import { pgTable, uuid, text, timestamp, boolean, integer, numeric, jsonb, date, time, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, integer, numeric, jsonb, date, time, pgEnum, unique } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const roleEnum = pgEnum('role', ['admin', 'principal', 'teacher', 'substitute']);
+export const roleEnum = pgEnum('role', ['admin', 'principal', 'staff', 'teacher', 'substitute']);
 export const statusEnum = pgEnum('status', ['active', 'inactive']);
 export const approvalStatusEnum = pgEnum('approval_status', ['unapproved', 'approved', 'denied', 'partially_approved']);
 export const reconciliationStatusEnum = pgEnum('reconciliation_status', ['unreconciled', 'reconciled']);
@@ -167,6 +167,29 @@ export const subNotificationTokens = pgTable('sub_notification_tokens', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Invitations — admin/staff invites teachers, subs, and staff to the platform
+export const invitations = pgTable('invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  schoolId: uuid('school_id').references(() => schools.id),
+  email: text('email').notNull(),
+  role: roleEnum('role').notNull(),
+  invitedBy: uuid('invited_by').references(() => users.id).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Sub unavailability — subs mark dates they cannot work; blast skips them
+export const subUnavailability = pgTable('sub_unavailability', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  substituteId: uuid('substitute_id').references(() => substitutes.id).notNull(),
+  date: date('date').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique().on(t.substituteId, t.date),
+]);
+
 // File Attachments (for sub plans, notes, etc.)
 export const attachments = pgTable('attachments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -233,6 +256,7 @@ export const substitutesRelations = relations(substitutes, ({ one, many }) => ({
   assignments: many(subAssignments),
   priorityOrders: many(subPriorityOrders),
   notificationTokens: many(subNotificationTokens),
+  unavailability: many(subUnavailability),
 }));
 
 export const teacherTimeOffRelations = relations(teacherTimeOff, ({ one, many }) => ({
@@ -311,6 +335,28 @@ export const subNotificationTokensRelations = relations(subNotificationTokens, (
   }),
   substitute: one(substitutes, {
     fields: [subNotificationTokens.substituteId],
+    references: [substitutes.id],
+  }),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [invitations.organizationId],
+    references: [organizations.id],
+  }),
+  school: one(schools, {
+    fields: [invitations.schoolId],
+    references: [schools.id],
+  }),
+  invitedByUser: one(users, {
+    fields: [invitations.invitedBy],
+    references: [users.id],
+  }),
+}));
+
+export const subUnavailabilityRelations = relations(subUnavailability, ({ one }) => ({
+  substitute: one(substitutes, {
+    fields: [subUnavailability.substituteId],
     references: [substitutes.id],
   }),
 }));

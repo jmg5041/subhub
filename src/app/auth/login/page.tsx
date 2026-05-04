@@ -36,8 +36,8 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      // Redirect happens via middleware
-      window.location.href = '/dashboard';
+      // Route to correct portal based on role
+      window.location.href = '/auth/portal';
     }
   };
 

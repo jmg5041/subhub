@@ -10,7 +10,7 @@
 
 import { db } from '@/db'
 import * as schema from '@/db/schema'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, and, inArray } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { Resend } from 'resend'
 
@@ -182,10 +182,23 @@ export async function notifyAllSubs(
   const isSpecificallyRequested = (sub: typeof orderedSubs[0]) =>
     absence.requestedSubId === sub.id
 
+  // Filter out subs who marked this date unavailable
+  const unavailableRows = orderedSubs.length > 0
+    ? await db
+        .select({ substituteId: schema.subUnavailability.substituteId })
+        .from(schema.subUnavailability)
+        .where(and(
+          inArray(schema.subUnavailability.substituteId, orderedSubs.map(s => s.id)),
+          eq(schema.subUnavailability.date, absence.date)
+        ))
+    : []
+  const unavailableIds = new Set(unavailableRows.map(r => r.substituteId))
+  const availableSubs = orderedSubs.filter(s => !unavailableIds.has(s.id))
+
   const errors: string[] = []
   let sent = 0
 
-  for (const sub of orderedSubs) {
+  for (const sub of availableSubs) {
     if (!sub.user.email) {
       errors.push(`No email for sub ${sub.user.firstName} ${sub.user.lastName}`)
       continue

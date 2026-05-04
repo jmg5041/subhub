@@ -25,6 +25,7 @@ import {
   Settings,
   LogOut,
   School,
+  Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -60,6 +61,7 @@ const navGroups = [
     label: 'Admin',
     items: [
       { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/admin/users', label: 'Manage Users', icon: Users },
     ],
   },
 ];

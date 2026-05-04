@@ -60,10 +60,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user IS logged in and visits the login page, redirect to dashboard
-  if (user && request.nextUrl.pathname.startsWith('/auth')) {
+  // If user IS logged in and visits the login/signup page, send to role portal
+  if (user && request.nextUrl.pathname.startsWith('/auth') &&
+      !request.nextUrl.pathname.startsWith('/auth/callback') &&
+      !request.nextUrl.pathname.startsWith('/auth/portal')) {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = '/auth/portal';
     return NextResponse.redirect(url);
   }
 
