@@ -107,9 +107,9 @@ export async function inviteUser(formData: FormData) {
 }
 
 /**
- * Resends an invite by generating a new invite link via Supabase admin generateLink.
- * Works for existing auth users (unlike inviteUserByEmail which fails if user exists).
- * Returns the link for the admin to share if no email service is configured.
+ * Resends an invite by deleting the old Supabase auth user and re-inviting fresh.
+ * This uses the same reliable PKCE flow as the original invite (goes to /auth/callback).
+ * Recovery links were unreliable because each generateLink call invalidates previous OTPs.
  */
 export async function resendInvite(formData: FormData) {
   const { orgId } = await getAdminContext()
@@ -119,45 +119,40 @@ export async function resendInvite(formData: FormData) {
   const email = formData.get('email') as string
   const role = formData.get('role') as string
 
-  // 'recovery' works on existing auth users (unlike 'invite' which fails if user exists).
-  // user_metadata from the original invite (role, orgId, etc.) persists on the auth user.
-  // Recovery links use implicit flow (hash fragment) — must land on the
-  // client-side /auth/confirm page, not the server-side /auth/callback.
-  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: `${appUrl}/auth/confirm`,
-    },
+  // Find the existing Supabase auth user so we can read their metadata before deleting
+  const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  })
+  const existingAuthUser = authUsers.find(u => u.email === email)
+
+  // Preserve name/school metadata from the original invite
+  const meta = existingAuthUser?.user_metadata ?? {}
+  const firstName = (meta.firstName as string) || ''
+  const lastName = (meta.lastName as string) || ''
+  const schoolId = (meta.schoolId as string) || null
+
+  // Delete the old auth user so inviteUserByEmail can issue a fresh PKCE invite
+  if (existingAuthUser) {
+    await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
+  }
+
+  // Re-invite: Supabase creates a fresh auth user and sends the invite email
+  const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${appUrl}/auth/callback`,
+    data: { firstName, lastName, role, orgId, schoolId },
   })
 
   if (error) return { error: error.message }
 
-  const inviteLink = data.properties.action_link
+  // Reset the invitation expiry in our tracking table
+  await db
+    .update(invitations)
+    .set({ expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) })
+    .where(eq(invitations.email, email))
 
-  // Send via Resend if configured; otherwise return the link for the admin to share
-  if (process.env.RESEND_API_KEY) {
-    const { Resend } = await import('resend')
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    await resend.emails.send({
-      from: 'SubHub <no-reply@substitutes.us>',
-      to: email,
-      subject: "You've been invited to SubHub",
-      html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-        <h2>You've been invited to SubHub</h2>
-        <p>You've been invited as a <strong>${role}</strong>. Click below to set your password and get started.</p>
-        <p><a href="${inviteLink}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Accept the invite</a></p>
-        <p style="color:#6b7280;font-size:13px">This link expires in 24 hours.</p>
-      </div>`,
-      text: `You've been invited to SubHub as a ${role}. Accept here: ${inviteLink}`,
-    })
-    revalidatePath('/admin/users')
-    return { success: true }
-  }
-
-  // No email service — return the link for the admin to copy and share
   revalidatePath('/admin/users')
-  return { success: true, inviteLink }
+  return { success: true }
 }
 
 export async function updateUserRole(formData: FormData) {
