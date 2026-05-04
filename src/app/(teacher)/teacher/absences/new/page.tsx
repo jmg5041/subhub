@@ -3,7 +3,7 @@
  * Single page (vs the 4-step admin wizard). Teachers only submit for themselves.
  */
 
-import { getMyTeacherContext } from '../../actions'
+import { getMyTeacherContext } from '../../../actions'
 import TeacherAbsenceForm from './TeacherAbsenceForm'
 
 export default async function NewAbsencePage() {

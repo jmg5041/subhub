@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { submitAbsenceRequest } from '../../actions'
+import { submitAbsenceRequest } from '../../../actions'
 
 type Reason = { id: string; name: string }
 type Sub = { id: string; firstName: string; lastName: string }

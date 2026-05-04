@@ -3,7 +3,7 @@
  * Teachers can delete requests that haven't been filled yet.
  */
 
-import { getMyAbsences } from '../actions'
+import { getMyAbsences } from '../../actions'
 import MyAbsencesClient from './MyAbsencesClient'
 
 export default async function MyAbsencesPage() {

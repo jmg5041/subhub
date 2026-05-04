@@ -10,7 +10,7 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarPlus } from 'lucide-react'
-import { getMyAbsences } from './actions'
+import { getMyAbsences } from '../actions'
 
 function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })

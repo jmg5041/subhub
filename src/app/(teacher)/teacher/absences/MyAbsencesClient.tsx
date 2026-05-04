@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { deleteAbsenceRequest } from '../actions'
+import { deleteAbsenceRequest } from '../../actions'
 
 type Absence = {
   id: string
