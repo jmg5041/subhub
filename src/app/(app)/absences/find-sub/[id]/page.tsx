@@ -31,10 +31,8 @@ function formatDate(d: string): string {
 export default async function FindSubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const [absence, subs] = await Promise.all([
-    getAbsenceWithDetails(id),
-    getAvailableSubs(),
-  ])
+  const absence = await getAbsenceWithDetails(id)
+  const subs = await getAvailableSubs(absence?.schoolId)
 
   if (!absence) notFound()
 

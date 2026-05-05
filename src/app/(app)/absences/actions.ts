@@ -399,13 +399,12 @@ export async function getAbsenceWithDetails(id: string) {
 }
 
 /**
- * Returns all active subs for the org, sorted by admin-set priority rank.
- * Unranked subs come last. Used to populate the sub picker on Find Sub page.
+ * Returns active subs for the org eligible for a given school, sorted by priority rank.
+ * Filters out subs whose excludedFromSchools list includes the target school.
  */
-export async function getAvailableSubs() {
+export async function getAvailableSubs(schoolId?: string | null) {
   const { orgId } = await getOrgAndUserId()
 
-  // Get priority rankings set by admin
   const priorityRows = await db
     .select()
     .from(subPriorityOrders)
@@ -437,8 +436,15 @@ export async function getAvailableSubs() {
     )
     .orderBy(asc(users.lastName), asc(users.firstName))
 
-  // Sort by priority rank (unranked = 999)
-  return allSubs
+  // Filter out subs excluded from this school
+  const eligible = schoolId
+    ? allSubs.filter(s => {
+        const excluded = (s.excludedFromSchools as string[] | null) ?? []
+        return !excluded.includes(schoolId)
+      })
+    : allSubs
+
+  return eligible
     .map(s => ({ ...s, priorityRank: rankMap.get(s.id) ?? 999 }))
     .sort((a, b) => a.priorityRank - b.priorityRank || a.lastName.localeCompare(b.lastName))
 }
