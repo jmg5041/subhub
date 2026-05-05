@@ -495,13 +495,14 @@ export async function assignSubDirectly(formData: FormData) {
     timeOffId,
   })
 
-  // Mark absence as filled
+  // Mark absence as filled and auto-approve (admin assigning directly = implicit approval)
   await db
     .update(teacherTimeOff)
-    .set({ subOutreachStatus: 'filled', updatedAt: new Date() })
+    .set({ subOutreachStatus: 'filled', approvalStatus: 'approved', updatedAt: new Date() })
     .where(eq(teacherTimeOff.id, timeOffId))
 
   revalidatePath('/dashboard')
+  revalidatePath('/absences/find-sub')
   revalidatePath(`/absences/find-sub/${timeOffId}`)
   return { success: true }
 }
