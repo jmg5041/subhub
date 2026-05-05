@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { inviteUser, resendInvite, updateUserRole, setTempPassword, deactivateUser, reactivateUser } from '../actions'
+import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser } from '../actions'
+import { X } from 'lucide-react'
 
 type User = {
   id: string
   firstName: string
   lastName: string
   email: string
+  phone: string | null
   role: string
   status: string | null
   schoolId: string | null
@@ -54,10 +56,54 @@ export default function ManageUsersClient({
   const [tempPasswordUserId, setTempPasswordUserId] = useState<string | null>(null)
   const [tempPassValue, setTempPassValue] = useState('')
   const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
 
   function showMessage(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage(null), 4000)
+  }
+
+  function openEditModal(u: User) {
+    setEditingUser(u)
+    setEditForm({
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      phone: u.phone ?? '',
+    })
+  }
+
+  function handleSaveEdit() {
+    if (!editingUser) return
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set('userId', editingUser.id)
+      fd.set('firstName', editForm.firstName)
+      fd.set('lastName', editForm.lastName)
+      fd.set('email', editForm.email)
+      fd.set('phone', editForm.phone)
+      const res = await updateUser(fd)
+      if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
+      else {
+        showMessage('User updated.', 'success')
+        setEditingUser(null)
+      }
+    })
+  }
+
+  function handleDelete(u: User) {
+    if (!confirm(`Permanently delete ${u.firstName} ${u.lastName}?\n\nThis removes their login access and all their data. This cannot be undone.`)) return
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set('userId', u.id)
+      const res = await deleteUser(fd)
+      if ('error' in res) showMessage(res.error ?? 'Failed to delete user', 'error')
+      else {
+        showMessage(`${u.firstName} ${u.lastName} has been deleted.`, 'success')
+        setEditingUser(null)
+      }
+    })
   }
 
   function handleInvite(e: React.FormEvent<HTMLFormElement>) {
@@ -140,13 +186,89 @@ export default function ManageUsersClient({
 
   return (
     <div className="space-y-8">
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900">Edit User</h3>
+              <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    value={editForm.firstName}
+                    onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    value={editForm.lastName}
+                    onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  placeholder="(555) 555-5555"
+                  value={editForm.phone}
+                  onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => handleDelete(editingUser)}
+                disabled={isPending}
+                className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+              >
+                Delete user permanently
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isPending}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`rounded-lg border p-4 text-sm ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
           {message.text}
         </div>
       )}
 
-      {/* Invite link to share (when no email service is configured) */}
       {pendingInviteLink && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
           <p className="text-sm font-medium text-blue-900">Share this invite link directly with the user:</p>
@@ -225,10 +347,10 @@ export default function ManageUsersClient({
         </div>
         <div className="divide-y divide-gray-100">
           {users.map(u => (
-            <div key={u.id} className="flex items-center gap-4 px-6 py-3 flex-wrap">
+            <div key={u.id} className="flex items-center gap-3 px-6 py-3 flex-wrap">
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-900 text-sm">{u.firstName} {u.lastName}</div>
-                <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                <div className="text-xs text-gray-400 truncate">{u.email}{u.phone && ` · ${u.phone}`}</div>
               </div>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
                 {ROLE_LABELS[u.role] ?? u.role}
@@ -236,7 +358,6 @@ export default function ManageUsersClient({
               {u.status === 'inactive' && (
                 <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
               )}
-              {/* Role change */}
               <select
                 defaultValue={u.role}
                 onChange={e => handleRoleChange(u.id, e.target.value)}
@@ -249,7 +370,6 @@ export default function ManageUsersClient({
                 <option value="admin">Admin</option>
                 <option value="principal">Principal</option>
               </select>
-              {/* Temp password */}
               {tempPasswordUserId === u.id ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -267,7 +387,6 @@ export default function ManageUsersClient({
                   Set password
                 </button>
               )}
-              {/* Deactivate / Reactivate */}
               {u.status === 'inactive' ? (
                 <button
                   onClick={() => handleReactivate(u.id, `${u.firstName} ${u.lastName}`)}
@@ -285,6 +404,12 @@ export default function ManageUsersClient({
                   Deactivate
                 </button>
               )}
+              <button
+                onClick={() => openEditModal(u)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Edit
+              </button>
             </div>
           ))}
         </div>

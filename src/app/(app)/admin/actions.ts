@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
-import { users, schools, invitations } from '@/db/schema'
+import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -33,6 +33,7 @@ export async function getOrgUsers() {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         status: users.status,
         schoolId: users.schoolId,
@@ -197,6 +198,79 @@ export async function deactivateUser(formData: FormData) {
     .update(users)
     .set({ status: 'inactive' })
     .where(eq(users.id, userId))
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
+export async function updateUser(formData: FormData) {
+  const { orgId } = await getAdminContext()
+  const supabaseAdmin = createAdminClient()
+
+  const userId = formData.get('userId') as string
+  const firstName = formData.get('firstName') as string
+  const lastName = formData.get('lastName') as string
+  const email = formData.get('email') as string
+  const phone = (formData.get('phone') as string) || null
+
+  const existing = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!existing || existing.organizationId !== orgId) return { error: 'User not found' }
+
+  await db.update(users).set({ firstName, lastName, email, phone }).where(eq(users.id, userId))
+
+  // Keep Supabase auth email in sync if it changed
+  if (email !== existing.email) {
+    await supabaseAdmin.auth.admin.updateUserById(userId, { email })
+  }
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
+export async function deleteUser(formData: FormData) {
+  const { orgId } = await getAdminContext()
+  const supabaseAdmin = createAdminClient()
+
+  const userId = formData.get('userId') as string
+
+  const existing = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!existing || existing.organizationId !== orgId) return { error: 'User not found' }
+
+  // Delete substitute-related rows in FK-safe order
+  const sub = await db.query.substitutes.findFirst({ where: eq(substitutes.userId, userId) })
+  if (sub) {
+    // Get all assignment IDs for this sub
+    const assignments = await db.select({ id: subAssignments.id }).from(subAssignments).where(eq(subAssignments.substituteId, sub.id))
+    const assignmentIds = assignments.map(a => a.id)
+    if (assignmentIds.length > 0) {
+      for (const aId of assignmentIds) {
+        await db.delete(assignmentTimeOff).where(eq(assignmentTimeOff.assignmentId, aId))
+      }
+      for (const aId of assignmentIds) {
+        await db.delete(subAssignments).where(eq(subAssignments.id, aId))
+      }
+    }
+    await db.delete(subNotificationTokens).where(eq(subNotificationTokens.substituteId, sub.id))
+    await db.delete(subPriorityOrders).where(eq(subPriorityOrders.substituteId, sub.id))
+    await db.delete(subUnavailability).where(eq(subUnavailability.substituteId, sub.id))
+    await db.delete(substitutes).where(eq(substitutes.id, sub.id))
+  }
+
+  // Delete employee-related rows in FK-safe order
+  const employee = await db.query.employees.findFirst({ where: eq(employees.userId, userId) })
+  if (employee) {
+    const timeOffRows = await db.select({ id: teacherTimeOff.id }).from(teacherTimeOff).where(eq(teacherTimeOff.employeeId, employee.id))
+    for (const row of timeOffRows) {
+      await db.delete(assignmentTimeOff).where(eq(assignmentTimeOff.timeOffId, row.id))
+      await db.delete(subNotificationTokens).where(eq(subNotificationTokens.teacherTimeOffId, row.id))
+      await db.delete(teacherTimeOff).where(eq(teacherTimeOff.id, row.id))
+    }
+    await db.delete(employees).where(eq(employees.id, employee.id))
+  }
+
+  // Delete the users row, then remove from Supabase auth
+  await db.delete(users).where(eq(users.id, userId))
+  await supabaseAdmin.auth.admin.deleteUser(userId)
 
   revalidatePath('/admin/users')
   return { success: true }
