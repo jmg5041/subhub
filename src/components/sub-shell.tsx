@@ -34,7 +34,7 @@ export function SubShell({
 
   const Sidebar = (
     <aside className={cn(
-      'flex h-screen w-56 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
+      'flex h-[100dvh] w-56 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
       'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out md:transition-none',
       'md:relative md:translate-x-0',
       sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
@@ -88,7 +88,7 @@ export function SubShell({
   )
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-[100dvh] bg-gray-50">
       {Sidebar}
 
       {sidebarOpen && (

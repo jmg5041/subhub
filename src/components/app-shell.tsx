@@ -22,7 +22,7 @@ export function AppShell({
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? email?.[0]?.toUpperCase() ?? ''}`
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-[100dvh] bg-gray-50">
       {/* Sidebar — always visible on desktop, slide-in overlay on mobile */}
       <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

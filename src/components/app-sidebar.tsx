@@ -84,7 +84,7 @@ export function AppSidebar({
 
   return (
     <aside className={cn(
-      'flex h-screen w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
+      'flex h-[100dvh] w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
       // Desktop: always visible in the flow
       'md:relative md:translate-x-0',
       // Mobile: fixed overlay, slides in/out
