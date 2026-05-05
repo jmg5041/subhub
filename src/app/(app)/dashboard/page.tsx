@@ -57,8 +57,8 @@ export default async function DashboardPage() {
   const schoolName = profile?.school?.name || ''
   const orgId = profile?.organizationId
 
-  // Today's date as 'YYYY-MM-DD'
-  const today = new Date().toISOString().split('T')[0]
+  // Today's date in Pacific time — server runs UTC so toISOString() would give tomorrow after 5 PM PT
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 
   // Greeting based on time of day
   const hour = new Date().getHours()
@@ -98,10 +98,14 @@ export default async function DashboardPage() {
   const stats = {
     total: todayAbsences.length,
     pending: todayAbsences.filter((a) => a.approvalStatus === 'unapproved').length,
-    approved: todayAbsences.filter((a) => a.approvalStatus === 'approved').length,
-    noSubNeeded: todayAbsences.filter((a) => !a.substituteRequired).length,
-    unfilled: todayAbsences.filter(
-      (a) => a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus === 'not_started'
+    waitingOnSub: todayAbsences.filter((a) =>
+      a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus !== 'filled'
+    ).length,
+    subFound: todayAbsences.filter((a) =>
+      a.approvalStatus === 'approved' && a.subOutreachStatus === 'filled'
+    ).length,
+    coveredByAdmin: todayAbsences.filter((a) =>
+      a.approvalStatus === 'approved' && !a.substituteRequired
     ).length,
   }
 
@@ -121,7 +125,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat cards — live counts from the database */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard
           title="Total Absences"
           value={String(stats.total)}
@@ -135,15 +139,21 @@ export default async function DashboardPage() {
           color="yellow"
         />
         <StatCard
-          title="Approved"
-          value={String(stats.approved)}
-          subtitle="confirmed"
+          title="Waiting on Sub"
+          value={String(stats.waitingOnSub)}
+          subtitle="approved, no sub yet"
+          color="orange"
+        />
+        <StatCard
+          title="Sub Found"
+          value={String(stats.subFound)}
+          subtitle="sub assigned"
           color="green"
         />
         <StatCard
-          title="No Sub Needed"
-          value={String(stats.noSubNeeded)}
-          subtitle="admin covering"
+          title="Covered by Admin/Staff"
+          value={String(stats.coveredByAdmin)}
+          subtitle="no sub needed"
           color="gray"
         />
       </div>
@@ -196,9 +206,9 @@ export default async function DashboardPage() {
             <p className="font-semibold text-gray-900">Unfilled</p>
             <p className="text-sm text-gray-500">Need a sub assigned</p>
           </div>
-          {stats.unfilled > 0 && (
+          {stats.waitingOnSub > 0 && (
             <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
-              {stats.unfilled}
+              {stats.waitingOnSub}
             </span>
           )}
         </div>
@@ -316,12 +326,13 @@ function StatCard({
   title: string
   value: string
   subtitle: string
-  color: 'blue' | 'yellow' | 'green' | 'gray'
+  color: 'blue' | 'yellow' | 'green' | 'orange' | 'gray'
 }) {
   const colorMap = {
     blue: 'bg-blue-50 text-blue-700 border-blue-200',
     yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
     green: 'bg-green-50 text-green-700 border-green-200',
+    orange: 'bg-orange-50 text-orange-700 border-orange-200',
     gray: 'bg-gray-50 text-gray-700 border-gray-200',
   }
 
