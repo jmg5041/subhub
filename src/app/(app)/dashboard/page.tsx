@@ -242,7 +242,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {todayAbsences.map((absence) => (
-              <div key={absence.id} className="flex items-center gap-4 px-6 py-3">
+              <Link key={absence.id} href={`/absences/find-sub/${absence.id}`} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
                 {/* Status dot */}
                 <div
                   className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
@@ -304,7 +304,7 @@ export default async function DashboardPage() {
                   {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
                    (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         )}
