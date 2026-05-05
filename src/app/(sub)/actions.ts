@@ -7,8 +7,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, substitutes, subAssignments, subUnavailability } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens } from '@/db/schema'
+import { eq, and, isNull, gt } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 async function getSubContext() {
@@ -45,6 +45,26 @@ export async function getMyAssignments() {
     },
     orderBy: (a, { desc }) => [desc(a.date)],
   })
+}
+
+export async function getMyPendingTokens() {
+  const { sub } = await getSubContext()
+
+  const now = new Date()
+  const rows = await db.query.subNotificationTokens.findMany({
+    where: and(
+      eq(subNotificationTokens.substituteId, sub.id),
+      isNull(subNotificationTokens.usedAt),
+      gt(subNotificationTokens.expiresAt, now)
+    ),
+    with: {
+      teacherTimeOff: { with: { school: true } },
+    },
+    orderBy: (t, { asc }) => [asc(t.createdAt)],
+  })
+
+  // Filter out jobs already filled by someone else
+  return rows.filter(r => r.teacherTimeOff.subOutreachStatus !== 'filled')
 }
 
 export async function getMyUnavailableDates(year: number, month: number) {

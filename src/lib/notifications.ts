@@ -13,6 +13,7 @@ import * as schema from '@/db/schema'
 import { eq, asc, and, inArray } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { Resend } from 'resend'
+import { sendSms, makeVoiceCall } from './twilio'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -92,6 +93,22 @@ export async function generateNotificationToken(
   })
 
   return token
+}
+
+// ─── SMS message builder ─────────────────────────────────────────────────────
+
+export function buildSubSmsBody(params: {
+  schoolName: string
+  date: string
+  startTime: string
+  endTime: string
+  acceptUrl: string
+  declineUrl: string
+}): string {
+  const { schoolName, date, startTime, endTime, acceptUrl, declineUrl } = params
+  const dateStr = formatDate(date)
+  const timeStr = `${formatTime(startTime)}–${formatTime(endTime)}`
+  return `Sub needed at ${schoolName} on ${dateStr}, ${timeStr}.\n\nAccept: ${acceptUrl}\nDecline: ${declineUrl}`
 }
 
 // ─── Email sender ─────────────────────────────────────────────────────────────
@@ -209,18 +226,40 @@ export async function notifyAllSubs(
       const acceptUrl = `${appUrl}/sub/jobs/${token}?action=accept`
       const declineUrl = `${appUrl}/sub/jobs/${token}?action=decline`
 
-      const { subject, html, text } = buildSubEmailBody({
-        schoolName: absence.school.name,
-        date: absence.date,
-        startTime: absence.startTime,
-        endTime: absence.endTime,
-        notesToSub: absence.notesToSub,
-        isSpecificallyRequested: isSpecificallyRequested(sub),
-        acceptUrl,
-        declineUrl,
-      })
+      const sendEmail = org.notifyByEmail !== false
+      const sendSmsTxt = org.notifyBySms === true
+      const makeCall = org.notifyByPhone === true
 
-      await sendSubEmail({ to: sub.user.email, subject, html, text })
+      if (sendEmail) {
+        const { subject, html, text } = buildSubEmailBody({
+          schoolName: absence.school.name,
+          date: absence.date,
+          startTime: absence.startTime,
+          endTime: absence.endTime,
+          notesToSub: absence.notesToSub,
+          isSpecificallyRequested: isSpecificallyRequested(sub),
+          acceptUrl,
+          declineUrl,
+        })
+        await sendSubEmail({ to: sub.user.email, subject, html, text })
+      }
+
+      if (sendSmsTxt && sub.user.phone) {
+        const smsBody = buildSubSmsBody({
+          schoolName: absence.school.name,
+          date: absence.date,
+          startTime: absence.startTime,
+          endTime: absence.endTime,
+          acceptUrl,
+          declineUrl,
+        })
+        await sendSms(sub.user.phone, smsBody)
+      }
+
+      if (makeCall && sub.user.phone) {
+        await makeVoiceCall(sub.user.phone, token)
+      }
+
       sent++
     } catch (err) {
       errors.push(`Failed for ${sub.user.email}: ${err}`)
