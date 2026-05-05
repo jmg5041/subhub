@@ -45,7 +45,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
   function handleAssignDirectly() {
     if (!selectedSubId) return
     const sub = subs.find(s => s.id === selectedSubId)
-    if (!confirm(`Assign ${sub?.firstName} ${sub?.lastName} to this absence? No notification will be sent.`)) return
+    if (!confirm(`Assign ${sub?.firstName} ${sub?.lastName} to this absence? This absence will not be sent out as an alert to all subs — you are assigning them directly.`)) return
 
     startTransition(async () => {
       const formData = new FormData()
