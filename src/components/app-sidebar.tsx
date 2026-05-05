@@ -48,7 +48,7 @@ const navGroups = [
   {
     label: 'Substitutes',
     items: [
-      { href: '/substitutes/find', label: 'Find Substitute', icon: UserSearch },
+      { href: '/absences/find-sub', label: 'Find Substitute', icon: UserSearch },
     ],
   },
   {

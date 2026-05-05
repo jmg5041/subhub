@@ -140,6 +140,37 @@ export async function getUnapprovedAbsences() {
  * "Reconcile" means confirming the sub actually showed up and worked.
  * Used on the Reconcile Absences page.
  */
+export async function getApprovedUnfilledAbsences() {
+  const { orgId } = await getOrgAndUserId()
+
+  return db
+    .select({
+      id: teacherTimeOff.id,
+      date: teacherTimeOff.date,
+      startTime: teacherTimeOff.startTime,
+      endTime: teacherTimeOff.endTime,
+      subOutreachStatus: teacherTimeOff.subOutreachStatus,
+      substituteRequired: teacherTimeOff.substituteRequired,
+      teacherFirstName: users.firstName,
+      teacherLastName: users.lastName,
+      schoolName: schools.name,
+      reasonName: absenceReasons.name,
+    })
+    .from(teacherTimeOff)
+    .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
+    .innerJoin(users, eq(employees.userId, users.id))
+    .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
+    .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
+    .where(
+      and(
+        eq(teacherTimeOff.organizationId, orgId),
+        eq(teacherTimeOff.approvalStatus, 'approved'),
+        eq(teacherTimeOff.substituteRequired, true)
+      )
+    )
+    .orderBy(asc(teacherTimeOff.date))
+}
+
 export async function getAbsencesForReconcile() {
   const { orgId } = await getOrgAndUserId()
   const today = new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
