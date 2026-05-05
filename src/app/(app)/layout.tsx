@@ -11,7 +11,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { AppSidebar } from '@/components/app-sidebar';
+import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
 
 export default async function AppLayout({
@@ -43,35 +43,13 @@ export default async function AppLayout({
     : (profile?.schools as unknown as { name: string } | null)?.name;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <AppSidebar />
-
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-          <div className="flex items-center gap-4">
-            {schoolName && (
-              <span className="text-sm text-gray-500">{schoolName}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Notifications placeholder */}
-            <div className="text-sm text-gray-500">
-              {profile?.first_name || user?.email}
-            </div>
-            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
-              {profile?.first_name?.[0]}{profile?.last_name?.[0] || user?.email?.[0]?.toUpperCase()}
-            </div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AppShell
+      schoolName={schoolName ?? null}
+      firstName={profile?.first_name ?? null}
+      lastName={profile?.last_name ?? null}
+      email={user?.email ?? null}
+    >
+      {children}
+    </AppShell>
   );
 }

@@ -26,6 +26,7 @@ import {
   LogOut,
   School,
   Users,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -66,7 +67,13 @@ const navGroups = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({
+  isOpen = false,
+  onClose,
+}: {
+  isOpen?: boolean
+  onClose?: () => void
+}) {
   const pathname = usePathname();
   const supabase = createClient();
 
@@ -76,14 +83,29 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
+    <aside className={cn(
+      'flex h-screen w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
+      // Desktop: always visible in the flow
+      'md:relative md:translate-x-0',
+      // Mobile: fixed overlay, slides in/out
+      'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out md:transition-none',
+      isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+    )}>
       {/* Logo area */}
-      <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
-        <School className="h-7 w-7 text-blue-600" />
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">SubHub</h1>
-          <p className="text-[10px] leading-tight text-gray-500">Substitute Management</p>
+      <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+        <div className="flex items-center gap-2">
+          <School className="h-7 w-7 text-blue-600" />
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">SubHub</h1>
+            <p className="text-[10px] leading-tight text-gray-500">Substitute Management</p>
+          </div>
         </div>
+        {/* Close button — mobile only */}
+        {onClose && (
+          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:text-gray-600 md:hidden">
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation groups */}
@@ -100,6 +122,7 @@ export function AppSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onClose}
                   className={cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     isActive
