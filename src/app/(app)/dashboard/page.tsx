@@ -275,33 +275,29 @@ export default async function DashboardPage() {
                   </span>
                 )}
 
-                {/* Sub status badge */}
-                {absence.subOutreachStatus === 'filled' ? (
-                  <span className="ml-auto rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                    Filled
-                  </span>
-                ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
-                  <Link
-                    href={`/absences/find-sub/${absence.id}`}
-                    className="ml-auto rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-200 transition-colors"
-                  >
-                    Find Sub →
-                  </Link>
-                ) : null}
+                {/* Right-side badges — always grouped together */}
+                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                  {absence.subOutreachStatus === 'filled' ? (
+                    <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                      Filled
+                    </span>
+                  ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
+                      Find Sub →
+                    </span>
+                  ) : null}
 
-                {/* Approval status badge */}
-                <span
-                  className={`${absence.approvalStatus === 'approved' && absence.substituteRequired ? '' : 'ml-auto'} rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     absence.approvalStatus === 'approved'
                       ? 'bg-green-100 text-green-700'
                       : absence.approvalStatus === 'denied'
                       ? 'bg-red-100 text-red-700'
                       : 'bg-yellow-100 text-yellow-700'
-                  }`}
-                >
-                  {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
-                   (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
-                </span>
+                  }`}>
+                    {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
+                     (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
