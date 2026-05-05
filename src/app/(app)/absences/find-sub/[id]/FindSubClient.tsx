@@ -11,7 +11,8 @@
  */
 
 import { useState, useTransition } from 'react'
-import { assignSubDirectly, notifyAllSubsAction } from '../../actions'
+import { useRouter } from 'next/navigation'
+import { assignSubDirectly, notifyAllSubsAction, cancelSubAssignment } from '../../actions'
 
 type Sub = {
   id: string
@@ -32,6 +33,7 @@ type Props = {
 }
 
 export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filledByName, outreachStatus }: Props) {
+  const router = useRouter()
   const [selectedSubId, setSelectedSubId] = useState('')
   const [search, setSearch] = useState('')
   const [showAssignPanel, setShowAssignPanel] = useState(false)
@@ -53,7 +55,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
       formData.set('substituteId', selectedSubId)
       const res = await assignSubDirectly(formData)
       if (res.success) {
-        setResult({ message: `${sub?.firstName} ${sub?.lastName} has been assigned.`, type: 'success' })
+        router.push('/absences/find-sub')
       } else {
         setResult({ message: 'Something went wrong. Please try again.', type: 'error' })
       }
@@ -78,9 +80,29 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
 
   if (isAlreadyFilled) {
     return (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-        <div className="text-2xl font-semibold text-green-700 mb-1">Position Filled</div>
-        {filledByName && <p className="text-green-600">Covered by {filledByName}</p>}
+      <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-4">
+        <div>
+          <div className="text-xl font-semibold text-green-700 mb-1">Position Filled</div>
+          {filledByName && <p className="text-green-600">Covered by {filledByName}</p>}
+        </div>
+        <div className="border-t border-green-200 pt-4">
+          <p className="text-sm text-gray-600 mb-3">Need to make a change? You can cancel this assignment and start over.</p>
+          <button
+            disabled={isPending}
+            onClick={() => {
+              if (!confirm('Cancel this sub assignment? The absence will go back to needing a sub.')) return
+              startTransition(async () => {
+                const res = await cancelSubAssignment(timeOffId)
+                if ('success' in res) router.push(`/absences/find-sub/${timeOffId}`)
+                else setResult({ message: 'Failed to cancel assignment.', type: 'error' })
+              })
+            }}
+            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            {isPending ? 'Cancelling...' : 'Cancel Assignment'}
+          </button>
+          {result && <p className="mt-2 text-sm text-red-600">{result.message}</p>}
+        </div>
       </div>
     )
   }

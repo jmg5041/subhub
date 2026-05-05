@@ -67,9 +67,9 @@ export default async function FindSubListPage() {
                 </span>
                 <Link
                   href={`/absences/find-sub/${a.id}`}
-                  className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors"
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors whitespace-nowrap"
                 >
-                  Find Sub →
+                  {a.subOutreachStatus === 'filled' ? 'Sub Details →' : 'Find Sub →'}
                 </Link>
               </div>
             )

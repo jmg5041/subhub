@@ -507,6 +507,41 @@ export async function assignSubDirectly(formData: FormData) {
 }
 
 /**
+ * Cancels a sub assignment — removes the assignment rows and resets the absence
+ * back to 'not_started' so the admin can reassign or blast to all subs.
+ */
+export async function cancelSubAssignment(timeOffId: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(eq(teacherTimeOff.id, timeOffId), eq(teacherTimeOff.organizationId, orgId)),
+  })
+  if (!absence) return { error: 'Absence not found' }
+
+  // Find all assignment links for this absence
+  const links = await db.query.assignmentTimeOff.findMany({
+    where: eq(assignmentTimeOff.timeOffId, timeOffId),
+  })
+
+  // Delete the sub_assignment rows, then the links
+  for (const link of links) {
+    await db.delete(subAssignments).where(eq(subAssignments.id, link.assignmentId))
+  }
+  await db.delete(assignmentTimeOff).where(eq(assignmentTimeOff.timeOffId, timeOffId))
+
+  // Reset absence back to needing a sub
+  await db
+    .update(teacherTimeOff)
+    .set({ subOutreachStatus: 'not_started', updatedAt: new Date() })
+    .where(eq(teacherTimeOff.id, timeOffId))
+
+  revalidatePath('/absences/find-sub')
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+/**
  * Triggers the notification blast — emails all available subs with accept/decline links.
  * First sub to accept gets the position.
  */
