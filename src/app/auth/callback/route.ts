@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, invitations } from '@/db/schema'
+import { users, invitations, employees, substitutes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 function roleToPortal(role: string | null | undefined): string {
@@ -78,6 +78,13 @@ export async function GET(request: Request) {
         organizationId: orgId,
         schoolId,
       })
+
+      // Create the role-specific profile row so the portal works immediately
+      if (role === 'teacher' && schoolId) {
+        await db.insert(employees).values({ userId: authUser.id, schoolId })
+      } else if (role === 'substitute') {
+        await db.insert(substitutes).values({ userId: authUser.id })
+      }
 
       // Mark invitation as used
       await db

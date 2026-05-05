@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, invitations } from '@/db/schema'
+import { users, invitations, employees, substitutes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 function roleToPortal(role: string | null | undefined): string {
@@ -48,6 +48,7 @@ export async function GET(request: Request) {
   if (!profile && user.email && user.user_metadata?.orgId) {
     const meta = user.user_metadata
     const role = (meta.role as string) || 'teacher'
+    const schoolId = (meta.schoolId as string) || null
     await db.insert(users).values({
       id: user.id,
       email: user.email,
@@ -55,8 +56,16 @@ export async function GET(request: Request) {
       lastName: (meta.lastName as string) || '',
       role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
       organizationId: meta.orgId as string,
-      schoolId: (meta.schoolId as string) || null,
+      schoolId,
     })
+
+    // Create the role-specific profile row so the portal works immediately
+    if (role === 'teacher' && schoolId) {
+      await db.insert(employees).values({ userId: user.id, schoolId })
+    } else if (role === 'substitute') {
+      await db.insert(substitutes).values({ userId: user.id })
+    }
+
     await db.update(invitations)
       .set({ usedAt: new Date() })
       .where(eq(invitations.email, user.email))
