@@ -522,12 +522,13 @@ export async function cancelSubAssignment(timeOffId: string) {
   const links = await db.query.assignmentTimeOff.findMany({
     where: eq(assignmentTimeOff.timeOffId, timeOffId),
   })
+  const assignmentIds = links.map(l => l.assignmentId)
 
-  // Delete the sub_assignment rows, then the links
-  for (const link of links) {
-    await db.delete(subAssignments).where(eq(subAssignments.id, link.assignmentId))
-  }
+  // Delete links first (FK references subAssignments), then the assignments
   await db.delete(assignmentTimeOff).where(eq(assignmentTimeOff.timeOffId, timeOffId))
+  for (const assignmentId of assignmentIds) {
+    await db.delete(subAssignments).where(eq(subAssignments.id, assignmentId))
+  }
 
   // Reset absence back to needing a sub
   await db
