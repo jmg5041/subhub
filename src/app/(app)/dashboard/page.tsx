@@ -102,10 +102,10 @@ export default async function DashboardPage() {
       a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus !== 'filled'
     ).length,
     subFound: todayAbsences.filter((a) =>
-      a.approvalStatus === 'approved' && a.subOutreachStatus === 'filled'
+      a.subOutreachStatus === 'filled'
     ).length,
     coveredByAdmin: todayAbsences.filter((a) =>
-      a.approvalStatus === 'approved' && !a.substituteRequired
+      a.approvalStatus === 'approved' && !a.substituteRequired && a.subOutreachStatus !== 'filled'
     ).length,
   }
 
@@ -275,21 +275,19 @@ export default async function DashboardPage() {
                   </span>
                 )}
 
-                {/* Find Sub link for approved unfilled absences */}
-                {absence.approvalStatus === 'approved' && absence.substituteRequired && (
-                  absence.subOutreachStatus === 'filled' ? (
-                    <span className="ml-auto rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                      Filled
-                    </span>
-                  ) : (
-                    <Link
-                      href={`/absences/find-sub/${absence.id}`}
-                      className="ml-auto rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-200 transition-colors"
-                    >
-                      Find Sub →
-                    </Link>
-                  )
-                )}
+                {/* Sub status badge */}
+                {absence.subOutreachStatus === 'filled' ? (
+                  <span className="ml-auto rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                    Filled
+                  </span>
+                ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
+                  <Link
+                    href={`/absences/find-sub/${absence.id}`}
+                    className="ml-auto rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-200 transition-colors"
+                  >
+                    Find Sub →
+                  </Link>
+                ) : null}
 
                 {/* Approval status badge */}
                 <span
