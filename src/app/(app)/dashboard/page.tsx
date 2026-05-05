@@ -65,46 +65,51 @@ export default async function DashboardPage() {
   const greeting =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  // Fetch today's absences with teacher/school names — only if we have an org
+  const absenceSelect = {
+    id: teacherTimeOff.id,
+    date: teacherTimeOff.date,
+    startTime: teacherTimeOff.startTime,
+    endTime: teacherTimeOff.endTime,
+    approvalStatus: teacherTimeOff.approvalStatus,
+    substituteRequired: teacherTimeOff.substituteRequired,
+    subOutreachStatus: teacherTimeOff.subOutreachStatus,
+    teacherFirstName: users.firstName,
+    teacherLastName: users.lastName,
+    schoolName: schools.name,
+    reasonName: absenceReasons.name,
+  }
+
+  // Today's list — shown in the table at the bottom
   const todayAbsences = orgId
-    ? await db
-        .select({
-          id: teacherTimeOff.id,
-          date: teacherTimeOff.date,
-          startTime: teacherTimeOff.startTime,
-          endTime: teacherTimeOff.endTime,
-          approvalStatus: teacherTimeOff.approvalStatus,
-          substituteRequired: teacherTimeOff.substituteRequired,
-          subOutreachStatus: teacherTimeOff.subOutreachStatus,
-          teacherFirstName: users.firstName,
-          teacherLastName: users.lastName,
-          schoolName: schools.name,
-          reasonName: absenceReasons.name,
-        })
-        .from(teacherTimeOff)
+    ? await db.select(absenceSelect).from(teacherTimeOff)
         .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
         .innerJoin(users, eq(employees.userId, users.id))
         .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
         .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
-        .where(
-          and(
-            eq(teacherTimeOff.organizationId, orgId),
-            eq(teacherTimeOff.date, today)
-          )
-        )
+        .where(and(eq(teacherTimeOff.organizationId, orgId), eq(teacherTimeOff.date, today)))
     : []
 
-  // Compute stat card counts from the fetched data
+  // All absences — used for stat card counts (pending items may be on future dates)
+  const allAbsences = orgId
+    ? await db.select(absenceSelect).from(teacherTimeOff)
+        .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
+        .innerJoin(users, eq(employees.userId, users.id))
+        .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
+        .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
+        .where(eq(teacherTimeOff.organizationId, orgId))
+    : []
+
+  // Stat counts use allAbsences so future pending items aren't missed
   const stats = {
     total: todayAbsences.length,
-    pending: todayAbsences.filter((a) => a.approvalStatus === 'unapproved').length,
-    waitingOnSub: todayAbsences.filter((a) =>
+    pending: allAbsences.filter((a) => a.approvalStatus === 'unapproved').length,
+    waitingOnSub: allAbsences.filter((a) =>
       a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus !== 'filled'
     ).length,
-    subFound: todayAbsences.filter((a) =>
+    subFound: allAbsences.filter((a) =>
       a.subOutreachStatus === 'filled'
     ).length,
-    coveredByAdmin: todayAbsences.filter((a) =>
+    coveredByAdmin: allAbsences.filter((a) =>
       a.approvalStatus === 'approved' && !a.substituteRequired && a.subOutreachStatus !== 'filled'
     ).length,
   }
@@ -135,25 +140,25 @@ export default async function DashboardPage() {
         <StatCard
           title="Pending Approval"
           value={String(stats.pending)}
-          subtitle="need review"
+          subtitle="all dates"
           color="yellow"
         />
         <StatCard
           title="Waiting on Sub"
           value={String(stats.waitingOnSub)}
-          subtitle="approved, no sub yet"
+          subtitle="all dates"
           color="orange"
         />
         <StatCard
           title="Sub Found"
           value={String(stats.subFound)}
-          subtitle="sub assigned"
+          subtitle="all dates"
           color="green"
         />
         <StatCard
           title="Covered by Admin/Staff"
           value={String(stats.coveredByAdmin)}
-          subtitle="no sub needed"
+          subtitle="all dates"
           color="gray"
         />
       </div>
