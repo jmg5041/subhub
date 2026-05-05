@@ -45,7 +45,7 @@ export default async function TeacherDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const absences = await getMyAbsences()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
   const upcoming = absences.filter(a => a.date >= today).slice(0, 5)
   const pending = absences.filter(a => a.approvalStatus === 'unapproved').length
 

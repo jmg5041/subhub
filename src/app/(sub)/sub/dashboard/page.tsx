@@ -28,7 +28,7 @@ export default async function SubDashboard() {
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 
   const [assignments, pendingTokens] = await Promise.all([
     getMyAssignments(),

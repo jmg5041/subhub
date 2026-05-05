@@ -52,8 +52,10 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Find a Substitute</h1>
-        <p className="text-sm text-gray-500 mt-1">Choose how to fill this absence.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Absence Details</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {absence.substituteRequired ? 'Choose how to fill this absence.' : 'This absence is covered by staff.'}
+        </p>
       </div>
 
       {/* Absence details card */}
@@ -65,11 +67,23 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="text-sm text-gray-500">{absence.school?.name}</div>
           </div>
-          {absence.reason && (
-            <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full whitespace-nowrap">
-              {absence.reason.name}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1.5">
+            {absence.reason && (
+              <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full whitespace-nowrap">
+                {absence.reason.name}
+              </span>
+            )}
+            {!absence.substituteRequired && (
+              <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full whitespace-nowrap">
+                Covered by Staff
+              </span>
+            )}
+            {isAlreadyFilled && absence.substituteRequired && (
+              <span className="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full whitespace-nowrap">
+                Filled by Sub
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-1">
@@ -109,6 +123,7 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         isAlreadyFilled={isAlreadyFilled}
         filledByName={filledByName}
         outreachStatus={absence.subOutreachStatus ?? 'not_started'}
+        substituteRequired={absence.substituteRequired ?? true}
       />
     </div>
   )

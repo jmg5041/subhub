@@ -74,7 +74,7 @@ export default function TeacherAbsenceForm({
           required
           value={date}
           onChange={e => setDate(e.target.value)}
-          min={new Date().toISOString().split('T')[0]}
+          min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

@@ -65,33 +65,23 @@ export default async function DashboardPage() {
   const greeting =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const absenceSelect = {
-    id: teacherTimeOff.id,
-    date: teacherTimeOff.date,
-    startTime: teacherTimeOff.startTime,
-    endTime: teacherTimeOff.endTime,
-    approvalStatus: teacherTimeOff.approvalStatus,
-    substituteRequired: teacherTimeOff.substituteRequired,
-    subOutreachStatus: teacherTimeOff.subOutreachStatus,
-    teacherFirstName: users.firstName,
-    teacherLastName: users.lastName,
-    schoolName: schools.name,
-    reasonName: absenceReasons.name,
-  }
-
-  // Today's list — shown in the table at the bottom
-  const todayAbsences = orgId
-    ? await db.select(absenceSelect).from(teacherTimeOff)
-        .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
-        .innerJoin(users, eq(employees.userId, users.id))
-        .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
-        .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
-        .where(and(eq(teacherTimeOff.organizationId, orgId), eq(teacherTimeOff.date, today)))
-    : []
-
-  // All absences — used for stat card counts (pending items may be on future dates)
+  // Single query for all org absences — split in JS for today/upcoming
   const allAbsences = orgId
-    ? await db.select(absenceSelect).from(teacherTimeOff)
+    ? await db
+        .select({
+          id: teacherTimeOff.id,
+          date: teacherTimeOff.date,
+          startTime: teacherTimeOff.startTime,
+          endTime: teacherTimeOff.endTime,
+          approvalStatus: teacherTimeOff.approvalStatus,
+          substituteRequired: teacherTimeOff.substituteRequired,
+          subOutreachStatus: teacherTimeOff.subOutreachStatus,
+          teacherFirstName: users.firstName,
+          teacherLastName: users.lastName,
+          schoolName: schools.name,
+          reasonName: absenceReasons.name,
+        })
+        .from(teacherTimeOff)
         .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
         .innerJoin(users, eq(employees.userId, users.id))
         .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
@@ -99,19 +89,22 @@ export default async function DashboardPage() {
         .where(eq(teacherTimeOff.organizationId, orgId))
     : []
 
-  // Stat counts use allAbsences so future pending items aren't missed
+  const todayAbsences = allAbsences.filter(a => a.date === today)
+  const upcomingAbsences = allAbsences.filter(a => a.date > today)
+
+  function statPair(filterFn: (a: typeof allAbsences[0]) => boolean) {
+    return {
+      today: todayAbsences.filter(filterFn).length,
+      upcoming: upcomingAbsences.filter(filterFn).length,
+    }
+  }
+
   const stats = {
-    total: todayAbsences.length,
-    pending: allAbsences.filter((a) => a.approvalStatus === 'unapproved').length,
-    waitingOnSub: allAbsences.filter((a) =>
-      a.approvalStatus === 'approved' && a.substituteRequired && a.subOutreachStatus !== 'filled'
-    ).length,
-    subFound: allAbsences.filter((a) =>
-      a.subOutreachStatus === 'filled'
-    ).length,
-    coveredByAdmin: allAbsences.filter((a) =>
-      a.approvalStatus === 'approved' && !a.substituteRequired && a.subOutreachStatus !== 'filled'
-    ).length,
+    total:        statPair(() => true),
+    pending:      statPair(a => a.approvalStatus === 'unapproved'),
+    waitingOnSub: statPair(a => a.approvalStatus === 'approved' && !!a.substituteRequired && a.subOutreachStatus !== 'filled'),
+    subFound:     statPair(a => a.subOutreachStatus === 'filled'),
+    coveredByAdmin: statPair(a => a.approvalStatus === 'approved' && !a.substituteRequired && a.subOutreachStatus !== 'filled'),
   }
 
   // Pending absences = those needing attention right now
@@ -131,36 +124,11 @@ export default async function DashboardPage() {
 
       {/* Stat cards — live counts from the database */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard
-          title="Total Absences"
-          value={String(stats.total)}
-          subtitle="today"
-          color="blue"
-        />
-        <StatCard
-          title="Pending Approval"
-          value={String(stats.pending)}
-          subtitle="all dates"
-          color="yellow"
-        />
-        <StatCard
-          title="Waiting on Sub"
-          value={String(stats.waitingOnSub)}
-          subtitle="all dates"
-          color="orange"
-        />
-        <StatCard
-          title="Sub Found"
-          value={String(stats.subFound)}
-          subtitle="all dates"
-          color="green"
-        />
-        <StatCard
-          title="Covered by Admin/Staff"
-          value={String(stats.coveredByAdmin)}
-          subtitle="all dates"
-          color="gray"
-        />
+        <StatCard title="Total Absences" todayValue={stats.total.today} upcomingValue={stats.total.upcoming} color="blue" />
+        <StatCard title="Pending Approval" todayValue={stats.pending.today} upcomingValue={stats.pending.upcoming} color="yellow" />
+        <StatCard title="Waiting on Sub" todayValue={stats.waitingOnSub.today} upcomingValue={stats.waitingOnSub.upcoming} color="orange" />
+        <StatCard title="Sub Found" todayValue={stats.subFound.today} upcomingValue={stats.subFound.upcoming} color="green" />
+        <StatCard title="Covered by Admin/Staff" todayValue={stats.coveredByAdmin.today} upcomingValue={stats.coveredByAdmin.upcoming} color="gray" />
       </div>
 
       {/* Quick action buttons */}
@@ -185,9 +153,9 @@ export default async function DashboardPage() {
             <p className="font-semibold text-gray-900">Approve Absences</p>
             <p className="text-sm text-gray-500">Review pending requests</p>
           </div>
-          {stats.pending > 0 && (
+          {(stats.pending.today + stats.pending.upcoming) > 0 && (
             <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white">
-              {stats.pending}
+              {stats.pending.today + stats.pending.upcoming}
             </span>
           )}
         </Link>
@@ -211,9 +179,9 @@ export default async function DashboardPage() {
             <p className="font-semibold text-gray-900">Unfilled</p>
             <p className="text-sm text-gray-500">Need a sub assigned</p>
           </div>
-          {stats.waitingOnSub > 0 && (
+          {(stats.waitingOnSub.today + stats.waitingOnSub.upcoming) > 0 && (
             <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
-              {stats.waitingOnSub}
+              {stats.waitingOnSub.today + stats.waitingOnSub.upcoming}
             </span>
           )}
         </div>
@@ -282,9 +250,13 @@ export default async function DashboardPage() {
 
                 {/* Right-side badges — always grouped together */}
                 <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-                  {absence.subOutreachStatus === 'filled' ? (
+                  {absence.subOutreachStatus === 'filled' && absence.substituteRequired ? (
                     <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                      Filled
+                      Filled by Sub
+                    </span>
+                  ) : absence.approvalStatus === 'approved' && !absence.substituteRequired ? (
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      Filled by Staff
                     </span>
                   ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
                     <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
@@ -308,23 +280,99 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Upcoming absences table */}
+      {upcomingAbsences.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Upcoming Absences</h2>
+              <p className="text-sm text-gray-500">Scheduled absences for future dates</p>
+            </div>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {upcomingAbsences.map((absence) => (
+              <Link key={absence.id} href={`/absences/find-sub/${absence.id}`} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                {/* Status dot */}
+                <div
+                  className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                    absence.approvalStatus === 'approved'
+                      ? 'bg-green-500'
+                      : absence.approvalStatus === 'denied'
+                      ? 'bg-red-500'
+                      : 'bg-yellow-500'
+                  }`}
+                />
+
+                {/* Teacher name */}
+                <p className="w-40 flex-shrink-0 font-medium text-gray-900">
+                  {absence.teacherFirstName} {absence.teacherLastName}
+                </p>
+
+                {/* School */}
+                <p className="w-48 flex-shrink-0 text-sm text-gray-500 truncate">{absence.schoolName}</p>
+
+                {/* Time */}
+                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
+                </div>
+
+                {/* Reason */}
+                {absence.reasonName && (
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    {absence.reasonName}
+                  </span>
+                )}
+
+                {/* Date — shown in upcoming but not today */}
+                <span className="text-sm text-gray-500">{formatDate(absence.date)}</span>
+
+                {/* Right-side badges */}
+                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                  {absence.subOutreachStatus === 'filled' && absence.substituteRequired ? (
+                    <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                      Filled by Sub
+                    </span>
+                  ) : absence.approvalStatus === 'approved' && !absence.substituteRequired ? (
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      Filled by Staff
+                    </span>
+                  ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
+                      Find Sub →
+                    </span>
+                  ) : null}
+
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    absence.approvalStatus === 'approved'
+                      ? 'bg-green-100 text-green-700'
+                      : absence.approvalStatus === 'denied'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
+                     (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-/**
- * StatCard — displays a single number with a label.
- * Used for the at-a-glance counts at the top of the dashboard.
- */
 function StatCard({
   title,
-  value,
-  subtitle,
+  todayValue,
+  upcomingValue,
   color,
 }: {
   title: string
-  value: string
-  subtitle: string
+  todayValue: number
+  upcomingValue: number
   color: 'blue' | 'yellow' | 'green' | 'orange' | 'gray'
 }) {
   const colorMap = {
@@ -336,10 +384,19 @@ function StatCard({
   }
 
   return (
-    <div className={`rounded-lg border p-6 ${colorMap[color]}`}>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-3xl font-bold">{value}</p>
-      <p className="text-sm opacity-75">{subtitle}</p>
+    <div className={`rounded-lg border p-4 ${colorMap[color]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-3">{title}</p>
+      <div className="flex items-end gap-1">
+        <div className="flex-1">
+          <p className="text-3xl font-bold leading-none">{todayValue}</p>
+          <p className="text-xs opacity-60 mt-1">today</p>
+        </div>
+        <div className="text-3xl font-thin opacity-25 pb-5">/</div>
+        <div className="flex-1 text-right">
+          <p className="text-3xl font-bold leading-none">{upcomingValue}</p>
+          <p className="text-xs opacity-60 mt-1">upcoming</p>
+        </div>
+      </div>
     </div>
   )
 }

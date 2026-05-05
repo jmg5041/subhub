@@ -75,9 +75,9 @@ function formatTime(timeStr: string) {
   return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
 }
 
-/** Returns today's date as 'YYYY-MM-DD' */
+/** Returns today's date as 'YYYY-MM-DD' in Pacific time */
 function todayString() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 }
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────

@@ -173,7 +173,7 @@ export async function getApprovedUnfilledAbsences() {
 
 export async function getAbsencesForReconcile() {
   const { orgId } = await getOrgAndUserId()
-  const today = new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) // 'YYYY-MM-DD'
 
   return db
     .select({
@@ -210,7 +210,7 @@ export async function getAbsencesForReconcile() {
  */
 export async function getDashboardStats() {
   const { orgId } = await getOrgAndUserId()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 
   const todayAbsences = await db
     .select({
@@ -566,4 +566,31 @@ export async function notifyAllSubsAction(timeOffId: string) {
   revalidatePath(`/absences/find-sub/${timeOffId}`)
 
   return result
+}
+
+/**
+ * Toggles staff coverage on an absence.
+ * coveredByStaff=true  → substituteRequired=false, marked approved
+ * coveredByStaff=false → substituteRequired=true, back to not_started
+ */
+export async function toggleStaffCoverage(timeOffId: string, coveredByStaff: boolean) {
+  const { orgId } = await getOrgAndUserId()
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(eq(teacherTimeOff.id, timeOffId), eq(teacherTimeOff.organizationId, orgId)),
+  })
+  if (!absence) return { error: 'Absence not found' }
+
+  await db
+    .update(teacherTimeOff)
+    .set({
+      substituteRequired: !coveredByStaff,
+      approvalStatus: 'approved',
+      subOutreachStatus: 'not_started',
+      updatedAt: new Date(),
+    })
+    .where(eq(teacherTimeOff.id, timeOffId))
+
+  revalidatePath('/dashboard')
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  return { success: true }
 }
