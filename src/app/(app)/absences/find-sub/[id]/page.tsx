@@ -12,8 +12,8 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { FileText, Image as ImageIcon } from 'lucide-react'
-import { getAbsenceWithDetails, getAvailableSubs } from '../../actions'
+import { getAbsenceWithDetails, getAvailableSubs, getUserContext } from '../../actions'
+import AbsenceDetailsCard from './AbsenceDetailsCard'
 import FindSubClient from './FindSubClient'
 
 function formatTime(t: string): string {
@@ -25,128 +25,69 @@ function formatTime(t: string): string {
 }
 
 function formatDate(d: string): string {
-  const date = new Date(d + 'T12:00:00')
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  })
 }
 
 export default async function FindSubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const absence = await getAbsenceWithDetails(id)
-  const subs = await getAvailableSubs(absence?.schoolId)
+  const [absence, { orgId, userId }] = await Promise.all([
+    getAbsenceWithDetails(id),
+    getUserContext(),
+  ])
 
   if (!absence) notFound()
+
+  const subs = await getAvailableSubs(absence.schoolId)
 
   const teacher = absence.employee?.user
   const filledAssignment = absence.assignmentLinks?.[0]?.assignment
   const filledByUser = filledAssignment?.substitute?.user
   const isAlreadyFilled = absence.subOutreachStatus === 'filled'
-  const filledByName = filledByUser ? `${filledByUser.firstName} ${filledByUser.lastName}` : undefined
+  const filledByName = filledByUser
+    ? `${filledByUser.firstName} ${filledByUser.lastName}`
+    : undefined
+  const requestedSubName = absence.requestedSub?.user
+    ? `${absence.requestedSub.user.firstName} ${absence.requestedSub.user.lastName}`
+    : undefined
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">
-          ← Dashboard
-        </Link>
-      </div>
+      {/* Back link */}
+      <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">
+        ← Dashboard
+      </Link>
 
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Absence Details</h1>
         <p className="text-sm text-gray-500 mt-1">
-          {absence.substituteRequired ? 'Choose how to fill this absence.' : 'This absence is covered by staff.'}
+          {absence.substituteRequired
+            ? 'Choose how to fill this absence.'
+            : 'This absence is covered by staff.'}
         </p>
       </div>
 
-      {/* Absence details card */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold text-gray-900">
-              {teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unknown Teacher'}
-            </div>
-            <div className="text-sm text-gray-500">{absence.school?.name}</div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            {absence.reason && (
-              <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full whitespace-nowrap">
-                {absence.reason.name}
-              </span>
-            )}
-            {!absence.substituteRequired && (
-              <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full whitespace-nowrap">
-                Covered by Staff
-              </span>
-            )}
-            {isAlreadyFilled && absence.substituteRequired && (
-              <span className="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full whitespace-nowrap">
-                Filled by Sub
-              </span>
-            )}
-          </div>
-        </div>
+      {/* Editable absence details card */}
+      <AbsenceDetailsCard
+        timeOffId={id}
+        teacherName={teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unknown Teacher'}
+        schoolName={absence.school?.name ?? ''}
+        date={formatDate(absence.date)}
+        timeRange={`${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`}
+        reasonName={absence.reason?.name}
+        substituteRequired={absence.substituteRequired ?? true}
+        isAlreadyFilled={isAlreadyFilled}
+        approvalStatus={absence.approvalStatus ?? 'unapproved'}
+        notesToSub={absence.notesToSub ?? null}
+        requestedSubName={requestedSubName}
+        initialAttachments={absence.attachments ?? []}
+        orgId={orgId}
+        userId={userId}
+      />
 
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Date</div>
-            <div className="text-sm font-medium text-gray-800">{formatDate(absence.date)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Time</div>
-            <div className="text-sm font-medium text-gray-800">
-              {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
-            </div>
-          </div>
-        </div>
-
-        {absence.notesToSub && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Notes for sub</div>
-            <p className="text-sm text-gray-700">{absence.notesToSub}</p>
-          </div>
-        )}
-
-        {absence.requestedSubId && absence.requestedSub?.user && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="text-xs text-orange-500 uppercase tracking-wide mb-0.5">Specifically requested</div>
-            <div className="text-sm font-medium text-gray-800">
-              {absence.requestedSub.user.firstName} {absence.requestedSub.user.lastName}
-            </div>
-          </div>
-        )}
-
-        {absence.attachments && absence.attachments.length > 0 && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Attachments</div>
-            <div className="space-y-1.5">
-              {absence.attachments.map((a) => (
-                <a
-                  key={a.id}
-                  href={a.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                >
-                  {a.fileType === 'image' ? (
-                    <ImageIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                  ) : (
-                    <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                  )}
-                  <span className="flex-1 truncate">{a.fileName}</span>
-                  {a.fileSize && (
-                    <span className="flex-shrink-0 text-xs text-gray-400">
-                      {(a.fileSize / 1024).toFixed(0)} KB
-                    </span>
-                  )}
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Interactive assignment panel */}
+      {/* Sub assignment panel */}
       <FindSubClient
         timeOffId={id}
         subs={subs}

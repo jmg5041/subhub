@@ -573,6 +573,111 @@ export async function cancelSubAssignment(timeOffId: string) {
 }
 
 /**
+ * Updates the "notes for sub" field on an existing absence.
+ * Called when admin clicks Save after editing notes on the Absence Details page.
+ */
+export async function updateNotesToSub(timeOffId: string, notes: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  await db
+    .update(teacherTimeOff)
+    .set({ notesToSub: notes.trim() || null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(teacherTimeOff.id, timeOffId),
+        eq(teacherTimeOff.organizationId, orgId)
+      )
+    )
+
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  return { success: true }
+}
+
+/**
+ * Saves a new attachment row for an already-created absence.
+ * The file has already been uploaded to Supabase Storage by the browser;
+ * this just records the metadata in the database.
+ */
+export async function saveAbsenceAttachment(
+  timeOffId: string,
+  attachment: { fileName: string; fileUrl: string; fileSize: number; fileType: string }
+) {
+  const { orgId, userId } = await getOrgAndUserId()
+
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(
+      eq(teacherTimeOff.id, timeOffId),
+      eq(teacherTimeOff.organizationId, orgId)
+    ),
+  })
+  if (!absence) return { error: 'Absence not found' }
+
+  const [newAttachment] = await db
+    .insert(attachments)
+    .values({
+      organizationId: orgId,
+      teacherTimeOffId: timeOffId,
+      uploadedBy: userId,
+      fileName: attachment.fileName,
+      fileUrl: attachment.fileUrl,
+      fileSize: attachment.fileSize,
+      fileType: attachment.fileType,
+    })
+    .returning()
+
+  return { success: true, attachment: newAttachment }
+}
+
+/**
+ * Deletes an attachment record from the database.
+ * The file remains in Supabase Storage (orphaned storage files are cleaned up manually).
+ */
+export async function deleteAttachment(attachmentId: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  const attachment = await db.query.attachments.findFirst({
+    where: and(
+      eq(attachments.id, attachmentId),
+      eq(attachments.organizationId, orgId)
+    ),
+  })
+  if (!attachment) return { error: 'Attachment not found' }
+
+  await db.delete(attachments).where(eq(attachments.id, attachmentId))
+  return { success: true }
+}
+
+/**
+ * Reverts an approved absence back to "unapproved" so the admin can reconsider.
+ * Blocked if a substitute has already been assigned (subOutreachStatus = 'filled').
+ */
+export async function unapproveAbsence(timeOffId: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(
+      eq(teacherTimeOff.id, timeOffId),
+      eq(teacherTimeOff.organizationId, orgId)
+    ),
+  })
+
+  if (!absence) return { error: 'Absence not found' }
+  if (absence.subOutreachStatus === 'filled') {
+    return { error: 'Cannot cancel — a substitute is already assigned. Cancel the sub assignment first.' }
+  }
+
+  await db
+    .update(teacherTimeOff)
+    .set({ approvalStatus: 'unapproved', approvedBy: null, approvedAt: null, updatedAt: new Date() })
+    .where(eq(teacherTimeOff.id, timeOffId))
+
+  revalidatePath('/dashboard')
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  revalidatePath('/absences/approve')
+  return { success: true }
+}
+
+/**
  * Triggers the notification blast — emails all available subs with accept/decline links.
  * First sub to accept gets the position.
  */
