@@ -205,6 +205,25 @@ export const attachments = pgTable('attachments', {
 });
 // ─── Relations ──────────────────────────────────────────────────────────────
 
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [attachments.organizationId],
+    references: [organizations.id],
+  }),
+  teacherTimeOff: one(teacherTimeOff, {
+    fields: [attachments.teacherTimeOffId],
+    references: [teacherTimeOff.id],
+  }),
+  subAssignment: one(subAssignments, {
+    fields: [attachments.subAssignmentId],
+    references: [subAssignments.id],
+  }),
+  uploader: one(users, {
+    fields: [attachments.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   schools: many(schools),
   users: many(users),
