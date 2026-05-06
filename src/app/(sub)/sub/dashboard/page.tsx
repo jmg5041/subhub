@@ -77,7 +77,7 @@ export default async function SubDashboard() {
                 <div className="min-w-0">
                   <div className="font-medium text-gray-900">{t.teacherTimeOff.school.name}</div>
                   <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
-                    <span>{formatDateLong(t.teacherTimeOff.date)}</span>
+                    <span>{formatDateLong(t.teacherTimeOff.startDate)}</span>
                     <span className="text-gray-300">·</span>
                     <span>{formatTime(t.teacherTimeOff.startTime)} – {formatTime(t.teacherTimeOff.endTime)}</span>
                   </div>

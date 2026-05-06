@@ -85,14 +85,15 @@ export async function getMyAbsences() {
         },
       },
     },
-    orderBy: [desc(teacherTimeOff.date)],
+    orderBy: [desc(teacherTimeOff.startDate)],
   })
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 export async function submitAbsenceRequest(data: {
-  date: string
+  startDate: string
+  endDate: string | null   // null = single day
   startTime: string
   endTime: string
   reasonId: string | null
@@ -107,7 +108,8 @@ export async function submitAbsenceRequest(data: {
     organizationId: orgId,
     schoolId: employee.schoolId,
     employeeId: employee.id,
-    date: data.date,
+    startDate: data.startDate,
+    endDate: data.endDate || null,
     startTime: data.startTime,
     endTime: data.endTime,
     reasonId: data.reasonId || null,

@@ -31,7 +31,8 @@ import {
   assignmentTimeOff,
   subPriorityOrders,
 } from '@/db/schema'
-import { eq, and, asc, lt, desc } from 'drizzle-orm'
+import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql } from 'drizzle-orm'
+import { countWeekdays } from '@/lib/date-utils'
 import { revalidatePath } from 'next/cache'
 
 // ─── Auth Helper ─────────────────────────────────────────────────────────────
@@ -118,7 +119,8 @@ export async function getUnapprovedAbsences() {
   return db
     .select({
       id: teacherTimeOff.id,
-      date: teacherTimeOff.date,
+      startDate: teacherTimeOff.startDate,
+      endDate: teacherTimeOff.endDate,
       startTime: teacherTimeOff.startTime,
       endTime: teacherTimeOff.endTime,
       approvalStatus: teacherTimeOff.approvalStatus,
@@ -140,7 +142,7 @@ export async function getUnapprovedAbsences() {
         eq(teacherTimeOff.approvalStatus, 'unapproved')
       )
     )
-    .orderBy(asc(teacherTimeOff.date))
+    .orderBy(asc(teacherTimeOff.startDate))
 }
 
 /**
@@ -154,7 +156,8 @@ export async function getApprovedUnfilledAbsences() {
   return db
     .select({
       id: teacherTimeOff.id,
-      date: teacherTimeOff.date,
+      startDate: teacherTimeOff.startDate,
+      endDate: teacherTimeOff.endDate,
       startTime: teacherTimeOff.startTime,
       endTime: teacherTimeOff.endTime,
       subOutreachStatus: teacherTimeOff.subOutreachStatus,
@@ -176,7 +179,7 @@ export async function getApprovedUnfilledAbsences() {
         eq(teacherTimeOff.substituteRequired, true)
       )
     )
-    .orderBy(asc(teacherTimeOff.date))
+    .orderBy(asc(teacherTimeOff.startDate))
 }
 
 export async function getAbsencesForReconcile() {
@@ -186,7 +189,8 @@ export async function getAbsencesForReconcile() {
   return db
     .select({
       id: teacherTimeOff.id,
-      date: teacherTimeOff.date,
+      startDate: teacherTimeOff.startDate,
+      endDate: teacherTimeOff.endDate,
       startTime: teacherTimeOff.startTime,
       endTime: teacherTimeOff.endTime,
       substituteRequired: teacherTimeOff.substituteRequired,
@@ -207,10 +211,11 @@ export async function getAbsencesForReconcile() {
         eq(teacherTimeOff.organizationId, orgId),
         eq(teacherTimeOff.approvalStatus, 'approved'),
         eq(teacherTimeOff.reconciliationStatus, 'unreconciled'),
-        lt(teacherTimeOff.date, today)
+        // Absence is fully in the past: last day (endDate if set, else startDate) < today
+        sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) < ${today}`
       )
     )
-    .orderBy(desc(teacherTimeOff.date))
+    .orderBy(desc(teacherTimeOff.startDate))
 }
 
 /**
@@ -229,7 +234,9 @@ export async function getDashboardStats() {
     .where(
       and(
         eq(teacherTimeOff.organizationId, orgId),
-        eq(teacherTimeOff.date, today)
+        // Absence covers today: startDate <= today AND (endDate IS NULL OR endDate >= today)
+        lte(teacherTimeOff.startDate, today),
+        or(isNull(teacherTimeOff.endDate), gte(teacherTimeOff.endDate, today))
       )
     )
 
@@ -258,9 +265,10 @@ type AttachmentInput = {
 export async function createAbsence(data: {
   employeeId: string
   schoolId: string
-  date: string        // 'YYYY-MM-DD'
-  startTime: string   // 'HH:MM'
-  endTime: string     // 'HH:MM'
+  startDate: string       // 'YYYY-MM-DD'
+  endDate: string | null  // 'YYYY-MM-DD', null = single day
+  startTime: string       // 'HH:MM'
+  endTime: string         // 'HH:MM'
   reasonId: string | null
   notesToAdmin: string
   notesToSub: string
@@ -276,7 +284,8 @@ export async function createAbsence(data: {
       organizationId: orgId,
       schoolId: data.schoolId,
       employeeId: data.employeeId,
-      date: data.date,
+      startDate: data.startDate,
+      endDate: data.endDate || null,
       startTime: data.startTime,
       endTime: data.endTime,
       reasonId: data.reasonId || null,
@@ -499,10 +508,11 @@ export async function assignSubDirectly(formData: FormData) {
   })
   if (!absence) throw new Error('Absence not found')
 
-  // Compute total hours
+  // Compute total hours (daily hours × number of school days)
   const [sh, sm] = absence.startTime.split(':').map(Number)
   const [eh, em] = absence.endTime.split(':').map(Number)
-  const totalHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const dailyHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const totalHours = dailyHours * countWeekdays(absence.startDate, absence.endDate)
 
   // Create the sub assignment
   const [assignment] = await db
@@ -511,7 +521,7 @@ export async function assignSubDirectly(formData: FormData) {
       organizationId: orgId,
       schoolId: absence.schoolId,
       substituteId,
-      date: absence.date,
+      date: absence.startDate,
       startTime: absence.startTime,
       endTime: absence.endTime,
       totalHours: totalHours.toFixed(2),

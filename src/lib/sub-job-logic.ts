@@ -6,9 +6,10 @@ import {
   teacherTimeOff,
 } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { countWeekdays } from '@/lib/date-utils'
 
 export type AcceptResult =
-  | { success: true; schoolName: string; date: string; startTime: string; endTime: string }
+  | { success: true; schoolName: string; startDate: string; endDate: string | null; startTime: string; endTime: string }
   | { error: string; alreadyFilled?: boolean; expired?: boolean; alreadyUsed?: boolean }
 
 export type DeclineResult =
@@ -35,7 +36,8 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
 
   const [sh, sm] = absence.startTime.split(':').map(Number)
   const [eh, em] = absence.endTime.split(':').map(Number)
-  const totalHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const dailyHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const totalHours = dailyHours * countWeekdays(absence.startDate, absence.endDate)
 
   const [assignment] = await db
     .insert(subAssignments)
@@ -43,7 +45,7 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
       organizationId: absence.organizationId,
       schoolId: absence.schoolId,
       substituteId: tokenRow.substituteId,
-      date: absence.date,
+      date: absence.startDate,
       startTime: absence.startTime,
       endTime: absence.endTime,
       totalHours: totalHours.toFixed(2),
@@ -70,7 +72,8 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
   return {
     success: true,
     schoolName: tokenRow.teacherTimeOff.school.name,
-    date: absence.date,
+    startDate: absence.startDate,
+    endDate: absence.endDate,
     startTime: absence.startTime,
     endTime: absence.endTime,
   }

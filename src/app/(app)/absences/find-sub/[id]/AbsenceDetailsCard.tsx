@@ -43,7 +43,8 @@ type Props = {
   timeOffId: string
   teacherName: string
   schoolName: string
-  date: string           // formatted string, e.g. 'Monday, May 10, 2026'
+  date: string           // formatted string, e.g. 'Monday, May 10, 2026' or 'May 10 – 14, 2026'
+  dayCount: number       // number of school days (1 for single-day absences)
   timeRange: string      // formatted string, e.g. '7:45 AM – 3:15 PM'
   reasonName?: string | null
   substituteRequired: boolean
@@ -63,6 +64,7 @@ export default function AbsenceDetailsCard({
   teacherName,
   schoolName,
   date,
+  dayCount,
   timeRange,
   reasonName,
   substituteRequired,
@@ -203,11 +205,13 @@ export default function AbsenceDetailsCard({
       {/* ── Date / Time ── */}
       <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
         <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Date</div>
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">
+            {dayCount > 1 ? `Date Range (${dayCount} school days)` : 'Date'}
+          </div>
           <div className="text-sm font-medium text-gray-800">{date}</div>
         </div>
         <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Time</div>
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Daily Hours</div>
           <div className="text-sm font-medium text-gray-800">{timeRange}</div>
         </div>
       </div>

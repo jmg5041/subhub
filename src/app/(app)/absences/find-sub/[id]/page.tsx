@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { getAbsenceWithDetails, getAvailableSubs, getUserContext } from '../../actions'
 import AbsenceDetailsCard from './AbsenceDetailsCard'
 import FindSubClient from './FindSubClient'
+import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -22,12 +23,6 @@ function formatTime(t: string): string {
   const ampm = hour >= 12 ? 'PM' : 'AM'
   const h12 = hour % 12 || 12
   return `${h12}:${min} ${ampm}`
-}
-
-function formatDate(d: string): string {
-  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  })
 }
 
 export default async function FindSubPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,7 +69,8 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         timeOffId={id}
         teacherName={teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unknown Teacher'}
         schoolName={absence.school?.name ?? ''}
-        date={formatDate(absence.date)}
+        date={formatDateRange(absence.startDate, absence.endDate)}
+        dayCount={countWeekdays(absence.startDate, absence.endDate)}
         timeRange={`${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`}
         reasonName={absence.reason?.name}
         substituteRequired={absence.substituteRequired ?? true}

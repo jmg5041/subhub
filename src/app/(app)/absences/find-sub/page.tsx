@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { UserSearch, CalendarDays, CheckCircle } from 'lucide-react'
 import { getApprovedUnfilledAbsences } from '../actions'
-
-function formatDate(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  })
-}
+import { formatDateRangeShort } from '@/lib/date-utils'
 
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)
@@ -60,7 +55,7 @@ export default async function FindSubListPage() {
                 <p className="text-sm text-gray-600">{a.schoolName}</p>
                 <div className="flex items-center gap-1.5 text-sm text-gray-600">
                   <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                  {formatDate(a.date)} · {formatTime(a.startTime)} – {formatTime(a.endTime)}
+                  {formatDateRangeShort(a.startDate, a.endDate)} · {formatTime(a.startTime)} – {formatTime(a.endTime)}
                 </div>
                 <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${status.class}`}>
                   {status.label}

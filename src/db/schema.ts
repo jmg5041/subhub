@@ -95,7 +95,8 @@ export const teacherTimeOff = pgTable('teacher_time_off', {
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   schoolId: uuid('school_id').references(() => schools.id).notNull(),
   employeeId: uuid('employee_id').references(() => employees.id).notNull(),
-  date: date('date').notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date'),               // null = single day (same as startDate)
   startTime: time('start_time').notNull(),
   endTime: time('end_time').notNull(),
   reasonId: uuid('reason_id').references(() => absenceReasons.id),

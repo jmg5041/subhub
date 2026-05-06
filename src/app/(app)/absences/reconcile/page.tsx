@@ -14,15 +14,7 @@
 
 import { ClipboardList, CheckCircle, Info } from 'lucide-react'
 import { getAbsencesForReconcile, reconcileAbsence } from '../actions'
-
-// Helper: format 'YYYY-MM-DD' → 'Mon, May 3'
-function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import { formatDateRangeShort } from '@/lib/date-utils'
 
 // Helper: format '07:30:00' → '7:30 AM'
 function formatTime(timeStr: string) {
@@ -104,7 +96,7 @@ export default async function ReconcileAbsencesPage() {
 
               {/* Date & time */}
               <p className="text-sm text-gray-600">
-                {formatDate(absence.date)} · {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
+                {formatDateRangeShort(absence.startDate, absence.endDate)} · {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
               </p>
 
               {/* Sub required badge */}

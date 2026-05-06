@@ -20,6 +20,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAbsence } from '../actions'
 import { FileUploadInput, type UploadedFile } from '@/components/FileUploadInput'
+import { formatDateRange, countWeekdays, todayPT } from '@/lib/date-utils'
 import {
   Search,
   User,
@@ -76,10 +77,7 @@ function formatTime(timeStr: string) {
   return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
 }
 
-/** Returns today's date as 'YYYY-MM-DD' in Pacific time */
-function todayString() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
-}
+// todayPT() imported from @/lib/date-utils
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 
@@ -232,7 +230,8 @@ function Step1SelectTeacher({
 // ─── Step 2: Date & Time ──────────────────────────────────────────────────────
 
 function Step2DateTime({
-  date, setDate,
+  startDate, setStartDate,
+  endDate, setEndDate,
   startTime, setStartTime,
   endTime, setEndTime,
   isFullDay, setIsFullDay,
@@ -242,7 +241,8 @@ function Step2DateTime({
   reasons,
   selectedEmployee,
 }: {
-  date: string; setDate: (v: string) => void
+  startDate: string; setStartDate: (v: string) => void
+  endDate: string; setEndDate: (v: string) => void
   startTime: string; setStartTime: (v: string) => void
   endTime: string; setEndTime: (v: string) => void
   isFullDay: boolean; setIsFullDay: (v: boolean) => void
@@ -252,6 +252,8 @@ function Step2DateTime({
   reasons: AbsenceReason[]
   selectedEmployee: Employee | null
 }) {
+  const numDays = countWeekdays(startDate, endDate === startDate ? null : endDate)
+
   // When full day is toggled, use the school's configured hours
   function handleFullDayToggle(checked: boolean) {
     setIsFullDay(checked)
@@ -261,24 +263,45 @@ function Step2DateTime({
     }
   }
 
+  // Ensure end date is never before start date
+  function handleStartDateChange(v: string) {
+    setStartDate(v)
+    if (endDate < v) setEndDate(v)
+  }
+
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">When are they out?</h2>
-        <p className="text-sm text-gray-500">Set the date, hours, and reason for the absence.</p>
+        <p className="text-sm text-gray-500">Set the date range, hours, and reason for the absence.</p>
       </div>
 
-      {/* Date */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-gray-700">Date <span className="text-red-500">*</span></label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          required
-        />
+      {/* Date range */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">Start Date <span className="text-red-500">*</span></label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => handleStartDateChange(e.target.value)}
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">End Date</label>
+          <input
+            type="date"
+            value={endDate}
+            min={startDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
       </div>
+      {numDays > 1 && (
+        <p className="text-xs text-blue-600 -mt-3">{numDays} school days</p>
+      )}
 
       {/* Full day toggle */}
       <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
@@ -458,7 +481,8 @@ function Step3Notes({
 
 function Step4Review({
   selectedEmployee,
-  date,
+  startDate,
+  endDate,
   startTime,
   endTime,
   reasonName,
@@ -472,7 +496,8 @@ function Step4Review({
   error,
 }: {
   selectedEmployee: Employee
-  date: string
+  startDate: string
+  endDate: string
   startTime: string
   endTime: string
   reasonName: string
@@ -491,6 +516,7 @@ function Step4Review({
     day_before: 'Day before at 5:00 PM',
     admin_only: 'Admin will assign manually',
   }
+  const numDays = countWeekdays(startDate, endDate === startDate ? null : endDate)
 
   return (
     <div className="space-y-5">
@@ -503,7 +529,8 @@ function Step4Review({
       <div className="rounded-lg border border-gray-200 bg-gray-50 divide-y divide-gray-200">
         <ReviewRow label="Teacher" value={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} />
         <ReviewRow label="School" value={selectedEmployee.schoolName} />
-        <ReviewRow label="Date" value={formatDate(date)} />
+        <ReviewRow label="Date" value={formatDateRange(startDate, endDate === startDate ? null : endDate)} />
+        {numDays > 1 && <ReviewRow label="Duration" value={`${numDays} school days`} />}
         <ReviewRow label="Time" value={`${formatTime(startTime)} – ${formatTime(endTime)}`} />
         {reasonName && <ReviewRow label="Reason" value={reasonName} />}
         <ReviewRow
@@ -589,8 +616,9 @@ export function CreateAbsenceWizard({
   // Step 1 — teacher selection
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
 
-  // Step 2 — date/time/reason
-  const [date, setDate] = useState(todayString())
+  // Step 2 — date range / time / reason
+  const [startDate, setStartDate] = useState(todayPT())
+  const [endDate, setEndDate] = useState(todayPT())
   const [startTime, setStartTime] = useState('07:30')
   const [endTime, setEndTime] = useState('15:30')
   const [isFullDay, setIsFullDay] = useState(false)
@@ -613,7 +641,7 @@ export function CreateAbsenceWizard({
   // Validation: can we proceed from the current step?
   function canGoNext() {
     if (step === 1) return selectedEmployee !== null
-    if (step === 2) return date !== '' && startTime !== '' && endTime !== ''
+    if (step === 2) return startDate !== '' && startTime !== '' && endTime !== '' && endDate >= startDate
     return true
   }
 
@@ -634,7 +662,8 @@ export function CreateAbsenceWizard({
       const result = await createAbsence({
         employeeId: selectedEmployee.id,
         schoolId: selectedEmployee.schoolId,
-        date,
+        startDate,
+        endDate: endDate === startDate ? null : endDate,
         startTime,
         endTime,
         reasonId: reasonId || null,
@@ -671,7 +700,8 @@ export function CreateAbsenceWizard({
         )}
         {step === 2 && (
           <Step2DateTime
-            date={date} setDate={setDate}
+            startDate={startDate} setStartDate={setStartDate}
+            endDate={endDate} setEndDate={setEndDate}
             startTime={startTime} setStartTime={setStartTime}
             endTime={endTime} setEndTime={setEndTime}
             isFullDay={isFullDay} setIsFullDay={setIsFullDay}
@@ -694,7 +724,8 @@ export function CreateAbsenceWizard({
         {step === 4 && selectedEmployee && (
           <Step4Review
             selectedEmployee={selectedEmployee}
-            date={date}
+            startDate={startDate}
+            endDate={endDate}
             startTime={startTime}
             endTime={endTime}
             reasonName={selectedReason?.name || ''}

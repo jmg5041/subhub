@@ -5,7 +5,7 @@
 import { db } from '@/db'
 import { subNotificationTokens } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-
+import { formatDateRange } from '@/lib/date-utils'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -13,11 +13,6 @@ function formatTime(t: string): string {
   const ampm = hour >= 12 ? 'PM' : 'AM'
   const h12 = hour % 12 || 12
   return `${h12}:${min} ${ampm}`
-}
-
-function formatDate(d: string): string {
-  const date = new Date(d + 'T12:00:00')
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 function makeIcsContent(summary: string, date: string, start: string, end: string, location: string): string {
@@ -86,7 +81,7 @@ export default async function ConfirmedPage({
   const sub = tokenRow.substitute.user
   const icsContent = makeIcsContent(
     `Substitute at ${absence.school.name}`,
-    absence.date,
+    absence.startDate,
     absence.startTime,
     absence.endTime,
     absence.school.address ?? absence.school.name
@@ -113,7 +108,7 @@ export default async function ConfirmedPage({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Date</div>
-              <div className="text-sm font-medium text-gray-800">{formatDate(absence.date)}</div>
+              <div className="text-sm font-medium text-gray-800">{formatDateRange(absence.startDate, absence.endDate)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Time</div>
@@ -132,7 +127,7 @@ export default async function ConfirmedPage({
 
         <a
           href={icsDataUrl}
-          download={`subhub-${absence.date}.ics`}
+          download={`subhub-${absence.startDate}.ics`}
           className="block w-full text-center border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
         >
           Add to Calendar

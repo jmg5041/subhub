@@ -18,6 +18,7 @@ import {
 } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
+import { countWeekdays } from '@/lib/date-utils'
 
 /**
  * Sub accepts the job.
@@ -44,10 +45,11 @@ export async function acceptSubJob(token: string) {
 
   const absence = tokenRow.teacherTimeOff
 
-  // Compute total hours
+  // Compute total hours (daily hours × school days)
   const [sh, sm] = absence.startTime.split(':').map(Number)
   const [eh, em] = absence.endTime.split(':').map(Number)
-  const totalHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const dailyHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const totalHours = dailyHours * countWeekdays(absence.startDate, absence.endDate)
 
   // Create the sub assignment
   const [assignment] = await db
@@ -56,7 +58,7 @@ export async function acceptSubJob(token: string) {
       organizationId: absence.organizationId,
       schoolId: absence.schoolId,
       substituteId: tokenRow.substituteId,
-      date: absence.date,
+      date: absence.startDate,
       startTime: absence.startTime,
       endTime: absence.endTime,
       totalHours: totalHours.toFixed(2),

@@ -11,10 +11,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarPlus } from 'lucide-react'
 import { getMyAbsences } from '../actions'
+import { formatDateRangeShort } from '@/lib/date-utils'
 
-function formatDate(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
@@ -46,7 +44,7 @@ export default async function TeacherDashboard() {
 
   const absences = await getMyAbsences()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
-  const upcoming = absences.filter(a => a.date >= today).slice(0, 5)
+  const upcoming = absences.filter(a => a.startDate >= today).slice(0, 5)
   const pending = absences.filter(a => a.approvalStatus === 'unapproved').length
 
   return (
@@ -102,7 +100,7 @@ export default async function TeacherDashboard() {
               return (
                 <div key={a.id} className="flex items-center gap-4 px-6 py-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900">{formatDate(a.date)}</div>
+                    <div className="text-sm font-medium text-gray-900">{formatDateRangeShort(a.startDate, a.endDate)}</div>
                     <div className="text-xs text-gray-400">{formatTime(a.startTime)} – {formatTime(a.endTime)}</div>
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLOR[displayStatus] ?? 'bg-gray-100 text-gray-600'}`}>

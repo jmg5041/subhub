@@ -50,7 +50,7 @@ export async function POST(
   const school = absence.school
 
   return twiml(`
-    <Say>Hello! You have a substitute teaching request at ${school.name} on ${formatDate(absence.date)}, from ${formatTime(absence.startTime)} to ${formatTime(absence.endTime)}.</Say>
+    <Say>Hello! You have a substitute teaching request at ${school.name} on ${formatDate(absence.startDate)}, from ${formatTime(absence.startTime)} to ${formatTime(absence.endTime)}.</Say>
     <Gather numDigits="1" action="${appUrl}/api/twilio/gather/${token}" method="POST">
       <Say>Press 1 to accept this position. Press 2 to decline.</Say>
     </Gather>

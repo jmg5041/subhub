@@ -13,15 +13,7 @@
 
 import { ClipboardCheck, AlertCircle, CheckCircle, CalendarDays } from 'lucide-react'
 import { getUnapprovedAbsences, approveAbsence, denyAbsence } from '../actions'
-
-// Helper: format 'YYYY-MM-DD' → 'Mon, May 3'
-function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import { formatDateRangeShort, countWeekdays } from '@/lib/date-utils'
 
 // Helper: format '07:30:00' → '7:30 AM'
 function formatTime(timeStr: string) {
@@ -95,7 +87,7 @@ export default async function ApproveAbsencesPage() {
               <div className="flex items-center gap-1.5 text-sm text-gray-600">
                 <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
                 <span>
-                  {formatDate(absence.date)} · {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
+                  {formatDateRangeShort(absence.startDate, absence.endDate)} · {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
                 </span>
               </div>
 

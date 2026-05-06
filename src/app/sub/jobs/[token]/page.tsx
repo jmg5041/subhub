@@ -12,6 +12,7 @@ import { db } from '@/db'
 import { subNotificationTokens } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { acceptSubJob, declineSubJob } from './actions'
+import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -19,11 +20,6 @@ function formatTime(t: string): string {
   const ampm = hour >= 12 ? 'PM' : 'AM'
   const h12 = hour % 12 || 12
   return `${h12}:${min} ${ampm}`
-}
-
-function formatDate(d: string): string {
-  const date = new Date(d + 'T12:00:00')
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export default async function SubJobPage({
@@ -103,11 +99,17 @@ export default async function SubJobPage({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Date</div>
-              <div className="text-sm font-medium text-gray-800">{formatDate(absence.date)}</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">
+                {countWeekdays(absence.startDate, absence.endDate) > 1
+                  ? `Date Range (${countWeekdays(absence.startDate, absence.endDate)} days)`
+                  : 'Date'}
+              </div>
+              <div className="text-sm font-medium text-gray-800">
+                {formatDateRange(absence.startDate, absence.endDate)}
+              </div>
             </div>
             <div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Time</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Daily Hours</div>
               <div className="text-sm font-medium text-gray-800">
                 {formatTime(absence.startTime)} – {formatTime(absence.endTime)}
               </div>

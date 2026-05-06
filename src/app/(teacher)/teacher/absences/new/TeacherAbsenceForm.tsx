@@ -27,7 +27,8 @@ export default function TeacherAbsenceForm({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [date, setDate] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [isFullDay, setIsFullDay] = useState(true)
   const [startTime, setStartTime] = useState(schoolDayStart.slice(0, 5))
   const [endTime, setEndTime] = useState(schoolDayEnd.slice(0, 5))
@@ -36,14 +37,21 @@ export default function TeacherAbsenceForm({
   const [notesToSub, setNotesToSub] = useState('')
   const [requestedSubId, setRequestedSubId] = useState('')
 
+  function handleStartDateChange(val: string) {
+    setStartDate(val)
+    // Keep endDate >= startDate
+    if (endDate && endDate < val) setEndDate(val)
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!date) { setError('Please select a date.'); return }
+    if (!startDate) { setError('Please select a start date.'); return }
     setError(null)
 
     startTransition(async () => {
       const res = await submitAbsenceRequest({
-        date,
+        startDate,
+        endDate: endDate && endDate !== startDate ? endDate : null,
         startTime: isFullDay ? schoolDayStart.slice(0, 5) : startTime,
         endTime: isFullDay ? schoolDayEnd.slice(0, 5) : endTime,
         reasonId: reasonId || null,
@@ -66,17 +74,31 @@ export default function TeacherAbsenceForm({
         <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* Date */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Date <span className="text-red-500">*</span></label>
-        <input
-          type="date"
-          required
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      {/* Date range */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date <span className="text-red-500">*</span></label>
+          <input
+            type="date"
+            required
+            value={startDate}
+            onChange={e => handleStartDateChange(e.target.value)}
+            min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            End Date <span className="text-gray-400 font-normal">(leave blank for single day)</span>
+          </label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            min={startDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       {/* Full day toggle */}

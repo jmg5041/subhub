@@ -23,15 +23,7 @@ import {
   CalendarDays,
   Users,
 } from 'lucide-react'
-
-// Helper: format 'YYYY-MM-DD' → 'Mon, May 3'
-function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import { formatDateRangeShort } from '@/lib/date-utils'
 
 // Helper: format '07:30:00' → '7:30 AM'
 function formatTime(timeStr: string) {
@@ -70,7 +62,8 @@ export default async function DashboardPage() {
     ? await db
         .select({
           id: teacherTimeOff.id,
-          date: teacherTimeOff.date,
+          startDate: teacherTimeOff.startDate,
+          endDate: teacherTimeOff.endDate,
           startTime: teacherTimeOff.startTime,
           endTime: teacherTimeOff.endTime,
           approvalStatus: teacherTimeOff.approvalStatus,
@@ -89,8 +82,12 @@ export default async function DashboardPage() {
         .where(eq(teacherTimeOff.organizationId, orgId))
     : []
 
-  const todayAbsences = allAbsences.filter(a => a.date === today)
-  const upcomingAbsences = allAbsences.filter(a => a.date > today)
+  // "Today" = absence spans today (multi-day absences that started before today are included)
+  const todayAbsences = allAbsences.filter(a =>
+    a.startDate <= today && (a.endDate === null || a.endDate >= today)
+  )
+  // "Upcoming" = absence hasn't started yet
+  const upcomingAbsences = allAbsences.filter(a => a.startDate > today)
 
   function statPair(filterFn: (a: typeof allAbsences[0]) => boolean) {
     return {
@@ -326,7 +323,7 @@ export default async function DashboardPage() {
                 )}
 
                 {/* Date — shown in upcoming but not today */}
-                <span className="text-sm text-gray-500">{formatDate(absence.date)}</span>
+                <span className="text-sm text-gray-500">{formatDateRangeShort(absence.startDate, absence.endDate)}</span>
 
                 {/* Right-side badges */}
                 <div className="ml-auto flex items-center gap-2 flex-shrink-0">

@@ -36,7 +36,8 @@ function formatDate(d: string): string {
 
 export function buildSubEmailBody(params: {
   schoolName: string
-  date: string
+  startDate: string
+  endDate: string | null
   startTime: string
   endTime: string
   notesToSub: string | null
@@ -44,16 +45,20 @@ export function buildSubEmailBody(params: {
   acceptUrl: string
   declineUrl: string
 }): { subject: string; html: string; text: string } {
-  const { schoolName, date, startTime, endTime, notesToSub, isSpecificallyRequested, acceptUrl, declineUrl } = params
+  const { schoolName, startDate, endDate, startTime, endTime, notesToSub, isSpecificallyRequested, acceptUrl, declineUrl } = params
 
-  const dateStr = formatDate(date)
+  const dateStr = endDate && endDate !== startDate
+    ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+    : formatDate(startDate)
   const timeStr = `${formatTime(startTime)} – ${formatTime(endTime)}`
   const requestedNote = isSpecificallyRequested ? '<p><strong>You have been specifically requested for this position.</strong></p>' : ''
   const requestedNotePlain = isSpecificallyRequested ? 'You have been specifically requested for this position.\n\n' : ''
   const notesSection = notesToSub ? `<p><strong>Notes from the teacher:</strong><br>${notesToSub}</p>` : ''
   const notesPlain = notesToSub ? `Notes from the teacher:\n${notesToSub}\n\n` : ''
 
-  const subject = `Sub request — ${schoolName} on ${dateStr}`
+  const subject = endDate && endDate !== startDate
+    ? `Sub request — ${schoolName} starting ${formatDate(startDate)}`
+    : `Sub request — ${schoolName} on ${dateStr}`
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
@@ -99,14 +104,17 @@ export async function generateNotificationToken(
 
 export function buildSubSmsBody(params: {
   schoolName: string
-  date: string
+  startDate: string
+  endDate: string | null
   startTime: string
   endTime: string
   acceptUrl: string
   declineUrl: string
 }): string {
-  const { schoolName, date, startTime, endTime, acceptUrl, declineUrl } = params
-  const dateStr = formatDate(date)
+  const { schoolName, startDate, endDate, startTime, endTime, acceptUrl, declineUrl } = params
+  const dateStr = endDate && endDate !== startDate
+    ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+    : formatDate(startDate)
   const timeStr = `${formatTime(startTime)}–${formatTime(endTime)}`
   return `Sub needed at ${schoolName} on ${dateStr}, ${timeStr}.\n\nAccept: ${acceptUrl}\nDecline: ${declineUrl}`
 }
@@ -199,14 +207,14 @@ export async function notifyAllSubs(
   const isSpecificallyRequested = (sub: typeof orderedSubs[0]) =>
     absence.requestedSubId === sub.id
 
-  // Filter out subs who marked this date unavailable
+  // Filter out subs who marked the start date unavailable
   const unavailableRows = orderedSubs.length > 0
     ? await db
         .select({ substituteId: schema.subUnavailability.substituteId })
         .from(schema.subUnavailability)
         .where(and(
           inArray(schema.subUnavailability.substituteId, orderedSubs.map(s => s.id)),
-          eq(schema.subUnavailability.date, absence.date)
+          eq(schema.subUnavailability.date, absence.startDate)
         ))
     : []
   const unavailableIds = new Set(unavailableRows.map(r => r.substituteId))
@@ -233,7 +241,8 @@ export async function notifyAllSubs(
       if (sendEmail) {
         const { subject, html, text } = buildSubEmailBody({
           schoolName: absence.school.name,
-          date: absence.date,
+          startDate: absence.startDate,
+          endDate: absence.endDate,
           startTime: absence.startTime,
           endTime: absence.endTime,
           notesToSub: absence.notesToSub,
@@ -247,7 +256,8 @@ export async function notifyAllSubs(
       if (sendSmsTxt && sub.user.phone) {
         const smsBody = buildSubSmsBody({
           schoolName: absence.school.name,
-          date: absence.date,
+          startDate: absence.startDate,
+          endDate: absence.endDate,
           startTime: absence.startTime,
           endTime: absence.endTime,
           acceptUrl,

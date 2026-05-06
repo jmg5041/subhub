@@ -3,10 +3,12 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { deleteAbsenceRequest } from '../../actions'
+import { formatDateRange } from '@/lib/date-utils'
 
 type Absence = {
   id: string
-  date: string
+  startDate: string
+  endDate: string | null
   startTime: string
   endTime: string
   approvalStatus: string | null
@@ -21,9 +23,6 @@ type Absence = {
   }[]
 }
 
-function formatDate(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-}
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
@@ -45,8 +44,8 @@ export default function MyAbsencesClient({ absences }: { absences: Absence[] }) 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function handleDelete(id: string, date: string) {
-    if (!confirm(`Delete your absence request for ${formatDate(date)}?`)) return
+  function handleDelete(id: string, startDate: string, endDate: string | null) {
+    if (!confirm(`Delete your absence request for ${formatDateRange(startDate, endDate)}?`)) return
     startTransition(async () => {
       const res = await deleteAbsenceRequest(id)
       if ('error' in res) setError(res.error ?? 'Unknown error')
@@ -76,7 +75,7 @@ export default function MyAbsencesClient({ absences }: { absences: Absence[] }) 
           return (
             <div key={a.id} className="flex items-start gap-4 px-6 py-4">
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 text-sm">{formatDate(a.date)}</div>
+                <div className="font-medium text-gray-900 text-sm">{formatDateRange(a.startDate, a.endDate)}</div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   {formatTime(a.startTime)} – {formatTime(a.endTime)}
                   {a.school && <> · {a.school.name}</>}
@@ -92,7 +91,7 @@ export default function MyAbsencesClient({ absences }: { absences: Absence[] }) 
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${color}`}>{label}</span>
                 {canDelete && (
                   <button
-                    onClick={() => handleDelete(a.id, a.date)}
+                    onClick={() => handleDelete(a.id, a.startDate, a.endDate)}
                     disabled={isPending}
                     className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
                   >
