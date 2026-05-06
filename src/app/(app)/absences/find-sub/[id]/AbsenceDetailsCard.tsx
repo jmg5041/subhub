@@ -22,8 +22,10 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { FileUploadInput, type UploadedFile } from '@/components/FileUploadInput'
+import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 import {
   updateNotesToSub,
+  updateAbsenceDates,
   saveAbsenceAttachment,
   deleteAttachment,
   unapproveAbsence,
@@ -45,6 +47,8 @@ type Props = {
   schoolName: string
   date: string           // formatted string, e.g. 'Monday, May 10, 2026' or 'May 10 – 14, 2026'
   dayCount: number       // number of school days (1 for single-day absences)
+  rawStartDate: string   // 'YYYY-MM-DD' — used by the date edit form
+  rawEndDate: string | null
   timeRange: string      // formatted string, e.g. '7:45 AM – 3:15 PM'
   reasonName?: string | null
   substituteRequired: boolean
@@ -65,6 +69,8 @@ export default function AbsenceDetailsCard({
   schoolName,
   date,
   dayCount,
+  rawStartDate,
+  rawEndDate,
   timeRange,
   reasonName,
   substituteRequired,
@@ -77,6 +83,44 @@ export default function AbsenceDetailsCard({
   userId,
 }: Props) {
   const router = useRouter()
+
+  // ── Date editing state ──
+  const [displayDate, setDisplayDate]       = useState(date)
+  const [displayDayCount, setDisplayDayCount] = useState(dayCount)
+  const [isEditingDates, setIsEditingDates] = useState(false)
+  const [startDateDraft, setStartDateDraft] = useState(rawStartDate)
+  const [endDateDraft, setEndDateDraft]     = useState(rawEndDate ?? '')
+  const [datesSaving, startDatesSave]       = useTransition()
+  const [datesError, setDatesError]         = useState('')
+
+  function handleStartDateDraftChange(val: string) {
+    setStartDateDraft(val)
+    if (endDateDraft && endDateDraft < val) setEndDateDraft(val)
+  }
+
+  function handleSaveDates() {
+    if (!startDateDraft) { setDatesError('Start date is required.'); return }
+    setDatesError('')
+    const newEndDate = endDateDraft && endDateDraft !== startDateDraft ? endDateDraft : null
+    startDatesSave(async () => {
+      const result = await updateAbsenceDates(timeOffId, startDateDraft, newEndDate)
+      if ('error' in result) {
+        setDatesError(result.error ?? 'Failed to save — please try again.')
+      } else {
+        setDisplayDate(formatDateRange(startDateDraft, newEndDate))
+        setDisplayDayCount(countWeekdays(startDateDraft, newEndDate))
+        setIsEditingDates(false)
+      }
+    })
+  }
+
+  function handleCancelDates() {
+    setStartDateDraft(rawStartDate)
+    setEndDateDraft(rawEndDate ?? '')
+    setIsEditingDates(false)
+    setDatesError('')
+  }
+
   // ── Notes state ──
   const [isEditingNotes, setIsEditingNotes] = useState(false)
   const [notesDraft, setNotesDraft]         = useState(initialNotes ?? '')
@@ -203,17 +247,79 @@ export default function AbsenceDetailsCard({
       </div>
 
       {/* ── Date / Time ── */}
-      <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
-        <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">
-            {dayCount > 1 ? `Date Range (${dayCount} school days)` : 'Date'}
+      <div className="pt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400 uppercase tracking-wide">
+            {displayDayCount > 1 ? `Date Range (${displayDayCount} school days)` : 'Date'}
+          </span>
+          {!isEditingDates && !isAlreadyFilled && (
+            <button
+              type="button"
+              onClick={() => setIsEditingDates(true)}
+              className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit dates
+            </button>
+          )}
+        </div>
+
+        {isEditingDates ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDateDraft}
+                  onChange={e => handleStartDateDraftChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  End Date <span className="text-gray-400">(blank = single day)</span>
+                </label>
+                <input
+                  type="date"
+                  value={endDateDraft}
+                  onChange={e => setEndDateDraft(e.target.value)}
+                  min={startDateDraft}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            {datesError && <p className="text-xs text-red-600">{datesError}</p>}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveDates}
+                disabled={datesSaving}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+              >
+                {datesSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelDates}
+                disabled={datesSaving}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+            </div>
           </div>
-          <div className="text-sm font-medium text-gray-800">{date}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Daily Hours</div>
-          <div className="text-sm font-medium text-gray-800">{timeRange}</div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="text-sm font-medium text-gray-800">{displayDate}</div>
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Daily Hours</div>
+              <div className="text-sm font-medium text-gray-800">{timeRange}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Notes for Substitute ── */}

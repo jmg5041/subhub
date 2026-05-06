@@ -71,6 +71,8 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         schoolName={absence.school?.name ?? ''}
         date={formatDateRange(absence.startDate, absence.endDate)}
         dayCount={countWeekdays(absence.startDate, absence.endDate)}
+        rawStartDate={absence.startDate}
+        rawEndDate={absence.endDate}
         timeRange={`${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`}
         reasonName={absence.reason?.name}
         substituteRequired={absence.substituteRequired ?? true}

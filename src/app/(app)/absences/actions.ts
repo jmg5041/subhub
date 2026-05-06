@@ -585,6 +585,36 @@ export async function cancelSubAssignment(timeOffId: string) {
 }
 
 /**
+ * Updates the date range on an existing absence.
+ * Blocked once a substitute has accepted (subOutreachStatus = 'filled').
+ */
+export async function updateAbsenceDates(
+  timeOffId: string,
+  startDate: string,
+  endDate: string | null
+) {
+  const { orgId } = await getOrgAndUserId()
+
+  const absence = await db.query.teacherTimeOff.findFirst({
+    where: and(eq(teacherTimeOff.id, timeOffId), eq(teacherTimeOff.organizationId, orgId)),
+  })
+  if (!absence) return { error: 'Absence not found' }
+  if (absence.subOutreachStatus === 'filled') {
+    return { error: 'Cannot change dates — a substitute is already assigned.' }
+  }
+
+  await db
+    .update(teacherTimeOff)
+    .set({ startDate, endDate: endDate || null, updatedAt: new Date() })
+    .where(eq(teacherTimeOff.id, timeOffId))
+
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  revalidatePath('/dashboard')
+  revalidatePath('/absences/approve')
+  return { success: true }
+}
+
+/**
  * Updates the "notes for sub" field on an existing absence.
  * Called when admin clicks Save after editing notes on the Absence Details page.
  */
