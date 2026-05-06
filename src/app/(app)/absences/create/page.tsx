@@ -11,13 +11,14 @@
 
 import { CalendarPlus } from 'lucide-react'
 import { CreateAbsenceWizard } from './CreateAbsenceWizard'
-import { getEmployees, getAbsenceReasons } from '../actions'
+import { getEmployees, getAbsenceReasons, getUserContext } from '../actions'
 
 export default async function CreateAbsencePage() {
-  // Fetch employees and absence reasons at the same time (parallel)
-  const [employees, absenceReasons] = await Promise.all([
+  // Fetch all data in parallel
+  const [employees, absenceReasons, { orgId, userId }] = await Promise.all([
     getEmployees(),
     getAbsenceReasons(),
+    getUserContext(),
   ])
 
   return (
@@ -35,6 +36,8 @@ export default async function CreateAbsencePage() {
       <CreateAbsenceWizard
         employees={employees}
         absenceReasons={absenceReasons}
+        orgId={orgId}
+        userId={userId}
       />
     </div>
   )

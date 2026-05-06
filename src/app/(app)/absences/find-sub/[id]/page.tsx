@@ -12,6 +12,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { FileText, Image as ImageIcon } from 'lucide-react'
 import { getAbsenceWithDetails, getAvailableSubs } from '../../actions'
 import FindSubClient from './FindSubClient'
 
@@ -111,6 +112,35 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
             <div className="text-xs text-orange-500 uppercase tracking-wide mb-0.5">Specifically requested</div>
             <div className="text-sm font-medium text-gray-800">
               {absence.requestedSub.user.firstName} {absence.requestedSub.user.lastName}
+            </div>
+          </div>
+        )}
+
+        {absence.attachments && absence.attachments.length > 0 && (
+          <div className="pt-2 border-t border-gray-100">
+            <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Attachments</div>
+            <div className="space-y-1.5">
+              {absence.attachments.map((a) => (
+                <a
+                  key={a.id}
+                  href={a.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                >
+                  {a.fileType === 'image' ? (
+                    <ImageIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  ) : (
+                    <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  )}
+                  <span className="flex-1 truncate">{a.fileName}</span>
+                  {a.fileSize && (
+                    <span className="flex-shrink-0 text-xs text-gray-400">
+                      {(a.fileSize / 1024).toFixed(0)} KB
+                    </span>
+                  )}
+                </a>
+              ))}
             </div>
           </div>
         )}

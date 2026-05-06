@@ -19,6 +19,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAbsence } from '../actions'
+import { FileUploadInput, type UploadedFile } from '@/components/FileUploadInput'
 import {
   Search,
   User,
@@ -382,10 +383,14 @@ function Step3Notes({
   notesToAdmin, setNotesToAdmin,
   notesToSub, setNotesToSub,
   adminOnlyNotes, setAdminOnlyNotes,
+  attachments, setAttachments,
+  orgId, userId,
 }: {
   notesToAdmin: string; setNotesToAdmin: (v: string) => void
   notesToSub: string; setNotesToSub: (v: string) => void
   adminOnlyNotes: string; setAdminOnlyNotes: (v: string) => void
+  attachments: UploadedFile[]; setAttachments: (v: UploadedFile[]) => void
+  orgId: string; userId: string
 }) {
   return (
     <div className="space-y-5">
@@ -433,6 +438,17 @@ function Step3Notes({
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-y"
         />
         <p className="text-xs text-gray-400">Only admins and principals can see this.</p>
+      </div>
+
+      {/* File attachments */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-gray-700">Attachments</label>
+        <FileUploadInput
+          orgId={orgId}
+          userId={userId}
+          value={attachments}
+          onChange={setAttachments}
+        />
       </div>
     </div>
   )
@@ -555,9 +571,13 @@ function ReviewRow({
 export function CreateAbsenceWizard({
   employees,
   absenceReasons,
+  orgId,
+  userId,
 }: {
   employees: Employee[]
   absenceReasons: AbsenceReason[]
+  orgId: string
+  userId: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -581,10 +601,11 @@ export function CreateAbsenceWizard({
   const [substituteRequired, setSubstituteRequired] = useState(true)
   const [holdUntil, setHoldUntil] = useState('no_hold')
 
-  // Step 3 — notes
+  // Step 3 — notes and attachments
   const [notesToAdmin, setNotesToAdmin] = useState('')
   const [notesToSub, setNotesToSub] = useState('')
   const [adminOnlyNotes, setAdminOnlyNotes] = useState('')
+  const [attachments, setAttachments] = useState<UploadedFile[]>([])
 
   // Derived: name of the selected reason (for the review step)
   const selectedReason = absenceReasons.find((r) => r.id === reasonId)
@@ -622,6 +643,7 @@ export function CreateAbsenceWizard({
         adminOnlyNotes,
         substituteRequired,
         holdUntil,
+        attachments,
       })
 
       if (result?.error) {
@@ -665,6 +687,8 @@ export function CreateAbsenceWizard({
             notesToAdmin={notesToAdmin} setNotesToAdmin={setNotesToAdmin}
             notesToSub={notesToSub} setNotesToSub={setNotesToSub}
             adminOnlyNotes={adminOnlyNotes} setAdminOnlyNotes={setAdminOnlyNotes}
+            attachments={attachments} setAttachments={setAttachments}
+            orgId={orgId} userId={userId}
           />
         )}
         {step === 4 && selectedEmployee && (

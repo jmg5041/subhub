@@ -23,6 +23,7 @@ import {
   schools,
   absenceReasons,
   teacherTimeOff,
+  attachments,
   substitutes,
   subAssignments,
   assignmentTimeOff,
@@ -50,6 +51,11 @@ async function getOrgAndUserId(): Promise<{ orgId: string; userId: string }> {
   if (!profile) throw new Error('User profile not found')
 
   return { orgId: profile.organizationId, userId: user.id }
+}
+
+/** Exported wrapper so server pages can get org/user context for passing to client components. */
+export async function getUserContext() {
+  return getOrgAndUserId()
 }
 
 // ─── Read Queries (used to load data into forms) ─────────────────────────────
@@ -240,6 +246,13 @@ export async function getDashboardStats() {
  * Called when the principal submits the Create Absence wizard.
  * Returns { success: true } or { error: 'message' }.
  */
+type AttachmentInput = {
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  fileType: string
+}
+
 export async function createAbsence(data: {
   employeeId: string
   schoolId: string
@@ -252,11 +265,12 @@ export async function createAbsence(data: {
   adminOnlyNotes: string
   substituteRequired: boolean
   holdUntil: string
+  attachments?: AttachmentInput[]
 }) {
   try {
-    const { orgId } = await getOrgAndUserId()
+    const { orgId, userId } = await getOrgAndUserId()
 
-    await db.insert(teacherTimeOff).values({
+    const [newAbsence] = await db.insert(teacherTimeOff).values({
       organizationId: orgId,
       schoolId: data.schoolId,
       employeeId: data.employeeId,
@@ -269,7 +283,21 @@ export async function createAbsence(data: {
       adminOnlyNotes: data.adminOnlyNotes || null,
       substituteRequired: data.substituteRequired,
       holdUntil: data.holdUntil || 'no_hold',
-    })
+    }).returning({ id: teacherTimeOff.id })
+
+    if (data.attachments?.length && newAbsence) {
+      await db.insert(attachments).values(
+        data.attachments.map(a => ({
+          organizationId: orgId,
+          teacherTimeOffId: newAbsence.id,
+          uploadedBy: userId,
+          fileName: a.fileName,
+          fileUrl: a.fileUrl,
+          fileSize: a.fileSize,
+          fileType: a.fileType,
+        }))
+      )
+    }
 
     // Tell Next.js to refresh the dashboard and approve page caches
     revalidatePath('/dashboard')
@@ -394,6 +422,7 @@ export async function getAbsenceWithDetails(id: string) {
           },
         },
       },
+      attachments: true,
     },
   })
 }
