@@ -5,12 +5,14 @@
  * They can safely access the database, check who's logged in, and update records.
  *
  * This file handles all the database operations for absences:
- * - Getting the list of employees (teachers) for the Create Absence wizard
- * - Getting absence reasons (Sick Day, Personal Day, etc.)
- * - Creating a new absence record
- * - Approving or denying an absence
- * - Getting absences that need reconciliation
- * - Dashboard stats
+ * - Getting employees and absence reasons (for the Create Absence wizard)
+ * - Creating a new absence record (with optional file attachments)
+ * - Approving, denying, or unapproving an absence
+ * - Editing notes for sub and managing attachments on existing absences
+ * - Getting absences for reconciliation and dashboard stats
+ * - Finding and assigning substitutes (direct assign or blast notification)
+ * - Cancelling a sub assignment
+ * - Toggling staff coverage
  */
 
 'use server'
