@@ -184,25 +184,21 @@ export async function searchSchoolsNearby(lat: number, lng: number, radiusMiles:
   await getSubContext()
 
   const rows = await db.execute(sql`
-    SELECT
-      id, school_name, district_name, county, city, address, state, zip, phone,
-      school_type, grade_range, claimed_by_org_id,
-      (3959 * acos(
-        least(1.0,
-          cos(radians(${lat})) * cos(radians(lat::float)) *
-          cos(radians(lng::float) - radians(${lng})) +
-          sin(radians(${lat})) * sin(radians(lat::float))
-        )
-      )) AS distance_miles
-    FROM school_directory
-    WHERE lat IS NOT NULL AND lng IS NOT NULL
-    HAVING (3959 * acos(
-      least(1.0,
-        cos(radians(${lat})) * cos(radians(lat::float)) *
-        cos(radians(lng::float) - radians(${lng})) +
-        sin(radians(${lat})) * sin(radians(lat::float))
-      )
-    )) <= ${radiusMiles}
+    SELECT * FROM (
+      SELECT
+        id, school_name, district_name, county, city, address, state, zip, phone,
+        school_type, grade_range, claimed_by_org_id,
+        (3959 * acos(
+          least(1.0,
+            cos(radians(${lat})) * cos(radians(lat::float)) *
+            cos(radians(lng::float) - radians(${lng})) +
+            sin(radians(${lat})) * sin(radians(lat::float))
+          )
+        )) AS distance_miles
+      FROM school_directory
+      WHERE lat IS NOT NULL AND lng IS NOT NULL
+    ) t
+    WHERE distance_miles <= ${radiusMiles}
     ORDER BY distance_miles
     LIMIT 50
   `)
