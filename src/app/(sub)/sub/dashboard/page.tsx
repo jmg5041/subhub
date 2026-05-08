@@ -1,3 +1,14 @@
+/**
+ * Substitute dashboard — landing page after sub login.
+ *
+ * Sections:
+ *   1. Greeting + today's date
+ *   2. Open requests (jobs to respond to)
+ *   3. Upcoming confirmed assignments
+ *   4. Past jobs summary — grouped by school with total hours
+ *   5. Set availability link
+ */
+
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
@@ -5,7 +16,8 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMyAssignments, getMyPendingTokens } from '../../actions'
-import { Calendar, CheckCircle, Clock, MapPin } from 'lucide-react'
+import { Calendar, Clock, MapPin, ChevronRight } from 'lucide-react'
+import { formatDateRange } from '@/lib/date-utils'
 
 function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -36,10 +48,37 @@ export default async function SubDashboard() {
   ])
 
   const upcoming = assignments.filter(a => a.date >= today)
-  const past = assignments.filter(a => a.date < today)
+  const past     = assignments.filter(a => a.date < today)
+
+  // ── Per-school summary for past jobs ──
+  type SchoolSummary = {
+    schoolId: string
+    schoolName: string
+    jobCount: number
+    totalHours: number
+  }
+  const schoolMap = new Map<string, SchoolSummary>()
+  for (const a of past) {
+    const existing = schoolMap.get(a.schoolId)
+    const hours = Number(a.totalHours ?? 0)
+    if (existing) {
+      existing.jobCount++
+      existing.totalHours += hours
+    } else {
+      schoolMap.set(a.schoolId, {
+        schoolId: a.schoolId,
+        schoolName: a.school?.name ?? 'Unknown School',
+        jobCount: 1,
+        totalHours: hours,
+      })
+    }
+  }
+  const schoolSummaries = Array.from(schoolMap.values())
+    .sort((a, b) => b.totalHours - a.totalHours)
 
   return (
     <div className="space-y-6 max-w-2xl">
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{greeting}, {profile.firstName}</h1>
@@ -60,26 +99,27 @@ export default async function SubDashboard() {
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-center">
           <div className="text-2xl font-bold text-gray-700">{past.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Completed</div>
+          <div className="text-xs text-gray-500 mt-0.5">Jobs completed</div>
         </div>
       </div>
 
-      {/* Pending requests — jobs they haven't responded to yet */}
+      {/* Open requests — jobs awaiting response */}
       {pendingTokens.length > 0 && (
         <div className="rounded-lg border border-orange-200 bg-white overflow-hidden">
-          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-orange-600" />
-            <span className="font-semibold text-orange-900 text-sm">Requests Awaiting Your Response</span>
+          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100">
+            <span className="font-semibold text-orange-900 text-sm">
+              {pendingTokens.length === 1 ? '1 Request Awaiting Your Response' : `${pendingTokens.length} Requests Awaiting Your Response`}
+            </span>
           </div>
           <div className="divide-y divide-gray-100">
             {pendingTokens.map(t => (
               <div key={t.id} className="px-5 py-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="font-medium text-gray-900">{t.teacherTimeOff.school.name}</div>
-                  <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
-                    <span>{formatDateLong(t.teacherTimeOff.startDate)}</span>
-                    <span className="text-gray-300">·</span>
-                    <span>{formatTime(t.teacherTimeOff.startTime)} – {formatTime(t.teacherTimeOff.endTime)}</span>
+                  <div className="text-sm text-gray-500 mt-0.5">
+                    {formatDateLong(t.teacherTimeOff.startDate)}
+                    {' · '}
+                    {formatTime(t.teacherTimeOff.startTime)} – {formatTime(t.teacherTimeOff.endTime)}
                   </div>
                 </div>
                 <Link
@@ -104,65 +144,130 @@ export default async function SubDashboard() {
           <div className="font-medium text-gray-900">Set My Availability</div>
           <div className="text-sm text-gray-500">Mark dates you&apos;re not available to sub</div>
         </div>
+        <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
       </Link>
 
       {/* Upcoming assignments */}
       {upcoming.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <span className="font-semibold text-gray-900 text-sm">Upcoming Assignments</span>
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <span className="font-semibold text-gray-900 text-sm">Upcoming Jobs</span>
+            <span className="text-xs text-blue-600 font-medium">{upcoming.length} scheduled</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {upcoming.map(a => (
-              <div key={a.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="font-medium text-gray-900">{formatDate(a.date)}</div>
-                    <div className="text-sm text-blue-700 font-medium mt-0.5">
-                      {formatTime(a.startTime)} – {formatTime(a.endTime)}
-                    </div>
-                    {a.school && (
-                      <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                        {a.school.name}
-                      </div>
-                    )}
-                    {a.timeOffLinks.map(link => link.timeOff && (
-                      <div key={link.timeOff.id} className="text-xs text-gray-400 mt-1">
-                        Covering: {link.timeOff.employee?.user?.firstName} {link.timeOff.employee?.user?.lastName}
-                        {link.timeOff.notesToSub && (
-                          <span> · {link.timeOff.notesToSub.slice(0, 100)}{link.timeOff.notesToSub.length > 100 ? '…' : ''}</span>
+            {upcoming.map(a => {
+              const isToday = a.date === today
+              const timeOffLinks = a.timeOffLinks ?? []
+              const primaryTimeOff = timeOffLinks[0]?.timeOff
+              const startDate = primaryTimeOff?.startDate ?? a.date
+              const endDate = primaryTimeOff?.endDate ?? null
+              return (
+                <Link
+                  key={a.id}
+                  href={`/sub/jobs/${a.id}`}
+                  className="block px-5 py-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium text-gray-900">{a.school?.name}</div>
+                        {isToday && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                            Today
+                          </span>
                         )}
                       </div>
-                    ))}
+                      <div className="text-sm text-gray-500 mt-0.5">
+                        {formatDateRange(startDate, endDate)}
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-blue-700 font-medium mt-0.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        {formatTime(a.startTime)} – {formatTime(a.endTime)}
+                      </div>
+                      {a.school?.address && (
+                        <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                          <MapPin className="h-3 w-3" />
+                          {a.school.address}{a.school.city && `, ${a.school.city}`}
+                        </div>
+                      )}
+                      {/* Show teacher notes preview if any */}
+                      {timeOffLinks.some(l => l.timeOff?.notesToSub) && (
+                        <div className="text-xs text-gray-400 mt-1 italic">
+                          Notes attached — tap to view
+                        </div>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
                   </div>
-                  <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
-                    {a.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Past assignments */}
+      {/* Past jobs by school */}
       {past.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
-            <span className="font-semibold text-gray-900 text-sm">Recent Completed</span>
+            <div className="font-semibold text-gray-900 text-sm">Hours Worked by School</div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              All-time totals · {past.length} job{past.length !== 1 ? 's' : ''} completed
+            </div>
           </div>
+
+          {/* Per-school summary rows */}
           <div className="divide-y divide-gray-100">
-            {past.slice(0, 5).map(a => (
-              <div key={a.id} className="px-5 py-3 flex items-center gap-4">
-                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+            {schoolSummaries.map(s => (
+              <Link
+                key={s.schoolId}
+                href={`/sub/schools/${s.schoolId}`}
+                className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors"
+              >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-700">{formatDate(a.date)}</div>
-                  {a.school && <div className="text-xs text-gray-400 truncate">{a.school.name}</div>}
+                  <div className="text-sm font-medium text-gray-900 truncate">{s.schoolName}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {s.jobCount} job{s.jobCount !== 1 ? 's' : ''}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-400">{formatTime(a.startTime)} – {formatTime(a.endTime)}</div>
-              </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-sm font-semibold text-gray-800">
+                    {s.totalHours.toFixed(1)} hrs
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              </Link>
             ))}
+          </div>
+
+          {/* Recent individual jobs */}
+          <div className="border-t border-gray-100">
+            <div className="px-5 py-2 bg-gray-50 text-xs text-gray-400 font-medium uppercase tracking-wide">
+              Recent Jobs
+            </div>
+            <div className="divide-y divide-gray-100">
+              {past.slice(0, 8).map(a => (
+                <Link
+                  key={a.id}
+                  href={`/sub/jobs/${a.id}`}
+                  className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-700">{formatDate(a.date)}</div>
+                    <div className="text-xs text-gray-400 truncate">{a.school?.name}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0 text-xs text-gray-500">
+                    {Number(a.totalHours) > 0 ? `${Number(a.totalHours).toFixed(1)} hrs` : formatTime(a.startTime) + ' – ' + formatTime(a.endTime)}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
+            {past.length > 8 && (
+              <div className="px-5 py-3 border-t border-gray-100 text-center">
+                <span className="text-xs text-gray-400">Showing 8 of {past.length} past jobs</span>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -33,6 +33,7 @@ export const schools = pgTable('schools', {
   zip: text('zip'),
   phone: text('phone'),
   fax: text('fax'),
+  website: text('website'),
   timezone: text('timezone').default('America/Los_Angeles'),
   dayStartTime: time('day_start_time').default('07:30'),
   dayEndTime: time('day_end_time').default('15:30'),

@@ -276,6 +276,47 @@ export async function deleteUser(formData: FormData) {
   return { success: true }
 }
 
+// ─── School management ────────────────────────────────────────────────────────
+
+export async function getOrgSchools() {
+  const { orgId } = await getAdminContext()
+  return db.query.schools.findMany({
+    where: eq(schools.organizationId, orgId),
+    orderBy: (s, { asc }) => [asc(s.name)],
+  })
+}
+
+export async function updateSchool(formData: FormData) {
+  const { orgId } = await getAdminContext()
+  const id = formData.get('id') as string
+
+  const school = await db.query.schools.findFirst({
+    where: eq(schools.id, id),
+  })
+  if (!school || school.organizationId !== orgId) {
+    return { error: 'School not found' }
+  }
+
+  await db
+    .update(schools)
+    .set({
+      name:         (formData.get('name') as string).trim(),
+      address:      (formData.get('address') as string).trim() || null,
+      city:         (formData.get('city') as string).trim() || null,
+      state:        (formData.get('state') as string).trim() || null,
+      zip:          (formData.get('zip') as string).trim() || null,
+      phone:        (formData.get('phone') as string).trim() || null,
+      website:      (formData.get('website') as string).trim() || null,
+      dayStartTime: (formData.get('dayStartTime') as string) || school.dayStartTime,
+      dayEndTime:   (formData.get('dayEndTime') as string) || school.dayEndTime,
+      updatedAt:    new Date(),
+    })
+    .where(eq(schools.id, id))
+
+  revalidatePath('/admin/schools')
+  return { success: true }
+}
+
 export async function reactivateUser(formData: FormData) {
   const { orgId } = await getAdminContext()
 

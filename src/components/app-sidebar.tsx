@@ -26,6 +26,7 @@ import {
   LogOut,
   School,
   Users,
+  Building2,
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -63,6 +64,7 @@ const navGroups = [
     items: [
       { href: '/settings', label: 'Settings', icon: Settings },
       { href: '/admin/users', label: 'Manage Users', icon: Users },
+      { href: '/admin/schools', label: 'Schools', icon: Building2 },
     ],
   },
 ];

@@ -7,7 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens } from '@/db/schema'
+import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools } from '@/db/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -44,6 +44,52 @@ export async function getMyAssignments() {
       },
     },
     orderBy: (a, { desc }) => [desc(a.date)],
+  })
+}
+
+/**
+ * Returns a single assignment with full details for the sub job detail page.
+ * Verifies the assignment belongs to the logged-in sub.
+ */
+export async function getMyAssignmentById(assignmentId: string) {
+  const { sub } = await getSubContext()
+
+  return db.query.subAssignments.findFirst({
+    where: and(
+      eq(subAssignments.id, assignmentId),
+      eq(subAssignments.substituteId, sub.id)
+    ),
+    with: {
+      school: true,
+      timeOffLinks: {
+        with: {
+          timeOff: {
+            with: {
+              employee: { with: { user: true } },
+              reason: true,
+              attachments: true,
+            },
+          },
+        },
+      },
+    },
+  })
+}
+
+/**
+ * Returns school profile info. Accessible to any authenticated substitute.
+ */
+export async function getSchoolProfile(schoolId: string) {
+  const { sub } = await getSubContext()
+  // Verify sub belongs to the same org as the school
+  const profile = await db.query.users.findFirst({
+    where: eq(users.id, sub.userId),
+  })
+  return db.query.schools.findFirst({
+    where: and(
+      eq(schools.id, schoolId),
+      eq(schools.organizationId, profile?.organizationId ?? '')
+    ),
   })
 }
 
