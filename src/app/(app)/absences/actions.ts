@@ -31,7 +31,7 @@ import {
   assignmentTimeOff,
   subPriorityOrders,
 } from '@/db/schema'
-import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql } from 'drizzle-orm'
+import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql, ne } from 'drizzle-orm'
 import { countWeekdays } from '@/lib/date-utils'
 import { revalidatePath } from 'next/cache'
 
@@ -176,7 +176,8 @@ export async function getApprovedUnfilledAbsences() {
       and(
         eq(teacherTimeOff.organizationId, orgId),
         eq(teacherTimeOff.approvalStatus, 'approved'),
-        eq(teacherTimeOff.substituteRequired, true)
+        eq(teacherTimeOff.substituteRequired, true),
+        ne(teacherTimeOff.subOutreachStatus, 'filled')
       )
     )
     .orderBy(asc(teacherTimeOff.startDate))
