@@ -169,8 +169,9 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        <div
-          className="relative flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+        <Link
+          href="/absences/find-sub"
+          className="relative flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-orange-300 hover:bg-orange-50"
         >
           <Users className="h-8 w-8 text-orange-500" />
           <div>
@@ -182,7 +183,7 @@ export default async function DashboardPage() {
               {stats.waitingOnSub.today + stats.waitingOnSub.upcoming}
             </span>
           )}
-        </div>
+        </Link>
       </div>
 
       {/* Today's absences table */}
