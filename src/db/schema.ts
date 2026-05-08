@@ -211,6 +211,8 @@ export const schoolDirectory = pgTable('school_directory', {
   phone: text('phone'),
   schoolType: text('school_type'),   // "Public", "Private", etc.
   gradeRange: text('grade_range'),   // "K-8", "9-12", etc.
+  lat: numeric('lat', { precision: 10, scale: 6 }),
+  lng: numeric('lng', { precision: 10, scale: 6 }),
   // If an org has claimed this entry, claimedByOrgId links to their organizations row
   claimedByOrgId: uuid('claimed_by_org_id').references(() => organizations.id),
   createdAt: timestamp('created_at').defaultNow(),

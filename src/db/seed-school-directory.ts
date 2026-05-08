@@ -1,113 +1,161 @@
 /**
- * Import California public school directory into the school_directory table.
+ * Import the CDE School Directory into the school_directory table.
  *
- * Data source: CA Dept of Education "pubschls" TSV download
- * https://www.cde.ca.gov/ds/si/ds/pubschls.asp
+ * Source file: CDESchoolDirectoryExport.txt (tab-delimited)
+ * Download from: https://www.cde.ca.gov/SchoolDirectory/export
  *
  * Usage:
- *   npx tsx src/db/seed-school-directory.ts ./pubschls.txt
+ *   npx tsx src/db/seed-school-directory.ts ~/Downloads/CDESchoolDirectoryExport.txt
  *
- * The file has tab-separated columns with a header row.
- * We skip rows where County = "Out of State" and rows with StatusType = "Closed".
+ * Column map (0-indexed, tab-delimited):
+ *   0  Record Type       — "School" or "District"; skip non-School rows
+ *   1  CDS Code
+ *   4  County
+ *   5  District
+ *   6  School name
+ *   7  Status            — "Active" / "Closed" / etc.; skip non-Active
+ *  14  Entity Type       — "Elementary School (Private)", "High Schools (Public)", etc.
+ *  15  Low Grade         — K, 1, 2, … 12
+ *  16  High Grade
+ *  26  Street Address
+ *  27  Street City
+ *  28  Street State
+ *  29  Street Zip
+ *  34  Phone
  */
 
-import fs from 'fs';
-import path from 'path';
-import readline from 'readline';
-import { db } from './index';
-import { schoolDirectory } from './schema';
+import fs from 'fs'
+import path from 'path'
+import readline from 'readline'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+import * as schema from './schema'
+import { schoolDirectory } from './schema'
 
-const FILE_PATH = process.argv[2];
-if (!FILE_PATH) {
-  console.error('Usage: npx tsx src/db/seed-school-directory.ts <path-to-tsv-file>');
-  process.exit(1);
+// Load .env.local — Next.js does this automatically but standalone scripts don't
+const envPath = path.resolve(process.cwd(), '.env.local')
+if (fs.existsSync(envPath)) {
+  const envFile = fs.readFileSync(envPath, 'utf8')
+  for (const line of envFile.split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/)
+    if (match) process.env[match[1].trim()] = match[2].trim()
+  }
 }
 
-// CDE pubschls column headers (as of 2024 download)
-// CDSCode, NCESDist, NCESSchool, StatusType, County, District, School, Street, StreetAbr, City, Zip, State, MailStreet, MailStrCity, MailStrZip, MailStrState, Phone, Ext, WebSite, OpenDate, ClosedDate, Charter, CharterNum, FundingType, DOC, DOCType, SOC, SOCType, EdOpsCode, EdOpsName, EILCode, EILName, GSoffered, GSserved, Virtual, Magnet, Latitude, Longitude, AdmFName1, AdmLName1, ...
+const connectionString = process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL
+if (!connectionString) {
+  console.error('No DATABASE_URL found in .env.local')
+  process.exit(1)
+}
+
+const client = postgres(connectionString, { ssl: { rejectUnauthorized: false }, prepare: false })
+const db = drizzle(client, { schema })
+
+const FILE_PATH = process.argv[2]
+if (!FILE_PATH) {
+  console.error('Usage: npx tsx src/db/seed-school-directory.ts <path-to-file>')
+  process.exit(1)
+}
+
 const COL = {
-  CDSCode: 0,
-  StatusType: 3,
-  County: 4,
-  District: 5,
-  School: 6,
-  Street: 7,
-  City: 9,
-  Zip: 10,
-  State: 11,
-  Phone: 16,
-  SOCType: 28,   // School type: Public, Private, etc.
-  GSoffered: 32, // Grade span offered, e.g. "K-08"
-};
+  recordType:  0,
+  cdsCode:     1,
+  county:      4,
+  district:    5,
+  school:      6,
+  status:      7,
+  entityType:  14,
+  lowGrade:    15,
+  highGrade:   16,
+  lat:         23,
+  lng:         24,
+  address:     26,
+  city:        27,
+  state:       28,
+  zip:         29,
+  phone:       34,
+}
 
 async function main() {
-  const absPath = path.resolve(FILE_PATH);
-  console.log(`Reading from: ${absPath}`);
+  const absPath = path.resolve(FILE_PATH)
+  console.log(`Reading: ${absPath}`)
 
-  const fileStream = fs.createReadStream(absPath, { encoding: 'latin1' });
-  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+  const fileStream = fs.createReadStream(absPath, { encoding: 'utf8' })
+  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity })
 
-  const batch: (typeof schoolDirectory.$inferInsert)[] = [];
-  let lineNum = 0;
-  let inserted = 0;
-  let skipped = 0;
+  const batch: (typeof schoolDirectory.$inferInsert)[] = []
+  let lineNum = 0
+  let inserted = 0
+  let skipped = 0
 
   for await (const line of rl) {
-    lineNum++;
-    if (lineNum === 1) continue; // skip header
+    lineNum++
+    if (lineNum === 1) continue // skip header row
 
-    const cols = line.split('\t');
+    const cols = line.split('\t')
 
-    const statusType = cols[COL.StatusType]?.trim();
-    const county = cols[COL.County]?.trim();
+    // Only import active school rows (not districts)
+    if (cols[COL.recordType]?.trim() !== 'School') { skipped++; continue }
+    if (cols[COL.status]?.trim() !== 'Active')      { skipped++; continue }
 
-    // Skip closed schools and out-of-state rows
-    if (statusType === 'Closed' || county === 'Out of State' || !county) {
-      skipped++;
-      continue;
-    }
+    const county     = cols[COL.county]?.trim()
+    const schoolName = cols[COL.school]?.trim()
+    if (!county || !schoolName) { skipped++; continue }
 
-    // Skip district-level rows that have no school name
-    const schoolName = cols[COL.School]?.trim();
-    if (!schoolName || schoolName === '') {
-      skipped++;
-      continue;
-    }
+    const lowGrade  = cols[COL.lowGrade]?.trim()
+    const highGrade = cols[COL.highGrade]?.trim()
+    const gradeRange = lowGrade && highGrade ? `${lowGrade}-${highGrade}` : (lowGrade || highGrade || null)
+
+    // Zip codes sometimes come as "94502-8006" — keep full zip for accuracy
+    const zip = cols[COL.zip]?.trim() || null
+
+    const latRaw = parseFloat(cols[COL.lat]?.trim())
+    const lngRaw = parseFloat(cols[COL.lng]?.trim())
 
     batch.push({
-      cdCode: cols[COL.CDSCode]?.trim() || null,
-      districtName: cols[COL.District]?.trim() || null,
+      cdCode:       cols[COL.cdsCode]?.trim()     || null,
+      districtName: cols[COL.district]?.trim()    || null,
       schoolName,
       county,
-      city: cols[COL.City]?.trim() || null,
-      address: cols[COL.Street]?.trim() || null,
-      state: cols[COL.State]?.trim() || 'CA',
-      zip: cols[COL.Zip]?.trim()?.slice(0, 5) || null,
-      phone: cols[COL.Phone]?.trim() || null,
-      schoolType: cols[COL.SOCType]?.trim() || null,
-      gradeRange: cols[COL.GSoffered]?.trim() || null,
-    });
+      city:         cols[COL.city]?.trim()        || null,
+      address:      cols[COL.address]?.trim()     || null,
+      state:        cols[COL.state]?.trim()       || 'CA',
+      zip,
+      phone:        cols[COL.phone]?.trim()       || null,
+      schoolType:   cols[COL.entityType]?.trim()  || null,
+      gradeRange,
+      lat:          isNaN(latRaw) ? null : String(latRaw),
+      lng:          isNaN(lngRaw) ? null : String(lngRaw),
+    })
 
-    // Insert in batches of 500 to avoid huge single queries
-    if (batch.length >= 500) {
-      await db.insert(schoolDirectory).values(batch).onConflictDoNothing();
-      inserted += batch.length;
-      batch.length = 0;
-      process.stdout.write(`  Inserted ${inserted} rows...\r`);
+    if (batch.length >= 100) {
+      try {
+        await db.insert(schoolDirectory).values(batch).onConflictDoNothing()
+        inserted += batch.length
+        batch.length = 0
+        process.stdout.write(`  Inserted ${inserted} rows...\r`)
+      } catch (err: unknown) {
+        console.error(`\nInsert failed at row ${lineNum}:`)
+        console.error(JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2))
+        process.exit(1)
+      }
     }
   }
 
-  // Insert remaining rows
   if (batch.length > 0) {
-    await db.insert(schoolDirectory).values(batch).onConflictDoNothing();
-    inserted += batch.length;
+    try {
+      await db.insert(schoolDirectory).values(batch).onConflictDoNothing()
+      inserted += batch.length
+    } catch (err: unknown) {
+      const cause = (err as { cause?: Error })?.cause
+      const msg = cause ? cause.message : (err instanceof Error ? err.message : String(err))
+      console.error(`\nFinal batch insert failed:`, msg)
+      process.exit(1)
+    }
   }
 
-  console.log(`\nDone. Inserted: ${inserted}, Skipped: ${skipped}`);
-  process.exit(0);
+  console.log(`\nDone. Inserted: ${inserted}  Skipped: ${skipped}`)
+  process.exit(0)
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main().catch(err => { console.error(err); process.exit(1) })

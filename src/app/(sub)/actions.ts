@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory } from '@/db/schema'
-import { eq, and, isNull, gt, asc, sql, ilike, or } from 'drizzle-orm'
+import { eq, and, isNull, gt, asc, sql, ilike, or, isNotNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 async function getSubContext() {
@@ -174,6 +174,54 @@ export async function getDirectorySchoolsByCounty(county: string) {
     orderBy: (s, { asc }) => [asc(s.schoolName)],
   })
   return rows
+}
+
+/**
+ * Returns schools within a given radius (miles) of a lat/lng point.
+ * Uses the Haversine formula in SQL. Returns up to 50 results sorted by distance.
+ */
+export async function searchSchoolsNearby(lat: number, lng: number, radiusMiles: number) {
+  await getSubContext()
+
+  const rows = await db.execute(sql`
+    SELECT
+      id, school_name, district_name, county, city, address, state, zip, phone,
+      school_type, grade_range, claimed_by_org_id,
+      (3959 * acos(
+        least(1.0,
+          cos(radians(${lat})) * cos(radians(lat::float)) *
+          cos(radians(lng::float) - radians(${lng})) +
+          sin(radians(${lat})) * sin(radians(lat::float))
+        )
+      )) AS distance_miles
+    FROM school_directory
+    WHERE lat IS NOT NULL AND lng IS NOT NULL
+    HAVING (3959 * acos(
+      least(1.0,
+        cos(radians(${lat})) * cos(radians(lat::float)) *
+        cos(radians(lng::float) - radians(${lng})) +
+        sin(radians(${lat})) * sin(radians(lat::float))
+      )
+    )) <= ${radiusMiles}
+    ORDER BY distance_miles
+    LIMIT 50
+  `)
+
+  return rows as unknown as {
+    id: string
+    school_name: string
+    district_name: string | null
+    county: string
+    city: string | null
+    address: string | null
+    state: string | null
+    zip: string | null
+    phone: string | null
+    school_type: string | null
+    grade_range: string | null
+    claimed_by_org_id: string | null
+    distance_miles: number
+  }[]
 }
 
 /**
