@@ -3,8 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
-import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff } from '@/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory } from '@/db/schema'
+import { eq, desc, ilike, or, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -314,6 +314,7 @@ export async function updateSchool(formData: FormData) {
       city:         (formData.get('city') as string).trim() || null,
       state:        (formData.get('state') as string).trim() || null,
       zip:          (formData.get('zip') as string).trim() || null,
+      county:       (formData.get('county') as string).trim() || null,
       phone:        (formData.get('phone') as string).trim() || null,
       website:      (formData.get('website') as string).trim() || null,
       dayStartTime: (formData.get('dayStartTime') as string) || school.dayStartTime,
@@ -343,4 +344,71 @@ export async function reactivateUser(formData: FormData) {
 
   revalidatePath('/admin/users')
   return { success: true }
+}
+
+// ─── School directory search & claim ─────────────────────────────────────────
+
+/**
+ * Search the public school directory by name, city, or district.
+ * Optionally filter by county. Returns up to 30 results.
+ */
+export async function searchDirectory(query: string, county?: string) {
+  await getAdminContext()
+  if (query.trim().length < 2) return []
+
+  const nameCondition = or(
+    ilike(schoolDirectory.schoolName, `%${query}%`),
+    ilike(schoolDirectory.districtName, `%${query}%`),
+    ilike(schoolDirectory.city, `%${query}%`),
+  )
+
+  const where = county
+    ? and(nameCondition, eq(schoolDirectory.county, county))
+    : nameCondition
+
+  return db.query.schoolDirectory.findMany({
+    where,
+    with: { claimedByOrg: true },
+    orderBy: (s, { asc }) => [asc(s.schoolName)],
+    limit: 30,
+  })
+}
+
+/**
+ * Link an org's school record to a directory entry and copy the address/contact info.
+ * Sets school_directory.claimed_by_org_id and updates the schools row.
+ */
+export async function claimDirectorySchool(schoolId: string, directoryEntryId: string) {
+  const { orgId } = await getAdminContext()
+
+  // Verify the school belongs to this org
+  const school = await db.query.schools.findFirst({ where: eq(schools.id, schoolId) })
+  if (!school || school.organizationId !== orgId) return { error: 'School not found' }
+
+  const entry = await db.query.schoolDirectory.findFirst({
+    where: eq(schoolDirectory.id, directoryEntryId),
+  })
+  if (!entry) return { error: 'Directory entry not found' }
+
+  await Promise.all([
+    // Copy info into the live school record
+    db.update(schools)
+      .set({
+        address:  entry.address  ?? school.address,
+        city:     entry.city     ?? school.city,
+        state:    entry.state    ?? school.state,
+        zip:      entry.zip      ?? school.zip,
+        phone:    entry.phone    ?? school.phone,
+        county:   entry.county,
+      })
+      .where(eq(schools.id, schoolId)),
+
+    // Mark the directory entry as claimed by this org
+    db.update(schoolDirectory)
+      .set({ claimedByOrgId: orgId })
+      .where(eq(schoolDirectory.id, directoryEntryId)),
+  ])
+
+  revalidatePath('/admin/schools')
+  return { success: true, entry }
 }

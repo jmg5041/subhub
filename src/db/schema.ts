@@ -31,6 +31,7 @@ export const schools = pgTable('schools', {
   city: text('city'),
   state: text('state').default('CA'),
   zip: text('zip'),
+  county: text('county'),
   phone: text('phone'),
   fax: text('fax'),
   website: text('website'),
@@ -78,6 +79,7 @@ export const substitutes = pgTable('substitutes', {
   excludedFromSchools: jsonb('excluded_from_schools').default([]),
   notificationPreference: text('notification_preference').default('all'),
   // 'sms' | 'email' | 'phone' | 'all'
+  county: text('county'),
 });
 
 // Absence Reasons (per organization)
@@ -192,6 +194,27 @@ export const subUnavailability = pgTable('sub_unavailability', {
 }, (t) => [
   unique().on(t.substituteId, t.date),
 ]);
+
+// Public school directory — California (and eventually other states)
+// This is a seed-and-refine table separate from the live schools table.
+// Subs browse this to discover schools. Orgs "claim" their entry to link it.
+export const schoolDirectory = pgTable('school_directory', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cdCode: text('cd_code'),           // CA district + school code
+  districtName: text('district_name'),
+  schoolName: text('school_name').notNull(),
+  county: text('county').notNull(),
+  city: text('city'),
+  address: text('address'),
+  state: text('state').default('CA'),
+  zip: text('zip'),
+  phone: text('phone'),
+  schoolType: text('school_type'),   // "Public", "Private", etc.
+  gradeRange: text('grade_range'),   // "K-8", "9-12", etc.
+  // If an org has claimed this entry, claimedByOrgId links to their organizations row
+  claimedByOrgId: uuid('claimed_by_org_id').references(() => organizations.id),
+  createdAt: timestamp('created_at').defaultNow(),
+});
 
 // File Attachments (for sub plans, notes, etc.)
 export const attachments = pgTable('attachments', {
@@ -380,5 +403,12 @@ export const subUnavailabilityRelations = relations(subUnavailability, ({ one })
   substitute: one(substitutes, {
     fields: [subUnavailability.substituteId],
     references: [substitutes.id],
+  }),
+}));
+
+export const schoolDirectoryRelations = relations(schoolDirectory, ({ one }) => ({
+  claimedByOrg: one(organizations, {
+    fields: [schoolDirectory.claimedByOrgId],
+    references: [organizations.id],
   }),
 }));
