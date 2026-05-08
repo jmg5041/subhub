@@ -10,12 +10,14 @@ export function AppShell({
   firstName,
   lastName,
   email,
+  role,
 }: {
   children: React.ReactNode
   schoolName: string | null
   firstName: string | null
   lastName: string | null
   email: string | null
+  role: string | null
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -24,7 +26,7 @@ export function AppShell({
   return (
     <div className="flex h-[100dvh] bg-gray-50">
       {/* Sidebar — always visible on desktop, slide-in overlay on mobile */}
-      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} />
 
       {/* Backdrop for mobile — clicking it closes the sidebar */}
       {sidebarOpen && (

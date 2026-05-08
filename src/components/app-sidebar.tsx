@@ -72,9 +72,11 @@ const navGroups = [
 export function AppSidebar({
   isOpen = false,
   onClose,
+  role,
 }: {
   isOpen?: boolean
   onClose?: () => void
+  role?: string | null
 }) {
   const pathname = usePathname();
   const supabase = createClient();
@@ -112,7 +114,9 @@ export function AppSidebar({
 
       {/* Navigation groups */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {navGroups.map((group) => (
+        {navGroups.filter(group =>
+          group.label !== 'Admin' || ['admin', 'principal'].includes(role ?? '')
+        ).map((group) => (
           <div key={group.label} className="mb-4">
             <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {group.label}
