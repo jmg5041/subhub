@@ -82,10 +82,11 @@ export default async function DashboardPage() {
         .where(eq(teacherTimeOff.organizationId, orgId))
     : []
 
-  // "Today" = absence spans today (multi-day absences that started before today are included)
-  const todayAbsences = allAbsences.filter(a =>
-    a.startDate <= today && (a.endDate === null || a.endDate >= today)
-  )
+  // "Today" = absence spans today. Null endDate means single-day — use startDate as the effective end.
+  const todayAbsences = allAbsences.filter(a => {
+    const effectiveEnd = a.endDate ?? a.startDate
+    return a.startDate <= today && effectiveEnd >= today
+  })
   // "Upcoming" = absence hasn't started yet
   const upcomingAbsences = allAbsences.filter(a => a.startDate > today)
 
