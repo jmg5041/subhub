@@ -137,8 +137,12 @@ export default function ManageUsersClient({
       const fd = new FormData()
       fd.set('userId', userId)
       fd.set('role', role)
-      await updateUserRole(fd)
-      showMessage('Role updated.', 'success')
+      const result = await updateUserRole(fd)
+      if ('error' in result) {
+        showMessage(result.error ?? 'Role change failed.', 'error')
+      } else {
+        showMessage('Role updated.', 'success')
+      }
     })
   }
 

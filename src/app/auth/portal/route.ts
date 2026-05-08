@@ -72,5 +72,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}${roleToPortal(role)}`)
   }
 
+  // If an existing user's role was changed to substitute but the substitutes row
+  // was never created (e.g. role changed via admin UI, not via invite flow), create it now.
+  if (profile?.role === 'substitute') {
+    const existing = await db.query.substitutes.findFirst({ where: eq(substitutes.userId, user.id) })
+    if (!existing) {
+      await db.insert(substitutes).values({ userId: user.id })
+    }
+  }
+
   return NextResponse.redirect(`${origin}${roleToPortal(profile?.role)}`)
 }

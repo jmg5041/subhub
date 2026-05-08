@@ -79,6 +79,7 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         isAlreadyFilled={isAlreadyFilled}
         approvalStatus={absence.approvalStatus ?? 'unapproved'}
         notesToSub={absence.notesToSub ?? null}
+        staffCoverageNotes={absence.staffCoverageNotes ?? null}
         requestedSubName={requestedSubName}
         initialAttachments={absence.attachments ?? []}
         orgId={orgId}

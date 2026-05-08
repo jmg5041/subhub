@@ -162,6 +162,15 @@ export async function updateUserRole(formData: FormData) {
   const userId = formData.get('userId') as string
   const role = formData.get('role') as string
 
+  // Block switching a teacher/staff (who has employee records) to substitute —
+  // doing so would orphan their absence history with no clean migration path.
+  if (role === 'substitute') {
+    const emp = await db.query.employees.findFirst({ where: eq(employees.userId, userId) })
+    if (emp) {
+      return { error: 'This user has teacher/staff records and cannot be switched to Substitute. Remove their absence history first, or contact support.' }
+    }
+  }
+
   await db
     .update(users)
     .set({ role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute' })

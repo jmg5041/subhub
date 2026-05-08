@@ -770,3 +770,20 @@ export async function toggleStaffCoverage(timeOffId: string, coveredByStaff: boo
   revalidatePath(`/absences/find-sub/${timeOffId}`)
   return { success: true }
 }
+
+export async function updateStaffCoverageNotes(timeOffId: string, notes: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  await db
+    .update(teacherTimeOff)
+    .set({ staffCoverageNotes: notes.trim() || null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(teacherTimeOff.id, timeOffId),
+        eq(teacherTimeOff.organizationId, orgId)
+      )
+    )
+
+  revalidatePath(`/absences/find-sub/${timeOffId}`)
+  return { success: true }
+}

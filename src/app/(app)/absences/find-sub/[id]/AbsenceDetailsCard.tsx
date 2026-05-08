@@ -25,6 +25,7 @@ import { FileUploadInput, type UploadedFile } from '@/components/FileUploadInput
 import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 import {
   updateNotesToSub,
+  updateStaffCoverageNotes,
   updateAbsenceDates,
   saveAbsenceAttachment,
   deleteAttachment,
@@ -55,6 +56,7 @@ type Props = {
   isAlreadyFilled: boolean
   approvalStatus: string // 'unapproved' | 'approved' | 'denied'
   notesToSub: string | null
+  staffCoverageNotes: string | null
   requestedSubName?: string | null
   initialAttachments: Attachment[]
   orgId: string
@@ -77,6 +79,7 @@ export default function AbsenceDetailsCard({
   isAlreadyFilled,
   approvalStatus,
   notesToSub: initialNotes,
+  staffCoverageNotes: initialCoverageNotes,
   requestedSubName,
   initialAttachments,
   orgId,
@@ -127,6 +130,32 @@ export default function AbsenceDetailsCard({
   const [savedNotes, setSavedNotes]         = useState(initialNotes ?? '')
   const [notesSaving, startNotesSave]       = useTransition()
   const [notesError, setNotesError]         = useState('')
+
+  // ── Staff coverage notes state ──
+  const [isEditingCoverage, setIsEditingCoverage]   = useState(false)
+  const [coverageDraft, setCoverageDraft]           = useState(initialCoverageNotes ?? '')
+  const [savedCoverage, setSavedCoverage]           = useState(initialCoverageNotes ?? '')
+  const [coverageSaving, startCoverageSave]         = useTransition()
+  const [coverageError, setCoverageError]           = useState('')
+
+  function handleSaveCoverage() {
+    setCoverageError('')
+    startCoverageSave(async () => {
+      const result = await updateStaffCoverageNotes(timeOffId, coverageDraft)
+      if ('error' in result) {
+        setCoverageError('Failed to save — please try again.')
+      } else {
+        setSavedCoverage(coverageDraft)
+        setIsEditingCoverage(false)
+      }
+    })
+  }
+
+  function handleCancelCoverage() {
+    setCoverageDraft(savedCoverage)
+    setIsEditingCoverage(false)
+    setCoverageError('')
+  }
 
   // ── Unapprove state ──
   const [unapproving, startUnapprove]  = useTransition()
@@ -375,6 +404,62 @@ export default function AbsenceDetailsCard({
           <p className="text-sm text-gray-400 italic">No notes added yet.</p>
         )}
       </div>
+
+      {/* ── Staff Coverage Notes — only shown when staff is covering ── */}
+      {!substituteRequired && (
+        <div className="pt-1 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-400 uppercase tracking-wide">Who Covered</span>
+            {!isEditingCoverage && (
+              <button
+                type="button"
+                onClick={() => setIsEditingCoverage(true)}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+              >
+                <Pencil className="h-3 w-3" />
+                {savedCoverage ? 'Edit' : 'Add names'}
+              </button>
+            )}
+          </div>
+
+          {isEditingCoverage ? (
+            <div className="space-y-2">
+              <textarea
+                value={coverageDraft}
+                onChange={(e) => setCoverageDraft(e.target.value)}
+                rows={3}
+                placeholder="e.g. Mrs. Smith (periods 1-3), Mr. Jones (periods 4-6)"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-y"
+              />
+              {coverageError && <p className="text-xs text-red-600">{coverageError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveCoverage}
+                  disabled={coverageSaving}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                >
+                  {coverageSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelCoverage}
+                  disabled={coverageSaving}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : savedCoverage ? (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{savedCoverage}</p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No coverage notes added yet.</p>
+          )}
+        </div>
+      )}
 
       {/* ── Attachments ── */}
       <div className="pt-1 border-t border-gray-100">

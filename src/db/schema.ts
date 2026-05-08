@@ -109,6 +109,7 @@ export const teacherTimeOff = pgTable('teacher_time_off', {
   approvedAt: timestamp('approved_at'),
   reconciliationStatus: reconciliationStatusEnum('reconciliation_status').default('unreconciled'),
   substituteRequired: boolean('substitute_required').default(true),
+  staffCoverageNotes: text('staff_coverage_notes'),  // who covered when substituteRequired = false
   holdUntil: text('hold_until').default('no_hold'),
   accountingCode: text('accounting_code'),
   payCode: text('pay_code'),
