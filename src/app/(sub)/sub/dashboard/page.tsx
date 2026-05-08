@@ -164,7 +164,7 @@ export default async function SubDashboard() {
               return (
                 <Link
                   key={a.id}
-                  href={`/sub/jobs/${a.id}`}
+                  href={`/sub/dashboard/jobs/${a.id}`}
                   className="block px-5 py-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -249,7 +249,7 @@ export default async function SubDashboard() {
               {past.slice(0, 8).map(a => (
                 <Link
                   key={a.id}
-                  href={`/sub/jobs/${a.id}`}
+                  href={`/sub/dashboard/jobs/${a.id}`}
                   className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">

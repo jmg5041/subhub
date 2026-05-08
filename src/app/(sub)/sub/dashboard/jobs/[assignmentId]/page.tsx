@@ -12,7 +12,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, MapPin, Clock, FileText, Image as ImageIcon, CalendarDays, ExternalLink } from 'lucide-react'
-import { getMyAssignmentById } from '../../../actions'
+import { getMyAssignmentById } from '../../../../actions'
 import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 
 function formatTime(t: string): string {
