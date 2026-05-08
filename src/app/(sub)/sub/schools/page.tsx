@@ -78,6 +78,8 @@ export default function FindSchoolsPage() {
   const [locationError, setLocationError] = useState('')
   const [nearbyResults, setNearbyResults] = useState<NormSchool[]>([])
   const [nearbyLoading, setNearbyLoading] = useState(false)
+  const [zip, setZip]                 = useState('')
+  const [zipLookingUp, setZipLookingUp] = useState(false)
 
   // Search state
   const [query, setQuery]             = useState('')
@@ -135,6 +137,25 @@ export default function FindSchoolsPage() {
       },
       { timeout: 10000 }
     )
+  }
+
+  async function lookupZip() {
+    if (zip.length !== 5) return
+    setZipLookingUp(true)
+    setLocationError('')
+    setNearbyResults([])
+    try {
+      const res = await fetch(`https://api.zippopotam.us/us/${zip}`)
+      if (!res.ok) { setLocationError(`Zip code ${zip} not found.`); return }
+      const data = await res.json()
+      const place = data.places?.[0]
+      if (!place) { setLocationError('Could not find that zip code.'); return }
+      loadNearby(parseFloat(place.latitude), parseFloat(place.longitude))
+    } catch {
+      setLocationError('Zip code lookup failed. Try using your location instead.')
+    } finally {
+      setZipLookingUp(false)
+    }
   }
 
   async function loadNearby(lat: number, lng: number) {
@@ -207,6 +228,28 @@ export default function FindSchoolsPage() {
             </div>
           </div>
 
+          {/* Zip code fallback — always visible */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">or enter zip code</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              value={zip}
+              onChange={e => setZip(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={e => e.key === 'Enter' && lookupZip()}
+              placeholder="90210"
+              className="w-24 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+            <button
+              onClick={lookupZip}
+              disabled={zip.length !== 5 || zipLookingUp || nearbyLoading}
+              className="rounded-md bg-gray-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-600 disabled:opacity-40"
+            >
+              {zipLookingUp ? 'Looking up…' : 'Go'}
+            </button>
+          </div>
+
           {locationError && (
             <p className="text-sm text-red-500">{locationError}</p>
           )}
@@ -222,9 +265,9 @@ export default function FindSchoolsPage() {
             </div>
           )}
 
-          {!nearbyLoading && nearbyResults.length === 0 && !locating && (
-            <div className="rounded-lg border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-gray-400">
-              Tap &ldquo;Use my location&rdquo; to find schools near you.
+          {!nearbyLoading && nearbyResults.length === 0 && !locating && !zipLookingUp && (
+            <div className="rounded-lg border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-gray-400">
+              Use your device location or enter a zip code to find nearby schools.
             </div>
           )}
         </div>
