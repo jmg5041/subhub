@@ -101,7 +101,7 @@ export function AppSidebar({
           <School className="h-7 w-7 text-blue-600" />
           <div>
             <h1 className="text-lg font-bold text-gray-900">SubHub</h1>
-            <p className="text-[10px] leading-tight text-gray-500">Substitute Management</p>
+            <p className="text-[10px] leading-tight text-gray-500">Admin Portal</p>
           </div>
         </div>
         {/* Close button — mobile only */}
