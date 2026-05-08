@@ -57,7 +57,7 @@ export default function ManageUsersClient({
   const [tempPassValue, setTempPassValue] = useState('')
   const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
 
   function showMessage(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -71,12 +71,24 @@ export default function ManageUsersClient({
       lastName: u.lastName,
       email: u.email,
       phone: u.phone ?? '',
+      role: u.role,
     })
   }
 
   function handleSaveEdit() {
     if (!editingUser) return
     startTransition(async () => {
+      // Handle role change first — it has the guard that blocks teacher→sub
+      if (editForm.role !== editingUser.role) {
+        const rfd = new FormData()
+        rfd.set('userId', editingUser.id)
+        rfd.set('role', editForm.role)
+        const rRes = await updateUserRole(rfd)
+        if ('error' in rRes) {
+          showMessage(rRes.error ?? 'Role change failed.', 'error')
+          return
+        }
+      }
       const fd = new FormData()
       fd.set('userId', editingUser.id)
       fd.set('firstName', editForm.firstName)
@@ -128,20 +140,6 @@ export default function ManageUsersClient({
         setPendingInviteLink(res.inviteLink as string)
       } else {
         showMessage(`Invite resent to ${email}`, 'success')
-      }
-    })
-  }
-
-  function handleRoleChange(userId: string, role: string) {
-    startTransition(async () => {
-      const fd = new FormData()
-      fd.set('userId', userId)
-      fd.set('role', role)
-      const result = await updateUserRole(fd)
-      if ('error' in result) {
-        showMessage(result.error ?? 'Role change failed.', 'error')
-      } else {
-        showMessage('Role updated.', 'success')
       }
     })
   }
@@ -237,6 +235,20 @@ export default function ManageUsersClient({
                   onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={editForm.role}
+                  onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="teacher">Teacher</option>
+                  <option value="substitute">Substitute</option>
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                  <option value="principal">School Admin</option>
+                </select>
               </div>
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
@@ -362,18 +374,6 @@ export default function ManageUsersClient({
               {u.status === 'inactive' && (
                 <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
               )}
-              <select
-                defaultValue={u.role}
-                onChange={e => handleRoleChange(u.id, e.target.value)}
-                disabled={isPending}
-                className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="teacher">Teacher</option>
-                <option value="substitute">Substitute</option>
-                <option value="staff">Staff</option>
-                <option value="admin">Admin</option>
-                <option value="principal">School Admin</option>
-              </select>
               {tempPasswordUserId === u.id ? (
                 <div className="flex items-center gap-2">
                   <input
