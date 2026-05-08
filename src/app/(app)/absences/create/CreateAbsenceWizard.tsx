@@ -460,7 +460,7 @@ function Step3Notes({
           rows={3}
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-y"
         />
-        <p className="text-xs text-gray-400">Only admins and principals can see this.</p>
+        <p className="text-xs text-gray-400">Only admins and school admins can see this.</p>
       </div>
 
       {/* File attachments */}

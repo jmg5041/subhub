@@ -28,7 +28,7 @@ type School = { id: string; name: string }
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
-  principal: 'Principal',
+  principal: 'School Admin',
   staff: 'Staff',
   teacher: 'Teacher',
   substitute: 'Substitute',
@@ -368,7 +368,7 @@ export default function ManageUsersClient({
                 <option value="substitute">Substitute</option>
                 <option value="staff">Staff</option>
                 <option value="admin">Admin</option>
-                <option value="principal">Principal</option>
+                <option value="principal">School Admin</option>
               </select>
               {tempPasswordUserId === u.id ? (
                 <div className="flex items-center gap-2">
