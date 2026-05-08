@@ -365,7 +365,7 @@ export default function ManageUsersClient({
           {users.map(u => (
             <div key={u.id} className="flex items-center gap-3 px-6 py-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 text-sm">{u.firstName} {u.lastName}</div>
+                <div className="font-medium text-gray-900 text-sm">{u.lastName}, {u.firstName}</div>
                 <div className="text-xs text-gray-400 truncate">{u.email}{u.phone && ` · ${u.phone}`}</div>
               </div>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
