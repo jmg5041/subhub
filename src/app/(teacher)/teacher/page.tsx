@@ -39,8 +39,9 @@ export default async function TeacherDashboard() {
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const TZ = 'America/Los_Angeles'
+  const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
 
   const absences = await getMyAbsences()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
@@ -52,7 +53,7 @@ export default async function TeacherDashboard() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{greeting}, {profile.firstName}</h1>
         <p className="text-gray-500 mt-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
 

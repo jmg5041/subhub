@@ -99,6 +99,20 @@ export default async function SubDashboard() {
         </p>
       </div>
 
+      {/* Profile completion nudge — shown until phone is on file */}
+      {!profile.phone && (
+        <Link
+          href="/sub/profile"
+          className="flex items-center justify-between gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 hover:bg-yellow-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-600 font-bold text-lg leading-none">!</span>
+            <p className="text-sm font-medium text-yellow-800">Complete your profile to receive job notifications</p>
+          </div>
+          <span className="text-xs text-yellow-700 font-medium flex-shrink-0">Add phone →</span>
+        </Link>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-center">

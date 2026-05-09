@@ -58,6 +58,7 @@ export default function ManageUsersClient({
   const [tempPasswordUserId, setTempPasswordUserId] = useState<string | null>(null)
   const [tempPassValue, setTempPassValue] = useState('')
   const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
+  const [inviteRole, setInviteRole] = useState('teacher')
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
@@ -387,7 +388,7 @@ export default function ManageUsersClient({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <select name="role" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select name="role" required value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="teacher">Teacher</option>
               <option value="substitute">Substitute</option>
               <option value="staff">Staff</option>
@@ -395,9 +396,15 @@ export default function ManageUsersClient({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
-            <select name="schoolId" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">— No specific school —</option>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              School {['teacher', 'staff'].includes(inviteRole) && <span className="text-red-500">*</span>}
+            </label>
+            <select
+              name="schoolId"
+              required={['teacher', 'staff'].includes(inviteRole)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Select a school —</option>
               {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
