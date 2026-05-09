@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar } from '../actions'
+import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar, bulkInviteUsers } from '../actions'
 import { Camera, X } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
 
@@ -59,6 +59,12 @@ export default function ManageUsersClient({
   const [tempPassValue, setTempPassValue] = useState('')
   const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
   const [inviteRole, setInviteRole] = useState('teacher')
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [bulkRole, setBulkRole] = useState('teacher')
+  const [bulkSchoolId, setBulkSchoolId] = useState('')
+  const [bulkRows, setBulkRows] = useState<Array<{ firstName: string; lastName: string; email: string }>>([])
+  const [bulkParseError, setBulkParseError] = useState<string | null>(null)
+  const [bulkResults, setBulkResults] = useState<{ sent: number; errors: string[] } | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
@@ -155,6 +161,38 @@ export default function ManageUsersClient({
       const res = await inviteUser(formData)
       if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
       else showMessage('Invite sent! The user will receive an email to set their password.', 'success')
+    })
+  }
+
+  function handleBulkFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setBulkResults(null)
+    setBulkParseError(null)
+    setBulkRows([])
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const result = parseCsv(text)
+      if (typeof result === 'string') {
+        setBulkParseError(result)
+      } else {
+        setBulkRows(result)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  function handleBulkSubmit() {
+    if (bulkRows.length === 0) return
+    if (['teacher', 'staff'].includes(bulkRole) && !bulkSchoolId) {
+      showMessage('Please select a school for teacher/staff imports.', 'error')
+      return
+    }
+    startTransition(async () => {
+      const res = await bulkInviteUsers(bulkRows, bulkRole, bulkSchoolId || null)
+      setBulkResults(res)
+      if (res.sent > 0) setBulkRows([])
     })
   }
 
@@ -418,6 +456,126 @@ export default function ManageUsersClient({
             </button>
           </div>
         </form>
+
+        {/* Bulk import toggle */}
+        <div className="border-t border-gray-100 px-6 py-3">
+          <button
+            onClick={() => { setShowBulkImport(v => !v); setBulkResults(null); setBulkRows([]); setBulkParseError(null) }}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            {showBulkImport ? '▲ Hide bulk import' : '▼ Bulk import from CSV'}
+          </button>
+        </div>
+
+        {showBulkImport && (
+          <div className="border-t border-gray-100 px-6 pb-6 space-y-4">
+            <p className="text-sm text-gray-500 pt-4">
+              Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email</code>.{' '}
+              <a
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email\nJohn,Smith,jsmith@school.edu\nJane,Doe,jdoe@school.edu')}`}
+                download="subhub-import-template.csv"
+                className="text-blue-600 hover:underline"
+              >
+                Download template
+              </a>
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={bulkRole}
+                  onChange={e => setBulkRole(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="teacher">Teacher</option>
+                  <option value="substitute">Substitute</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              {['teacher', 'staff'].includes(bulkRole) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    School <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={bulkSchoolId}
+                    onChange={e => setBulkSchoolId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Select a school —</option>
+                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleBulkFile}
+                className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 file:text-sm file:bg-white file:text-gray-700 hover:file:bg-gray-50"
+              />
+            </div>
+
+            {bulkParseError && (
+              <p className="text-sm text-red-600">{bulkParseError}</p>
+            )}
+
+            {bulkRows.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">{bulkRows.length} people found — review before sending:</p>
+                <div className="rounded border border-gray-200 overflow-hidden max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Name</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
+                        <th className="px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {bulkRows.map((r, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2 text-gray-900">{r.firstName} {r.lastName}</td>
+                          <td className="px-3 py-2 text-gray-500">{r.email}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => setBulkRows(rows => rows.filter((_, idx) => idx !== i))}
+                              className="text-red-400 hover:text-red-600"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  onClick={handleBulkSubmit}
+                  disabled={isPending}
+                  className="mt-3 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {isPending ? 'Sending…' : `Send ${bulkRows.length} invite${bulkRows.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            )}
+
+            {bulkResults && (
+              <div className={`rounded-lg border p-4 text-sm ${bulkResults.errors.length === 0 ? 'border-green-200 bg-green-50 text-green-800' : 'border-yellow-200 bg-yellow-50 text-yellow-800'}`}>
+                <p className="font-medium">{bulkResults.sent} invite{bulkResults.sent !== 1 ? 's' : ''} sent successfully.</p>
+                {bulkResults.errors.length > 0 && (
+                  <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
+                    {bulkResults.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── All Users ── */}
@@ -549,4 +707,33 @@ export default function ManageUsersClient({
       )}
     </div>
   )
+}
+
+// Parses CSV text into rows. Returns an error string if the format is unrecognizable.
+function parseCsv(text: string): Array<{ firstName: string; lastName: string; email: string }> | string {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
+  if (lines.length < 2) return 'File must have a header row and at least one data row.'
+
+  const sep = lines[0].includes('\t') ? '\t' : ','
+  const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
+
+  const findCol = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)))
+  const firstIdx = findCol(['first'])
+  const lastIdx  = findCol(['last'])
+  const emailIdx = findCol(['email'])
+
+  if (firstIdx === -1 || lastIdx === -1 || emailIdx === -1) {
+    return 'Could not find required columns. Make sure your CSV has "First Name", "Last Name", and "Email" columns.'
+  }
+
+  const rows: Array<{ firstName: string; lastName: string; email: string }> = []
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
+    const firstName = cells[firstIdx]?.trim()
+    const lastName  = cells[lastIdx]?.trim()
+    const email     = cells[emailIdx]?.trim()
+    if (firstName && lastName && email) rows.push({ firstName, lastName, email })
+  }
+
+  return rows.length === 0 ? 'No valid rows found. Check that your CSV matches the template.' : rows
 }

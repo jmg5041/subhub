@@ -414,6 +414,54 @@ export async function claimDirectorySchool(schoolId: string, directoryEntryId: s
   return { success: true, entry }
 }
 
+/**
+ * Bulk-invite multiple users from a parsed CSV.
+ * Each row gets its own Supabase invite email. Errors are collected and returned
+ * rather than aborting the whole batch — partial success is fine.
+ */
+export async function bulkInviteUsers(
+  rows: Array<{ email: string; firstName: string; lastName: string }>,
+  role: string,
+  schoolId: string | null
+): Promise<{ sent: number; errors: string[] }> {
+  const { orgId, adminUserId } = await getAdminContext()
+  const supabaseAdmin = createAdminClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+
+  let sent = 0
+  const errors: string[] = []
+
+  for (const row of rows) {
+    try {
+      const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(row.email, {
+        redirectTo: `${appUrl}/auth/callback`,
+        data: { firstName: row.firstName, lastName: row.lastName, role, orgId, schoolId },
+      })
+
+      if (error) {
+        errors.push(`${row.email}: ${error.message}`)
+        continue
+      }
+
+      await db.insert(invitations).values({
+        organizationId: orgId,
+        schoolId,
+        email: row.email,
+        role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+        invitedBy: adminUserId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+
+      sent++
+    } catch (err) {
+      errors.push(`${row.email}: ${String(err)}`)
+    }
+  }
+
+  revalidatePath('/admin/users')
+  return { sent, errors }
+}
+
 export async function saveUserAvatar(userId: string, url: string) {
   const { orgId } = await getAdminContext()
   const target = await db.query.users.findFirst({ where: eq(users.id, userId) })
