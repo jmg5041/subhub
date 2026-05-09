@@ -3,7 +3,7 @@ import { getRosterData } from './actions'
 import RosterTabs from './RosterTabs'
 
 export default async function SubRosterPage() {
-  const { subs, schools, priorityBySchool } = await getRosterData()
+  const { subs, schools, priorityBySchool, subSchools, activeSubsBySchool } = await getRosterData()
 
   return (
     <div className="space-y-6">
@@ -17,7 +17,13 @@ export default async function SubRosterPage() {
         </div>
       </div>
 
-      <RosterTabs subs={subs} schools={schools} priorityBySchool={priorityBySchool} />
+      <RosterTabs
+        subs={subs}
+        schools={schools}
+        priorityBySchool={priorityBySchool}
+        subSchools={subSchools}
+        activeSubsBySchool={activeSubsBySchool}
+      />
     </div>
   )
 }

@@ -26,9 +26,11 @@ type Props = {
   subs: Sub[]
   schools: School[]
   priorityBySchool: Record<string, string[]>
+  subSchools: Record<string, { id: string; name: string }[]>
+  activeSubsBySchool: Record<string, string[]>
 }
 
-export default function RosterTabs({ subs, schools, priorityBySchool }: Props) {
+export default function RosterTabs({ subs, schools, priorityBySchool, subSchools, activeSubsBySchool }: Props) {
   const [tab, setTab] = useState<'roster' | 'priority'>('roster')
 
   const active = subs.filter(s => s.userStatus === 'active')
@@ -64,11 +66,11 @@ export default function RosterTabs({ subs, schools, priorityBySchool }: Props) {
             </div>
           ) : (
             <>
-              <SubTable subs={active} />
+              <SubTable subs={active} subSchools={subSchools} />
               {inactive.length > 0 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Inactive</h2>
-                  <SubTable subs={inactive} dim />
+                  <SubTable subs={inactive} subSchools={subSchools} dim />
                 </div>
               )}
             </>
@@ -77,27 +79,30 @@ export default function RosterTabs({ subs, schools, priorityBySchool }: Props) {
       )}
 
       {tab === 'priority' && (
-        <PriorityTab subs={active} schools={schools} priorityBySchool={priorityBySchool} />
+        <PriorityTab subs={active} schools={schools} priorityBySchool={priorityBySchool} activeSubsBySchool={activeSubsBySchool} />
       )}
     </div>
   )
 }
 
-function SubTable({ subs, dim }: { subs: Sub[]; dim?: boolean }) {
+function SubTable({ subs, subSchools, dim }: { subs: Sub[]; subSchools: Record<string, { id: string; name: string }[]>; dim?: boolean }) {
   return (
     <div className={`overflow-hidden rounded-lg border border-gray-200 bg-white ${dim ? 'opacity-60' : ''}`}>
-      <div className="hidden md:grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <div className="hidden md:grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
         <span>Name</span>
         <span>Contact</span>
         <span>County</span>
+        <span>Schools</span>
         <span>Rating</span>
         <span>Resume</span>
       </div>
-      {subs.map(sub => (
+      {subs.map(sub => {
+        const assignedSchools = subSchools[sub.id] ?? []
+        return (
         <Link
           key={sub.id}
           href={`/admin/subs/roster/${sub.id}`}
-          className="grid grid-cols-1 md:grid-cols-[2fr_2fr_1fr_1fr_auto] gap-2 md:gap-4 items-start md:items-center border-b border-gray-100 px-5 py-4 last:border-0 hover:bg-blue-50 transition-colors cursor-pointer"
+          className="grid grid-cols-1 md:grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 items-start md:items-center border-b border-gray-100 px-5 py-4 last:border-0 hover:bg-blue-50 transition-colors cursor-pointer"
         >
           {/* Name + avatar */}
           <div className="flex items-center gap-3">
@@ -139,6 +144,17 @@ function SubTable({ subs, dim }: { subs: Sub[]; dim?: boolean }) {
             )}
           </div>
 
+          {/* Schools */}
+          <div className="text-sm text-gray-500">
+            {assignedSchools.length === 0 ? (
+              <span className="text-gray-300">—</span>
+            ) : assignedSchools.length === 1 ? (
+              <span className="truncate">{assignedSchools[0].name.replace('Southlands Christian ', '')}</span>
+            ) : (
+              <span className="text-blue-600">{assignedSchools.length} schools</span>
+            )}
+          </div>
+
           {/* Rating */}
           <div className="text-sm text-gray-500">
             {sub.ratingCount && sub.ratingCount > 0 ? (
@@ -163,7 +179,8 @@ function SubTable({ subs, dim }: { subs: Sub[]; dim?: boolean }) {
             )}
           </div>
         </Link>
-      ))}
+        )
+      })}
     </div>
   )
 }

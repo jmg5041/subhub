@@ -13,6 +13,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
+import { db } from '@/db';
+import { subSchoolAssignments } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export default async function AppLayout({
   children,
@@ -42,6 +45,19 @@ export default async function AppLayout({
     ? profile.schools[0]?.name
     : (profile?.schools as unknown as { name: string } | null)?.name;
 
+  // Pending sub join requests — only fetch for admin/principal roles
+  let pendingSubCount = 0
+  if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role)) {
+    const { data: orgData } = await supabase.from('users').select('organization_id').eq('id', user.id).single()
+    if (orgData?.organization_id) {
+      const rows = await db
+        .select({ id: subSchoolAssignments.id })
+        .from(subSchoolAssignments)
+        .where(and(eq(subSchoolAssignments.organizationId, orgData.organization_id), eq(subSchoolAssignments.status, 'pending')))
+      pendingSubCount = rows.length
+    }
+  }
+
   return (
     <AppShell
       schoolName={schoolName ?? null}
@@ -49,6 +65,7 @@ export default async function AppLayout({
       lastName={profile?.last_name ?? null}
       email={user?.email ?? null}
       role={profile?.role ?? null}
+      pendingSubCount={pendingSubCount}
     >
       {children}
     </AppShell>

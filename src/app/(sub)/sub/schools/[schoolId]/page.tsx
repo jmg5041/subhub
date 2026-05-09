@@ -1,18 +1,8 @@
-/**
- * School Profile page — shown when a sub taps a school name on their job detail.
- *
- * Displays:
- *   • School name and address (with Google Maps link)
- *   • School hours (day start / end time)
- *   • Phone number (tap-to-call on mobile)
- *   • Website link
- *   • City / state
- */
-
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, MapPin, Phone, Globe, Clock } from 'lucide-react'
-import { getSchoolProfile } from '../../../actions'
+import { getSchoolProfile, getMySchoolStatus } from '../../../actions'
+import JoinSchoolButton from './JoinSchoolButton'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -26,26 +16,23 @@ function mapsUrl(school: { address?: string | null; city?: string | null; state?
   return `https://maps.google.com/?q=${encodeURIComponent(query)}`
 }
 
-export default async function SchoolProfilePage({
-  params,
-}: {
-  params: Promise<{ schoolId: string }>
-}) {
+export default async function SchoolProfilePage({ params }: { params: Promise<{ schoolId: string }> }) {
   const { schoolId } = await params
-  const school = await getSchoolProfile(schoolId)
+  const [school, { status }] = await Promise.all([
+    getSchoolProfile(schoolId),
+    getMySchoolStatus(schoolId),
+  ])
   if (!school) notFound()
 
   const hasAddress = school.address || school.city
 
   return (
     <div className="max-w-lg mx-auto space-y-5 py-6 px-4">
-      {/* Back */}
-      <Link href="/sub/dashboard" className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600">
+      <Link href="/sub/schools" className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600">
         <ArrowLeft className="h-4 w-4" />
-        Back to dashboard
+        Back to schools
       </Link>
 
-      {/* School name */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{school.name}</h1>
         {school.city && (
@@ -54,15 +41,9 @@ export default async function SchoolProfilePage({
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-
-        {/* Address + map link */}
         {hasAddress && (
-          <a
-            href={mapsUrl(school)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group"
-          >
+          <a href={mapsUrl(school)} target="_blank" rel="noopener noreferrer"
+            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
             <MapPin className="h-5 w-5 flex-shrink-0 text-blue-500 mt-0.5" />
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Address</div>
@@ -75,7 +56,6 @@ export default async function SchoolProfilePage({
           </a>
         )}
 
-        {/* School hours */}
         {school.dayStartTime && school.dayEndTime && (
           <div className="flex items-start gap-3 px-5 py-4">
             <Clock className="h-5 w-5 flex-shrink-0 text-orange-500 mt-0.5" />
@@ -88,12 +68,9 @@ export default async function SchoolProfilePage({
           </div>
         )}
 
-        {/* Phone */}
         {school.phone && (
-          <a
-            href={`tel:${school.phone}`}
-            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group"
-          >
+          <a href={`tel:${school.phone}`}
+            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
             <Phone className="h-5 w-5 flex-shrink-0 text-green-500 mt-0.5" />
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Main Office</div>
@@ -103,14 +80,10 @@ export default async function SchoolProfilePage({
           </a>
         )}
 
-        {/* Website */}
         {school.website && (
-          <a
-            href={school.website.startsWith('http') ? school.website : `https://${school.website}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group"
-          >
+          <a href={school.website.startsWith('http') ? school.website : `https://${school.website}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
             <Globe className="h-5 w-5 flex-shrink-0 text-purple-500 mt-0.5" />
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Website</div>
@@ -121,6 +94,9 @@ export default async function SchoolProfilePage({
           </a>
         )}
       </div>
+
+      {/* Join request */}
+      <JoinSchoolButton schoolId={schoolId} initialStatus={status} />
     </div>
   )
 }

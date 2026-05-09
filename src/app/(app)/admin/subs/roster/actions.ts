@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, substitutes, subPriorityOrders, schools } from '@/db/schema'
+import { users, substitutes, subPriorityOrders, schools, subSchoolAssignments } from '@/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -18,7 +18,7 @@ async function getOrgId(): Promise<string> {
 export async function getRosterData() {
   const orgId = await getOrgId()
 
-  const [allSubs, orgSchools, allPriorityRows] = await Promise.all([
+  const [allSubs, orgSchools, allPriorityRows, schoolAssignments] = await Promise.all([
     db
       .select({
         id: substitutes.id,
@@ -49,6 +49,17 @@ export async function getRosterData() {
       .from(subPriorityOrders)
       .where(eq(subPriorityOrders.organizationId, orgId))
       .orderBy(asc(subPriorityOrders.priorityRank)),
+
+    db
+      .select({
+        substituteId: subSchoolAssignments.substituteId,
+        schoolId: subSchoolAssignments.schoolId,
+        schoolName: schools.name,
+        status: subSchoolAssignments.status,
+      })
+      .from(subSchoolAssignments)
+      .innerJoin(schools, eq(subSchoolAssignments.schoolId, schools.id))
+      .where(and(eq(subSchoolAssignments.organizationId, orgId), eq(subSchoolAssignments.status, 'active'))),
   ])
 
   // Build a map: schoolId → ordered sub IDs
@@ -59,7 +70,21 @@ export async function getRosterData() {
     priorityBySchool[key].push(row.substituteId)
   }
 
-  return { subs: allSubs, schools: orgSchools, priorityBySchool, orgId }
+  // Build a map: substituteId → school names[]
+  const subSchools: Record<string, { id: string; name: string }[]> = {}
+  for (const row of schoolAssignments) {
+    if (!subSchools[row.substituteId]) subSchools[row.substituteId] = []
+    subSchools[row.substituteId].push({ id: row.schoolId, name: row.schoolName })
+  }
+
+  // Build a map: schoolId → active sub IDs (for filtering priority lists)
+  const activeSubsBySchool: Record<string, string[]> = {}
+  for (const row of schoolAssignments) {
+    if (!activeSubsBySchool[row.schoolId]) activeSubsBySchool[row.schoolId] = []
+    activeSubsBySchool[row.schoolId].push(row.substituteId)
+  }
+
+  return { subs: allSubs, schools: orgSchools, priorityBySchool, subSchools, activeSubsBySchool, orgId }
 }
 
 export async function saveSchoolPriorityOrder(orderedSubIds: string[], schoolId: string) {

@@ -71,10 +71,12 @@ export function AppSidebar({
   isOpen = false,
   onClose,
   role,
+  pendingSubCount,
 }: {
   isOpen?: boolean
   onClose?: () => void
   role?: string | null
+  pendingSubCount?: number
 }) {
   const pathname = usePathname();
   const supabase = createClient();
@@ -134,7 +136,12 @@ export function AppSidebar({
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === '/admin/subs' && pendingSubCount && pendingSubCount > 0 ? (
+                    <span className="ml-auto inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold h-5 w-5 flex-shrink-0">
+                      {pendingSubCount}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

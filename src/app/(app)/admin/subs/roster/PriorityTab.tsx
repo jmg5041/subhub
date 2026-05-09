@@ -11,20 +11,24 @@ type Props = {
   subs: Sub[]
   schools: SchoolRecord[]
   priorityBySchool: Record<string, string[]>
+  activeSubsBySchool: Record<string, string[]>
 }
 
-export default function PriorityTab({ subs, schools, priorityBySchool }: Props) {
+export default function PriorityTab({ subs, schools, priorityBySchool, activeSubsBySchool }: Props) {
   const [selectedSchool, setSelectedSchool] = useState<SchoolRecord | null>(null)
   const [orderedIds, setOrderedIds] = useState<string[]>([])
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function selectSchool(school: SchoolRecord) {
+    const schoolSubIds = activeSubsBySchool[school.id] ?? []
+    // Filter to subs associated with this school; fall back to all subs if none assigned yet
+    const eligibleSubs = schoolSubIds.length > 0 ? subs.filter(s => schoolSubIds.includes(s.id)) : subs
+
     const ranked = priorityBySchool[school.id] ?? []
-    // Build ordered list: ranked subs first, then remaining alphabetically
     const rankedSet = new Set(ranked)
-    const unranked = subs.filter(s => !rankedSet.has(s.id)).map(s => s.id)
-    setOrderedIds([...ranked.filter(id => subs.find(s => s.id === id)), ...unranked])
+    const unranked = eligibleSubs.filter(s => !rankedSet.has(s.id)).map(s => s.id)
+    setOrderedIds([...ranked.filter(id => eligibleSubs.find(s => s.id === id)), ...unranked])
     setSelectedSchool(school)
     setSaved(false)
   }

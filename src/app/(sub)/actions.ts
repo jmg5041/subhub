@@ -7,7 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory } from '@/db/schema'
+import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory, subSchoolAssignments } from '@/db/schema'
 import { eq, and, isNull, gt, asc, sql, ilike, or, isNotNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -294,4 +294,36 @@ export async function toggleUnavailableDate(date: string) {
 
   revalidatePath('/sub/availability')
   return { available: !!existing } // returns new state
+}
+
+export async function getMySchoolStatus(schoolId: string) {
+  const { sub, profile } = await getSubContext()
+  const existing = await db.query.subSchoolAssignments.findFirst({
+    where: and(
+      eq(subSchoolAssignments.substituteId, sub.id),
+      eq(subSchoolAssignments.schoolId, schoolId)
+    ),
+  })
+  return { status: existing?.status ?? null, orgId: profile.organizationId }
+}
+
+export async function requestToJoinSchool(schoolId: string) {
+  const { sub, profile } = await getSubContext()
+
+  // Verify the school belongs to an org
+  const school = await db.query.schools.findFirst({ where: eq(schools.id, schoolId) })
+  if (!school) throw new Error('School not found')
+
+  await db
+    .insert(subSchoolAssignments)
+    .values({
+      substituteId: sub.id,
+      schoolId,
+      organizationId: school.organizationId,
+      status: 'pending',
+    })
+    .onConflictDoNothing()
+
+  revalidatePath(`/sub/schools/${schoolId}`)
+  return { success: true }
 }

@@ -11,6 +11,7 @@ export function AppShell({
   lastName,
   email,
   role,
+  pendingSubCount,
 }: {
   children: React.ReactNode
   schoolName: string | null
@@ -18,6 +19,7 @@ export function AppShell({
   lastName: string | null
   email: string | null
   role: string | null
+  pendingSubCount?: number
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -26,7 +28,7 @@ export function AppShell({
   return (
     <div className="flex h-[100dvh] bg-gray-50">
       {/* Sidebar — always visible on desktop, slide-in overlay on mobile */}
-      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} />
+      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} pendingSubCount={pendingSubCount} />
 
       {/* Backdrop for mobile — clicking it closes the sidebar */}
       {sidebarOpen && (

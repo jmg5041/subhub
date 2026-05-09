@@ -158,6 +158,18 @@ export const assignmentTimeOff = pgTable('assignment_time_off', {
   timeOffId: uuid('time_off_id').references(() => teacherTimeOff.id).notNull(),
 });
 
+// Sub ↔ School assignments — which schools a sub is approved to work at
+export const subSchoolAssignments = pgTable('sub_school_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  substituteId: uuid('substitute_id').references(() => substitutes.id).notNull(),
+  schoolId: uuid('school_id').references(() => schools.id).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  status: text('status').default('pending').notNull(), // 'pending' | 'active' | 'rejected'
+  requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow(),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  reviewedBy: uuid('reviewed_by').references(() => users.id),
+});
+
 // Sub priority order — admin ranks which subs to contact first
 export const subPriorityOrders = pgTable('sub_priority_orders', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -370,6 +382,13 @@ export const assignmentTimeOffRelations = relations(assignmentTimeOff, ({ one })
     fields: [assignmentTimeOff.timeOffId],
     references: [teacherTimeOff.id],
   }),
+}));
+
+export const subSchoolAssignmentsRelations = relations(subSchoolAssignments, ({ one }) => ({
+  substitute: one(substitutes, { fields: [subSchoolAssignments.substituteId], references: [substitutes.id] }),
+  school: one(schools, { fields: [subSchoolAssignments.schoolId], references: [schools.id] }),
+  organization: one(organizations, { fields: [subSchoolAssignments.organizationId], references: [organizations.id] }),
+  reviewer: one(users, { fields: [subSchoolAssignments.reviewedBy], references: [users.id] }),
 }));
 
 export const subPriorityOrdersRelations = relations(subPriorityOrders, ({ one }) => ({
