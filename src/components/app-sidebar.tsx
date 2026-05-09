@@ -99,13 +99,13 @@ export function AppSidebar({
     )}>
       {/* Logo area */}
       <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
-        <div className="flex items-center gap-2">
+        <Link href="/dashboard" onClick={onClose} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <School className="h-7 w-7 text-blue-600" />
           <div>
             <h1 className="text-lg font-bold text-gray-900">SubHub</h1>
             <p className="text-[10px] leading-tight text-gray-500">Admin Portal</p>
           </div>
-        </div>
+        </Link>
         {/* Close button — mobile only */}
         {onClose && (
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:text-gray-600 md:hidden">

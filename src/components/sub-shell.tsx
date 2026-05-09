@@ -45,10 +45,10 @@ export function SubShell({
       sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
     )}>
       <div className="flex items-center justify-between px-4 py-5 border-b border-gray-100">
-        <div>
+        <Link href="/sub/dashboard" onClick={() => setSidebarOpen(false)} className="hover:opacity-80 transition-opacity">
           <div className="text-lg font-bold text-blue-600">SubHub</div>
           <div className="text-xs text-gray-400 mt-0.5">Substitute Portal</div>
-        </div>
+        </Link>
         <button onClick={() => setSidebarOpen(false)} className="rounded-md p-1 text-gray-400 hover:text-gray-600 md:hidden">
           <X className="h-5 w-5" />
         </button>
