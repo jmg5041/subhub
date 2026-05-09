@@ -22,6 +22,8 @@ import {
   AlertCircle,
   CalendarDays,
   Users,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react'
 import { formatDateRangeShort } from '@/lib/date-utils'
 
@@ -60,6 +62,26 @@ export default async function DashboardPage() {
   // Greeting based on Pacific time hour (getHours() returns UTC — use toLocaleString instead)
   const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
   const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
+
+  // Setup checklist — shown to admin/principal until all steps are complete
+  let setupChecklist: { schoolReady: boolean; hasTeachers: boolean; hasSubs: boolean } | null = null
+  const isAdminRole = ['admin', 'principal'].includes(profile?.role ?? '')
+  if (orgId && isAdminRole) {
+    const [firstSchool, firstTeacher, firstSub] = await Promise.all([
+      db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
+      db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
+      db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
+    ])
+    const checklist = {
+      schoolReady: !!(firstSchool?.phone || firstSchool?.address),
+      hasTeachers: !!firstTeacher,
+      hasSubs: !!firstSub,
+    }
+    // Only show if at least one step is incomplete
+    if (!checklist.schoolReady || !checklist.hasTeachers || !checklist.hasSubs) {
+      setupChecklist = checklist
+    }
+  }
 
   // Single query for all org absences — split in JS for today/upcoming
   const allAbsences = orgId
@@ -125,6 +147,41 @@ export default async function DashboardPage() {
           {schoolName} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
+
+      {/* Setup checklist — visible until all 3 steps are done */}
+      {setupChecklist && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-blue-900">Get started with SubHub</h2>
+              <p className="text-sm text-blue-600 mt-0.5">Complete these steps to start managing absences</p>
+            </div>
+            <span className="text-sm font-medium text-blue-700 flex-shrink-0">
+              {[setupChecklist.schoolReady, setupChecklist.hasTeachers, setupChecklist.hasSubs].filter(Boolean).length} of 3 complete
+            </span>
+          </div>
+          <div className="space-y-2">
+            <SetupItem
+              done={setupChecklist.schoolReady}
+              href="/admin/schools"
+              label="Configure your school"
+              description="Add a phone number or address so substitutes know how to reach you"
+            />
+            <SetupItem
+              done={setupChecklist.hasTeachers}
+              href="/admin/users"
+              label="Invite your teachers"
+              description="Teachers can submit absence requests once they have an account"
+            />
+            <SetupItem
+              done={setupChecklist.hasSubs}
+              href="/admin/users"
+              label="Add substitutes"
+              description="Substitutes receive job notifications when absences need coverage"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Stat cards — live counts from the database */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -403,5 +460,33 @@ function StatCard({
         </div>
       </div>
     </div>
+  )
+}
+
+function SetupItem({ done, href, label, description }: {
+  done: boolean
+  href: string
+  label: string
+  description: string
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+        done
+          ? 'border-green-200 bg-green-50 opacity-60 pointer-events-none'
+          : 'border-blue-200 bg-white hover:bg-blue-50'
+      }`}
+    >
+      {done
+        ? <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600 mt-0.5" />
+        : <Circle className="h-5 w-5 flex-shrink-0 text-blue-400 mt-0.5" />
+      }
+      <div className="min-w-0">
+        <p className={`text-sm font-medium ${done ? 'text-green-800 line-through' : 'text-gray-900'}`}>{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+      {!done && <span className="ml-auto text-xs text-blue-600 font-medium flex-shrink-0 self-center">Go →</span>}
+    </Link>
   )
 }
