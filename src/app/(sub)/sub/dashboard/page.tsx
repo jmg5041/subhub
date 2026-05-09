@@ -38,17 +38,29 @@ export default async function SubDashboard() {
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+  // All time comparisons use Pacific time — server runs UTC
+  const TZ = 'America/Los_Angeles'
+  const today   = new Date().toLocaleDateString('en-CA', { timeZone: TZ })  // 'YYYY-MM-DD'
+  const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) // 'HH:MM'
+  const hourPT  = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  const greeting = hourPT < 12 ? 'Good morning' : hourPT < 17 ? 'Good afternoon' : 'Good evening'
 
   const [assignments, pendingTokens] = await Promise.all([
     getMyAssignments(),
     getMyPendingTokens(),
   ])
 
-  const upcoming = assignments.filter(a => a.date >= today)
-  const past     = assignments.filter(a => a.date < today)
+  // A job is "past" if its date is before today, OR it's today but the end time has already passed
+  const upcoming = assignments.filter(a => {
+    if (a.date > today) return true
+    if (a.date < today) return false
+    return a.endTime.slice(0, 5) > nowTime  // same day — still upcoming if end time hasn't passed
+  })
+  const past = assignments.filter(a => {
+    if (a.date < today) return true
+    if (a.date > today) return false
+    return a.endTime.slice(0, 5) <= nowTime  // same day — past if end time has passed
+  })
 
   // ── Per-school summary for past jobs ──
   type SchoolSummary = {
@@ -83,7 +95,7 @@ export default async function SubDashboard() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{greeting}, {profile.firstName}</h1>
         <p className="text-gray-500 mt-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
 
@@ -210,9 +222,14 @@ export default async function SubDashboard() {
       {past.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
-            <div className="font-semibold text-gray-900 text-sm">Hours Worked by School</div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              All-time totals · {past.length} job{past.length !== 1 ? 's' : ''} completed
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Hours Worked by School</div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  All-time totals · {past.length} job{past.length !== 1 ? 's' : ''} completed
+                </div>
+              </div>
+              <Link href="/sub/past-jobs" className="text-xs text-blue-500 hover:underline">View all</Link>
             </div>
           </div>
 
