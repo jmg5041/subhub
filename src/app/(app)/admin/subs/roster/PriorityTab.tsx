@@ -85,7 +85,7 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
                     <div>
                       <div className="font-medium text-gray-900 text-sm">{school.name}</div>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        {assignedCount > 0 ? `${assignedCount} subs assigned` : 'No subs assigned yet'}
+                        {assignedCount > 0 ? `${assignedCount} ${assignedCount === 1 ? 'sub' : 'subs'} assigned` : 'No subs assigned yet'}
                       </div>
                     </div>
                   </button>
