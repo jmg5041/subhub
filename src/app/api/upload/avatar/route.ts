@@ -42,5 +42,6 @@ export async function POST(req: NextRequest) {
     .from('absence-attachments')
     .getPublicUrl(`avatars/${targetUserId}`)
 
-  return NextResponse.json({ url: publicUrl })
+  // Append a version so CDN/browser cache is busted on every upload
+  return NextResponse.json({ url: `${publicUrl}?v=${Date.now()}` })
 }

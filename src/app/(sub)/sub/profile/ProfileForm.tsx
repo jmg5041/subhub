@@ -58,7 +58,7 @@ export function ProfileForm({
       if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
       const { url } = await res.json()
       await saveAvatar(url)
-      setPhotoUrl(url + '?t=' + Date.now())
+      setPhotoUrl(url)
     } catch {
       setPhotoError('Upload failed. Please try again.')
     } finally {

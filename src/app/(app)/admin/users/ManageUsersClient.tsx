@@ -94,7 +94,7 @@ export default function ManageUsersClient({
       if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
       const { url } = await res.json()
       await saveUserAvatar(editingUser.id, url)
-      setEditAvatarUrl(url + '?t=' + Date.now())
+      setEditAvatarUrl(url)
       showMessage('Photo updated.', 'success')
     } catch {
       showMessage('Photo upload failed.', 'error')
