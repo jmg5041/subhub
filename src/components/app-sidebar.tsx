@@ -1,15 +1,3 @@
-/**
- * App sidebar — the main navigation component.
- * 
- * This sidebar appears on every authenticated page. It shows:
- * - SubHub logo/name
- * - Navigation links grouped by function
- * - Current user info at the bottom
- * 
- * It uses shadcn/ui sidebar pattern and collapses on mobile.
- * Each link uses a Lucide icon for visual scanning.
- */
-
 'use client';
 
 import Link from 'next/link';
@@ -26,14 +14,21 @@ import {
   LogOut,
   School,
   Users,
+  UserCog,
   Building2,
   HelpCircle,
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-// Navigation items — grouped by function
-const navGroups = [
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ElementType
+  exactMatch?: boolean  // when true, only highlight if pathname === href exactly
+}
+
+const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Overview',
     items: [
@@ -41,18 +36,19 @@ const navGroups = [
     ],
   },
   {
-    label: 'Absences',
+    label: 'Absences & Vacancies',
     items: [
-      { href: '/absences/create', label: 'Create Absence', icon: CalendarPlus },
-      { href: '/absences/approve', label: 'Approve Absences', icon: ClipboardCheck },
-      { href: '/absences/reconcile', label: 'Reconcile', icon: ClipboardList },
+      { href: '/absences/create', label: 'Create', icon: CalendarPlus },
+      { href: '/absences/approve', label: 'Approve', icon: ClipboardCheck },
+      { href: '/absences/find-sub', label: 'Fill', icon: UserSearch },
     ],
   },
   {
     label: 'Substitutes',
     items: [
-      { href: '/absences/find-sub', label: 'Find Substitute', icon: UserSearch },
-      { href: '/admin/subs', label: 'Hire Subs', icon: Users },
+      { href: '/admin/subs/roster', label: 'Manage & Review', icon: UserCog },
+      { href: '/admin/subs', label: 'Hire Subs', icon: Users, exactMatch: true },
+      { href: '/absences/reconcile', label: 'Reconcile Sub Hours', icon: ClipboardList },
     ],
   },
   {
@@ -91,13 +87,11 @@ export function AppSidebar({
   return (
     <aside className={cn(
       'flex h-[100dvh] w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
-      // Desktop: always visible in the flow
       'md:relative md:translate-x-0',
-      // Mobile: fixed overlay, slides in/out
       'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out md:transition-none',
       isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
     )}>
-      {/* Logo area */}
+      {/* Logo — links to dashboard */}
       <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
         <Link href="/dashboard" onClick={onClose} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <School className="h-7 w-7 text-blue-600" />
@@ -106,7 +100,6 @@ export function AppSidebar({
             <p className="text-[10px] leading-tight text-gray-500">Admin Portal</p>
           </div>
         </Link>
-        {/* Close button — mobile only */}
         {onClose && (
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:text-gray-600 md:hidden">
             <X className="h-5 w-5" />
@@ -124,7 +117,9 @@ export function AppSidebar({
               {group.label}
             </p>
             {group.items.map((item) => {
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+              const isActive = item.exactMatch
+                ? pathname === item.href
+                : pathname === item.href || pathname?.startsWith(item.href + '/')
               const Icon = item.icon;
               return (
                 <Link
@@ -147,7 +142,7 @@ export function AppSidebar({
         ))}
       </nav>
 
-      {/* User section at bottom */}
+      {/* Bottom — help + sign out */}
       <div className="border-t border-gray-200 p-4 space-y-1">
         <Link
           href="/help"
