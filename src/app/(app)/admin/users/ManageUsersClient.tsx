@@ -62,9 +62,10 @@ export default function ManageUsersClient({
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkRole, setBulkRole] = useState('teacher')
   const [bulkSchoolId, setBulkSchoolId] = useState('')
-  const [bulkRows, setBulkRows] = useState<Array<{ firstName: string; lastName: string; email: string }>>([])
+  const [bulkRows, setBulkRows] = useState<Array<{ firstName: string; lastName: string; email: string; phone?: string }>>([])
   const [bulkParseError, setBulkParseError] = useState<string | null>(null)
   const [bulkResults, setBulkResults] = useState<{ sent: number; errors: string[] } | null>(null)
+  const [bulkSendInvites, setBulkSendInvites] = useState(true)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
@@ -190,7 +191,7 @@ export default function ManageUsersClient({
       return
     }
     startTransition(async () => {
-      const res = await bulkInviteUsers(bulkRows, bulkRole, bulkSchoolId || null)
+      const res = await bulkInviteUsers(bulkRows, bulkRole, bulkSchoolId || null, bulkSendInvites)
       setBulkResults(res)
       if (res.sent > 0) setBulkRows([])
     })
@@ -470,9 +471,9 @@ export default function ManageUsersClient({
         {showBulkImport && (
           <div className="border-t border-gray-100 px-6 pb-6 space-y-4">
             <p className="text-sm text-gray-500 pt-4">
-              Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email</code>.{' '}
+              Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email, Phone (optional)</code>.{' '}
               <a
-                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email\nJohn,Smith,jsmith@school.edu\nJane,Doe,jdoe@school.edu')}`}
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email,Phone\nJohn,Smith,jsmith@school.edu,555-555-1234\nJane,Doe,jdoe@school.edu,')}`}
                 download="subhub-import-template.csv"
                 className="text-blue-600 hover:underline"
               >
@@ -525,14 +526,15 @@ export default function ManageUsersClient({
             )}
 
             {bulkRows.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">{bulkRows.length} people found — review before sending:</p>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700">{bulkRows.length} people found — review before importing:</p>
                 <div className="rounded border border-gray-200 overflow-hidden max-h-48 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">Name</th>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Phone</th>
                         <th className="px-3 py-2" />
                       </tr>
                     </thead>
@@ -541,25 +543,40 @@ export default function ManageUsersClient({
                         <tr key={i}>
                           <td className="px-3 py-2 text-gray-900">{r.firstName} {r.lastName}</td>
                           <td className="px-3 py-2 text-gray-500">{r.email}</td>
+                          <td className="px-3 py-2 text-gray-400">{r.phone ?? '—'}</td>
                           <td className="px-3 py-2 text-right">
-                            <button
-                              onClick={() => setBulkRows(rows => rows.filter((_, idx) => idx !== i))}
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              ✕
-                            </button>
+                            <button onClick={() => setBulkRows(rows => rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">✕</button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Send invites toggle */}
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bulkSendInvites}
+                    onChange={e => setBulkSendInvites(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">Send invite emails</span>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {bulkSendInvites
+                        ? 'Each person receives an email with a link to set their password.'
+                        : 'Accounts are created silently. Tell people to visit the app and use "Forgot Password" with their email to log in.'}
+                    </p>
+                  </div>
+                </label>
+
                 <button
                   onClick={handleBulkSubmit}
                   disabled={isPending}
-                  className="mt-3 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {isPending ? 'Sending…' : `Send ${bulkRows.length} invite${bulkRows.length !== 1 ? 's' : ''}`}
+                  {isPending ? 'Importing…' : `Import ${bulkRows.length} ${bulkSendInvites ? '(send invites)' : '(no emails)'}`}
                 </button>
               </div>
             )}
@@ -710,7 +727,8 @@ export default function ManageUsersClient({
 }
 
 // Parses CSV text into rows. Returns an error string if the format is unrecognizable.
-function parseCsv(text: string): Array<{ firstName: string; lastName: string; email: string }> | string {
+// Required columns: First Name, Last Name, Email. Optional: Phone.
+function parseCsv(text: string): Array<{ firstName: string; lastName: string; email: string; phone?: string }> | string {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return 'File must have a header row and at least one data row.'
 
@@ -721,18 +739,20 @@ function parseCsv(text: string): Array<{ firstName: string; lastName: string; em
   const firstIdx = findCol(['first'])
   const lastIdx  = findCol(['last'])
   const emailIdx = findCol(['email'])
+  const phoneIdx = findCol(['phone', 'mobile', 'cell'])
 
   if (firstIdx === -1 || lastIdx === -1 || emailIdx === -1) {
     return 'Could not find required columns. Make sure your CSV has "First Name", "Last Name", and "Email" columns.'
   }
 
-  const rows: Array<{ firstName: string; lastName: string; email: string }> = []
+  const rows: Array<{ firstName: string; lastName: string; email: string; phone?: string }> = []
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
     const firstName = cells[firstIdx]?.trim()
     const lastName  = cells[lastIdx]?.trim()
     const email     = cells[emailIdx]?.trim()
-    if (firstName && lastName && email) rows.push({ firstName, lastName, email })
+    const phone     = phoneIdx >= 0 ? cells[phoneIdx]?.trim() || undefined : undefined
+    if (firstName && lastName && email) rows.push({ firstName, lastName, email, phone })
   }
 
   return rows.length === 0 ? 'No valid rows found. Check that your CSV matches the template.' : rows

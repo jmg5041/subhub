@@ -74,6 +74,7 @@ export async function GET(request: Request) {
         email: authUser.email,
         firstName,
         lastName,
+        phone: (meta.phone as string) || null,
         role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
         organizationId: orgId,
         schoolId,

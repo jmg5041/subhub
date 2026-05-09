@@ -415,14 +415,20 @@ export async function claimDirectorySchool(schoolId: string, directoryEntryId: s
 }
 
 /**
- * Bulk-invite multiple users from a parsed CSV.
- * Each row gets its own Supabase invite email. Errors are collected and returned
- * rather than aborting the whole batch — partial success is fine.
+ * Bulk-import users from a parsed CSV.
+ *
+ * sendInvites = true  → sends each person a Supabase invite email; users row created on first login
+ * sendInvites = false → silently creates the auth account + users row immediately; admin tells
+ *                       people to visit the app and use "Forgot Password" to set their password
+ *
+ * Phone is optional — stored if present, skipped if not.
+ * Errors are collected per row rather than aborting the whole batch.
  */
 export async function bulkInviteUsers(
-  rows: Array<{ email: string; firstName: string; lastName: string }>,
+  rows: Array<{ email: string; firstName: string; lastName: string; phone?: string }>,
   role: string,
-  schoolId: string | null
+  schoolId: string | null,
+  sendInvites: boolean
 ): Promise<{ sent: number; errors: string[] }> {
   const { orgId, adminUserId } = await getAdminContext()
   const supabaseAdmin = createAdminClient()
@@ -433,24 +439,49 @@ export async function bulkInviteUsers(
 
   for (const row of rows) {
     try {
-      const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(row.email, {
-        redirectTo: `${appUrl}/auth/callback`,
-        data: { firstName: row.firstName, lastName: row.lastName, role, orgId, schoolId },
-      })
+      if (sendInvites) {
+        // ── Invite path: Supabase sends email; users row created on first login ──
+        const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(row.email, {
+          redirectTo: `${appUrl}/auth/callback`,
+          data: { firstName: row.firstName, lastName: row.lastName, role, orgId, schoolId, phone: row.phone ?? null },
+        })
+        if (error) { errors.push(`${row.email}: ${error.message}`); continue }
 
-      if (error) {
-        errors.push(`${row.email}: ${error.message}`)
-        continue
+        await db.insert(invitations).values({
+          organizationId: orgId,
+          schoolId,
+          email: row.email,
+          role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+          invitedBy: adminUserId,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        })
+      } else {
+        // ── Silent path: create account + users row now; person uses Forgot Password ──
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: row.email,
+          email_confirm: true, // mark confirmed so Forgot Password works immediately
+          user_metadata: { firstName: row.firstName, lastName: row.lastName },
+        })
+        if (error || !data.user) { errors.push(`${row.email}: ${error?.message ?? 'Unknown error'}`); continue }
+
+        const newId = data.user.id
+        await db.insert(users).values({
+          id: newId,
+          email: row.email,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          phone: row.phone ?? null,
+          role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+          organizationId: orgId,
+          schoolId,
+        })
+
+        if (role === 'teacher' && schoolId) {
+          await db.insert(employees).values({ userId: newId, schoolId })
+        } else if (role === 'substitute') {
+          await db.insert(substitutes).values({ userId: newId })
+        }
       }
-
-      await db.insert(invitations).values({
-        organizationId: orgId,
-        schoolId,
-        email: row.email,
-        role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
-        invitedBy: adminUserId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      })
 
       sent++
     } catch (err) {

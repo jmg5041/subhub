@@ -54,6 +54,7 @@ export async function GET(request: Request) {
       email: user.email,
       firstName: (meta.firstName as string) || user.email.split('@')[0],
       lastName: (meta.lastName as string) || '',
+      phone: (meta.phone as string) || null,
       role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
       organizationId: meta.orgId as string,
       schoolId,
