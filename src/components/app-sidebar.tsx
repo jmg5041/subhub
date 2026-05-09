@@ -69,12 +69,6 @@ const navGroups = [
       { href: '/admin/schools', label: 'Schools', icon: Building2 },
     ],
   },
-  {
-    label: 'Support',
-    items: [
-      { href: '/help', label: 'Help & Guide', icon: HelpCircle },
-    ],
-  },
 ];
 
 export function AppSidebar({
@@ -154,10 +148,18 @@ export function AppSidebar({
       </nav>
 
       {/* User section at bottom */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-4 space-y-1">
+        <Link
+          href="/help"
+          onClick={onClose}
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+        >
+          <HelpCircle className="h-4 w-4" />
+          Help
+        </Link>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900"
         >
           <LogOut className="h-4 w-4" />
           Sign out

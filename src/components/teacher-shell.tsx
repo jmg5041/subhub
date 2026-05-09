@@ -12,7 +12,6 @@ const navItems = [
   { href: '/teacher/absences/new', label: 'Submit Request', icon: CalendarPlus },
   { href: '/teacher/absences', label: 'My Absences', icon: ClipboardList },
   { href: '/teacher/profile', label: 'My Profile', icon: User },
-  { href: '/teacher/help', label: 'Help', icon: HelpCircle },
 ]
 
 export function TeacherShell({
@@ -91,6 +90,9 @@ export function TeacherShell({
             {schoolName && <div className="text-xs text-gray-400 truncate">{schoolName}</div>}
           </div>
         </div>
+        <Link href="/teacher/help" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600">
+          <HelpCircle className="h-3.5 w-3.5" /> Help
+        </Link>
         <button onClick={handleSignOut} className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600">
           <LogOut className="h-3.5 w-3.5" /> Sign out
         </button>

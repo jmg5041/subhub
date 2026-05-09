@@ -13,7 +13,6 @@ const navItems = [
   { href: '/sub/past-jobs', label: 'Past Jobs', icon: Briefcase },
   { href: '/sub/schools', label: 'Find Schools', icon: School },
   { href: '/sub/profile', label: 'My Profile', icon: User },
-  { href: '/sub/help', label: 'Help', icon: HelpCircle },
 ]
 
 export function SubShell({
@@ -90,6 +89,9 @@ export function SubShell({
             <div className="text-xs text-gray-400">Substitute</div>
           </div>
         </div>
+        <Link href="/sub/help" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600">
+          <HelpCircle className="h-3.5 w-3.5" /> Help
+        </Link>
         <button onClick={handleSignOut} className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600">
           <LogOut className="h-3.5 w-3.5" /> Sign out
         </button>
