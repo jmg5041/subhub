@@ -44,7 +44,8 @@ const toc = [
   { id: 'creating-absence', label: 'Creating an Absence' },
   { id: 'approving',        label: 'Approving Absences' },
   { id: 'finding-sub',      label: 'Finding a Substitute' },
-  { id: 'reconcile',        label: 'Reconciling Assignments' },
+  { id: 'partial-day',      label: 'Partial-Day Assignments' },
+  { id: 'reconcile',        label: 'Reconciling Sub Hours' },
   { id: 'settings',         label: 'Settings' },
   { id: 'schools',          label: 'Schools' },
 ]
@@ -149,36 +150,94 @@ export default function AdminHelpPage() {
 
       {/* ── Finding a Substitute ── */}
       <Section id="finding-sub" title="Finding a Substitute">
-        <p>Go to <strong>Find Substitute</strong> to see all approved absences that still need a sub. Click an absence to open its detail page.</p>
+        <p>Go to <strong>Find Substitute</strong> (sidebar) to see all approved absences that still need coverage. Click any absence to open its detail page.</p>
 
-        <h3 className="font-semibold text-gray-800 mt-4">Assign a sub manually</h3>
-        <p>Use the dropdown to select a specific substitute and click Assign. The sub is booked immediately with no notification sent.</p>
-
-        <h3 className="font-semibold text-gray-800 mt-4">Notify All Subs</h3>
-        <p>Click <strong>Notify All Subs</strong> to blast a notification to all eligible substitutes in priority order. Each sub receives a unique email (and optionally SMS or phone call) with Accept and Decline links.</p>
+        <h3 className="font-semibold text-gray-800 mt-4">Option 1 — Notify All Subs</h3>
+        <p>Click <strong>Send Notification to All Subs</strong> to blast a notification to every eligible substitute in priority order. Each sub receives a unique email (and optionally SMS or phone call) with Accept and Decline links. The first sub to click Accept gets the job.</p>
         <ul className="list-disc list-inside space-y-1 pl-1">
-          <li>Subs who marked themselves unavailable on that date are skipped.</li>
+          <li>Subs who marked themselves unavailable on that date are automatically skipped.</li>
           <li>Subs excluded from your school are skipped.</li>
-          <li>The first sub to click Accept gets the job — all other tokens expire.</li>
+          <li>Notification tokens expire after 48 hours.</li>
           <li>Priority order is set in Settings.</li>
         </ul>
-        <Tip>You can control which notification channels are used (email, SMS, phone call) in Settings → Notifications.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Option 2 — Assign a Specific Sub</h3>
+        <p>Click <strong>Choose a Substitute</strong>, search by name, select a sub, and click <strong>Assign This Sub</strong>. The sub is booked immediately — no notification is sent. Use this when you've already arranged coverage by phone.</p>
+        <Tip>If the absence is less than a full school day, SubHub will ask how to record the sub's hours before you confirm. See the Partial-Day Assignments section below.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Option 3 — Covered by Staff</h3>
+        <p>Toggle <strong>Covered by Staff</strong> if another teacher, an aide, or an administrator is covering the class. No sub is needed and no notification is sent. The absence is still tracked for records.</p>
+      </Section>
+
+      {/* ── Partial-Day Assignments ── */}
+      <Section id="partial-day" title="Partial-Day Assignments">
+        <p>When you assign a sub to an absence that is shorter than a full school day, SubHub shows a prompt asking how to record the sub's time. This matters for accurate payroll — a sub may be on campus longer than just the absence they're filling.</p>
+
+        <p className="mt-3">You have five choices:</p>
+
+        <div className="space-y-3 mt-2">
+          <div>
+            <p className="font-semibold text-gray-800">Exact hours</p>
+            <p>The sub is credited only for the duration of the absence. Use this when the sub truly works only those hours and leaves.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Half day</p>
+            <p>The sub is credited for your school's standard half-day block (default: 4 hours), regardless of exact absence length. Use this when your school pays subs in half-day increments.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Full day</p>
+            <p>The sub is credited for a full school day (default: 8 hours). Use this when the sub is on campus all day even if only covering a partial absence.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Combine with another absence today</p>
+            <p>If another teacher is also out that day (at a different time with no overlap), you can bundle both absences into one shift for the same sub. SubHub shows eligible absences as a checklist — select them and the sub's total hours update automatically. This eliminates the need for a separate spreadsheet to track split-day sub work.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">General duties for remaining time</p>
+            <p>The sub fills the absence, then stays on campus for the rest of a half or full day doing non-classroom work — lunchroom supervision, PE yard duty, front office coverage, etc. Enter a short description of the duties. The sub's total hours include both the absence coverage and the general duty time.</p>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <p>A live <strong>hours preview</strong> at the bottom of the panel updates as you make selections so you always see what the sub will be credited before you confirm.</p>
+        </div>
+
+        <Note>The "Combine" and "General duties" options solve the problem of a sub who covers multiple teachers in one day being under-credited. Without these options, payroll would only see the hours for one teacher's absence — not the sub's actual full day.</Note>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Setting your pay model</h3>
+        <p>Go to <strong>Settings → Sub Pay Model</strong> to choose how your school records sub hours:</p>
+        <ul className="list-disc list-inside space-y-1 pl-1">
+          <li><strong>Block (default)</strong> — subs are paid in half-day or full-day blocks. The partial-day prompt appears whenever an absence is shorter than a full day.</li>
+          <li><strong>Hourly</strong> — subs are paid for exact hours worked. No prompt appears; hours are calculated automatically from the absence start and end times.</li>
+        </ul>
+        <p className="mt-2">You can also change the default half-day and full-day hour values (e.g., if your school day is 6 hours, set full day to 6 and half day to 3).</p>
       </Section>
 
       {/* ── Reconciling ── */}
-      <Section id="reconcile" title="Reconciling Assignments">
-        <p>Go to <strong>Reconcile</strong> after absences are complete to confirm the sub's hours for payroll. This is where you verify that what was scheduled matches what actually happened.</p>
+      <Section id="reconcile" title="Reconciling Sub Hours">
+        <p>Go to <strong>Reconcile Sub Hours</strong> (Substitutes section of the sidebar) after absences are complete to verify what actually happened before payroll is processed.</p>
+        <p className="mt-2">Reconciling answers: <em>Did the sub show up? Did the hours match what was scheduled?</em></p>
         <Steps items={[
           'Review each completed assignment.',
-          'Confirm the hours are correct.',
+          'Confirm the sub worked as assigned — or note if they didn\'t show or hours differed.',
           'Mark as reconciled.',
         ]} />
-        <Note>Reconciliation details (exact hour adjustments, sub ratings) are coming in a future update.</Note>
+
+        <h3 className="font-semibold text-gray-800 mt-4">What reconciliation covers</h3>
+        <div className="space-y-2">
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub worked exactly as assigned — confirm and done.</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub covered one teacher's absence and general duties — total hours already recorded at assign time.</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub covered two teachers in one combined shift — hours already summed at assign time, both teacher absence records linked.</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub left early or the teacher came back — adjust hours at reconcile time (coming in a future update).</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub didn't show — mark accordingly (coming in a future update).</span></div>
+        </div>
+
+        <Note>Sub ratings and manual hour adjustments at reconcile time are planned for the next update. For now, reconciliation is a confirmation step — the hour corrections are handled at assign time using the partial-day options above.</Note>
       </Section>
 
       {/* ── Settings ── */}
       <Section id="settings" title="Settings">
-        <p>Go to <strong>Settings</strong> to configure how SubHub notifies substitutes.</p>
+        <p>Go to <strong>Settings</strong> to configure notifications and sub pay preferences.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Auto-notify</h3>
         <p>When enabled, SubHub automatically sends notifications to subs as soon as an absence is approved. When disabled, you manually trigger the blast from the Find Substitute page.</p>
@@ -189,6 +248,9 @@ export default function AdminHelpPage() {
           <li><strong>SMS</strong> — sends a text message with Accept/Decline links. Requires subs to have a phone number on file.</li>
           <li><strong>Phone call</strong> — calls the sub and reads out the job details. Press 1 to accept, Press 2 to decline. Off by default.</li>
         </ul>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Sub pay model</h3>
+        <p>Choose whether your school pays subs in <strong>blocks</strong> (half day / full day) or by <strong>exact hours</strong>. Set the number of hours that count as a half day and a full day for your school. See the Partial-Day Assignments section above for how this affects the assign flow.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Sub priority order</h3>
         <p>Drag substitutes into your preferred calling order. When a blast goes out, subs higher on the list are notified first. Subs not in the list are notified after ranked subs, in no particular order.</p>
