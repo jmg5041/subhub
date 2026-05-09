@@ -113,7 +113,7 @@ export function AppSidebar({
           group.label !== 'Admin' || ['admin', 'principal'].includes(role ?? '')
         ).map((group) => (
           <div key={group.label} className="mb-4">
-            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-blue-600">
               {group.label}
             </p>
             {group.items.map((item) => {
