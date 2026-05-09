@@ -49,7 +49,7 @@ export default async function ApproveAbsencesPage() {
         <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white px-6 py-16 text-center">
           <CheckCircle className="h-12 w-12 text-green-400" />
           <p className="mt-4 text-lg font-medium text-gray-900">All caught up!</p>
-          <p className="mt-1 text-sm text-gray-500">No absences are waiting for approval right now.</p>
+          <p className="mt-1 text-sm text-gray-500">Approved absences move to the &quot;Fill&quot; page.</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
