@@ -41,6 +41,8 @@ function Note({ children }: { children: React.ReactNode }) {
 const toc = [
   { id: 'getting-started',  label: 'Getting Started' },
   { id: 'managing-users',   label: 'Managing Users' },
+  { id: 'managing-subs',    label: 'Managing Substitutes' },
+  { id: 'hire-subs',        label: 'Hiring Substitutes' },
   { id: 'creating-absence', label: 'Creating an Absence' },
   { id: 'approving',        label: 'Approving Absences' },
   { id: 'finding-sub',      label: 'Finding a Substitute' },
@@ -122,6 +124,48 @@ export default function AdminHelpPage() {
         <p>Deactivating a user prevents them from logging in but keeps their history. Use this instead of deleting when someone leaves — it preserves their absence records.</p>
       </Section>
 
+      {/* ── Managing Substitutes ── */}
+      <Section id="managing-subs" title="Managing Substitutes">
+        <p>Go to <strong>Substitutes → Manage &amp; Review</strong> to see your full sub roster and manage school assignments and call priority.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Sub Roster tab</h3>
+        <p>Shows all substitutes in your organization with their contact info, county, assigned schools, rating, and resume. Active subs are listed at the top; inactive subs appear dimmed below.</p>
+        <p className="mt-2">Click any sub&apos;s name to open their detail page where you can:</p>
+        <ul className="list-disc list-inside space-y-1 pl-1">
+          <li>View their contact info, county, rating, and resume.</li>
+          <li>Assign them to one or more schools using the <strong>School Assignments</strong> checkboxes.</li>
+        </ul>
+        <Tip>Assigning a sub to a school is what makes them appear in that school&apos;s Call Priority list and makes them eligible to be called for absences at that campus.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Call Priority Order tab</h3>
+        <p>Sets the order in which subs are called when a job notification goes out for each campus.</p>
+        <Steps items={[
+          'Click a school name to open its priority list.',
+          'Only subs assigned to that school appear in the list.',
+          'Use the arrows to move subs up or down.',
+          'Click Save Priority Order when done.',
+        ]} />
+        <p>Subs at the top of the list are notified first. If no priority order is saved, subs are notified in no particular order.</p>
+        <Note>A school must have subs assigned to it before a priority order can be set. Assign subs from their detail page first.</Note>
+      </Section>
+
+      {/* ── Hiring Substitutes ── */}
+      <Section id="hire-subs" title="Hiring Substitutes">
+        <p>Go to <strong>Substitutes → Hire Subs</strong> to review join requests from substitutes and browse the SubHub substitute directory.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Join requests</h3>
+        <p>When a substitute visits your school&apos;s profile page and clicks <strong>Request to Join</strong>, a pending request appears at the top of the Hire Subs page. A badge on the sidebar shows how many requests are waiting.</p>
+        <Steps items={[
+          'Expand a pending request to see the sub\'s contact info.',
+          'Select which schools to assign them to (you can assign to multiple campuses at once).',
+          'Click Approve — the sub is immediately added to those schools\' rosters.',
+          'Or click Decline to reject the request.',
+        ]} />
+
+        <h3 className="font-semibold text-gray-800 mt-4">Browse the directory</h3>
+        <p>Use <strong>Browse Substitute Directory</strong> to find substitutes registered in SubHub by county. This shows all subs across all schools — not just yours. Once you find someone, you can invite them through <strong>Admin → Manage Users</strong>.</p>
+      </Section>
+
       {/* ── Creating an Absence ── */}
       <Section id="creating-absence" title="Creating an Absence">
         <p>Absences can be created by admins/staff (on behalf of a teacher) or by teachers themselves. To create one as an admin, click <strong>Create Absence</strong> from the dashboard or the sidebar.</p>
@@ -158,7 +202,8 @@ export default function AdminHelpPage() {
           <li>Subs who marked themselves unavailable on that date are automatically skipped.</li>
           <li>Subs excluded from your school are skipped.</li>
           <li>Notification tokens expire after 48 hours.</li>
-          <li>Priority order is set in Settings.</li>
+          <li>Priority order is set per campus under <strong>Manage &amp; Review → Call Priority Order</strong>.</li>
+          <li>Only subs assigned to the absence&apos;s school are eligible to be called.</li>
         </ul>
 
         <h3 className="font-semibold text-gray-800 mt-4">Option 2 — Assign a Specific Sub</h3>
@@ -253,7 +298,7 @@ export default function AdminHelpPage() {
         <p>Choose whether your school pays subs in <strong>blocks</strong> (half day / full day) or by <strong>exact hours</strong>. Set the number of hours that count as a half day and a full day for your school. See the Partial-Day Assignments section above for how this affects the assign flow.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Sub priority order</h3>
-        <p>Drag substitutes into your preferred calling order. When a blast goes out, subs higher on the list are notified first. Subs not in the list are notified after ranked subs, in no particular order.</p>
+        <p>Call priority is managed per campus under <strong>Substitutes → Manage &amp; Review → Call Priority Order</strong>. See the Managing Substitutes section above.</p>
       </Section>
 
       {/* ── Schools ── */}

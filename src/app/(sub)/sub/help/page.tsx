@@ -43,7 +43,7 @@ const toc = [
   { id: 'accepting-jobs',  label: 'Accepting & Declining Jobs' },
   { id: 'dashboard',       label: 'Your Dashboard' },
   { id: 'availability',    label: 'Setting Availability' },
-  { id: 'schools',         label: 'Finding Schools' },
+  { id: 'schools',         label: 'Finding & Joining Schools' },
   { id: 'profile',         label: 'Your Profile' },
 ]
 
@@ -158,9 +158,9 @@ export default function SubHelpPage() {
         <Tip>Mark your unavailable dates as far in advance as possible. Schools send notifications as soon as an absence is approved — if you&apos;re not marked unavailable, you&apos;ll get notified even on days you can&apos;t work.</Tip>
       </Section>
 
-      {/* ── Finding Schools ── */}
-      <Section id="schools" title="Finding Schools">
-        <p>Go to <strong>Find Schools</strong> to browse schools in your area. This is useful for understanding which schools you may work at.</p>
+      {/* ── Finding & Joining Schools ── */}
+      <Section id="schools" title="Finding & Joining Schools">
+        <p>Go to <strong>Find Schools</strong> to browse schools in your area and request to join their substitute pool.</p>
         <div className="space-y-3">
           <div>
             <p className="font-semibold text-gray-800">Nearby</p>
@@ -176,6 +176,20 @@ export default function SubHelpPage() {
           </div>
         </div>
         <p>Click any school to see its address, phone number, and other details.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Requesting to join a school</h3>
+        <p>At the bottom of any school&apos;s profile page, click <strong>Request to Join</strong> to ask that school to add you to their substitute pool. The button will show your current status:</p>
+        <div className="space-y-2 mt-2">
+          <div className="flex gap-3 items-start">
+            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700 flex-shrink-0 mt-0.5">Pending</span>
+            <span>Your request has been submitted. The school admin will review it.</span>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 flex-shrink-0 mt-0.5">Active</span>
+            <span>You&apos;ve been approved. You&apos;re in their sub pool and eligible to receive job notifications from this school.</span>
+          </div>
+        </div>
+        <Tip>You only receive job notifications from schools you&apos;ve been approved at. Request to join every school in your area where you&apos;re willing to work.</Tip>
       </Section>
 
       {/* ── Profile ── */}
