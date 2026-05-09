@@ -74,7 +74,7 @@ export default function SubHelpPage() {
 
       {/* ── Getting Started ── */}
       <Section id="getting-started" title="Getting Started">
-        <p>Your school or district has added you to SubHub as a substitute teacher. Here's how to log in for the first time:</p>
+        <p>Your school or district has added you to SubHub as a substitute teacher. Here&apos;s how to log in for the first time:</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">If you received an invite email</h3>
         <Steps items={[
@@ -99,7 +99,7 @@ export default function SubHelpPage() {
           'Upload your resume (optional) — helps schools know your background.',
           'Set any dates you\'re unavailable on the Availability calendar.',
         ]} />
-        <Tip>If you see a yellow banner on your dashboard saying "Complete your profile," tap it to go straight to your profile page.</Tip>
+        <Tip>If you see a yellow banner on your dashboard saying &quot;Complete your profile,&quot; tap it to go straight to your profile page.</Tip>
       </Section>
 
       {/* ── Accepting Jobs ── */}
@@ -107,9 +107,9 @@ export default function SubHelpPage() {
         <p>When a school has an open position, SubHub notifies you. You can respond three ways:</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">From an email</h3>
-        <p>You'll receive an email with the school name, date, and times. The email has two large buttons:</p>
+        <p>You&apos;ll receive an email with the school name, date, and times. The email has two large buttons:</p>
         <ul className="list-disc list-inside space-y-1 pl-1">
-          <li><strong>Accept</strong> — you're confirmed for the job immediately.</li>
+          <li><strong>Accept</strong> — you&apos;re confirmed for the job immediately.</li>
           <li><strong>Decline</strong> — you pass, and other subs are still eligible.</li>
         </ul>
         <Note>Each email link is unique to you. The first substitute to click Accept gets the position. Links expire after 48 hours.</Note>
@@ -124,12 +124,12 @@ export default function SubHelpPage() {
         <h3 className="font-semibold text-gray-800 mt-4">From your dashboard</h3>
         <p>Open requests also appear on your dashboard under <strong>Requests Awaiting Your Response</strong>. Click the orange button next to a request to open the job page and accept or decline from there.</p>
 
-        <Tip>Respond quickly — jobs are first-come, first-served. If you're interested in a position, accept it as soon as you see the notification.</Tip>
+        <Tip>Respond quickly — jobs are first-come, first-served. If you&apos;re interested in a position, accept it as soon as you see the notification.</Tip>
       </Section>
 
       {/* ── Dashboard ── */}
       <Section id="dashboard" title="Your Dashboard">
-        <p>Your dashboard is your home base. Here's what each section shows:</p>
+        <p>Your dashboard is your home base. Here&apos;s what each section shows:</p>
         <div className="space-y-3">
           <div>
             <p className="font-semibold text-gray-800">Open Requests</p>
@@ -137,7 +137,7 @@ export default function SubHelpPage() {
           </div>
           <div>
             <p className="font-semibold text-gray-800">Upcoming Jobs</p>
-            <p>Positions you've already accepted that haven't happened yet. Click any job to see the full details (school address, start time, notes from the teacher).</p>
+            <p>Positions you&apos;ve already accepted that haven&apos;t happened yet. Click any job to see the full details (school address, start time, notes from the teacher).</p>
           </div>
           <div>
             <p className="font-semibold text-gray-800">Past Jobs</p>
@@ -148,14 +148,14 @@ export default function SubHelpPage() {
 
       {/* ── Availability ── */}
       <Section id="availability" title="Setting Availability">
-        <p>Go to <strong>My Availability</strong> to mark days when you're not available to work.</p>
+        <p>Go to <strong>My Availability</strong> to mark days when you&apos;re not available to work.</p>
         <Steps items={[
           'Click any date on the calendar to mark it unavailable (shown in orange).',
           'Click the same date again to remove it.',
           'Changes save automatically.',
         ]} />
-        <p>When a school sends out a job notification, SubHub automatically skips you on any date you've marked unavailable. You won't receive calls or emails for those days.</p>
-        <Tip>Mark your unavailable dates as far in advance as possible. Schools send notifications as soon as an absence is approved — if you're not marked unavailable, you'll get notified even on days you can't work.</Tip>
+        <p>When a school sends out a job notification, SubHub automatically skips you on any date you&apos;ve marked unavailable. You won&apos;t receive calls or emails for those days.</p>
+        <Tip>Mark your unavailable dates as far in advance as possible. Schools send notifications as soon as an absence is approved — if you&apos;re not marked unavailable, you&apos;ll get notified even on days you can&apos;t work.</Tip>
       </Section>
 
       {/* ── Finding Schools ── */}
@@ -183,10 +183,10 @@ export default function SubHelpPage() {
         <p>Go to <strong>My Profile</strong> to keep your information up to date.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Phone number</h3>
-        <p>Your phone number is used for SMS and phone call job notifications. Without it, you'll only receive email notifications. Enter it in the format <code className="bg-gray-100 px-1 rounded text-xs">555-555-1234</code> or <code className="bg-gray-100 px-1 rounded text-xs">(555) 555-1234</code>.</p>
+        <p>Your phone number is used for SMS and phone call job notifications. Without it, you&apos;ll only receive email notifications. Enter it in the format <code className="bg-gray-100 px-1 rounded text-xs">555-555-1234</code> or <code className="bg-gray-100 px-1 rounded text-xs">(555) 555-1234</code>.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">County</h3>
-        <p>Setting your county helps schools in your area find your profile in the substitute directory. Choose the county where you're willing to work.</p>
+        <p>Setting your county helps schools in your area find your profile in the substitute directory. Choose the county where you&apos;re willing to work.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Resume</h3>
         <p>Upload a PDF resume to let schools know your background and experience. Click <strong>Upload Resume</strong> and select a PDF file. Your resume is visible to school administrators.</p>

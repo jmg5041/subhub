@@ -73,7 +73,7 @@ export default function TeacherHelpPage() {
 
       {/* ── Getting Started ── */}
       <Section id="getting-started" title="Getting Started">
-        <p>Your school administrator has added you to SubHub. Here's how to log in for the first time:</p>
+        <p>Your school administrator has added you to SubHub. Here&apos;s how to log in for the first time:</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">If you received an invite email</h3>
         <Steps items={[
@@ -90,7 +90,7 @@ export default function TeacherHelpPage() {
           'Set your password — you\'re in.',
         ]} />
 
-        <Tip>Use the same email address your school has on file. If the forgot password email doesn't arrive, check your spam folder.</Tip>
+        <Tip>Use the same email address your school has on file. If the forgot password email doesn&apos;t arrive, check your spam folder.</Tip>
       </Section>
 
       {/* ── Submitting an Absence ── */}
@@ -111,7 +111,7 @@ export default function TeacherHelpPage() {
 
       {/* ── Understanding Status ── */}
       <Section id="status" title="Understanding Absence Status">
-        <p>Each absence request moves through several statuses. Here's what each one means:</p>
+        <p>Each absence request moves through several statuses. Here&apos;s what each one means:</p>
         <div className="space-y-2">
           <div className="flex gap-3">
             <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700 flex-shrink-0">Pending approval</span>
@@ -139,7 +139,7 @@ export default function TeacherHelpPage() {
         <h3 className="font-semibold text-gray-800 mt-4">Canceling a request</h3>
         <p>You can cancel a request as long as no substitute has already accepted the job. Open the request and click Delete. Once a sub has been assigned, contact your admin to make changes.</p>
 
-        <Note>You cannot edit a request after it's been submitted — only delete and resubmit. If you need to change the dates or times, delete the existing request and create a new one.</Note>
+        <Note>You cannot edit a request after it&apos;s been submitted — only delete and resubmit. If you need to change the dates or times, delete the existing request and create a new one.</Note>
       </Section>
 
       {/* ── Profile ── */}
