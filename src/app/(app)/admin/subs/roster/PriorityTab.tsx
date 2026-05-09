@@ -21,9 +21,8 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
   const [isPending, startTransition] = useTransition()
 
   function selectSchool(school: SchoolRecord) {
-    const schoolSubIds = activeSubsBySchool[school.id] ?? []
-    // Filter to subs associated with this school; fall back to all subs if none assigned yet
-    const eligibleSubs = schoolSubIds.length > 0 ? subs.filter(s => schoolSubIds.includes(s.id)) : subs
+    const schoolSubIds = new Set(activeSubsBySchool[school.id] ?? [])
+    const eligibleSubs = subs.filter(s => schoolSubIds.has(s.id))
 
     const ranked = priorityBySchool[school.id] ?? []
     const rankedSet = new Set(ranked)
@@ -75,7 +74,7 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
           ) : (
             <div className="flex flex-col gap-3">
               {schools.map(school => {
-                const ranked = (priorityBySchool[school.id] ?? []).filter(id => subs.find(s => s.id === id))
+                const assignedCount = (activeSubsBySchool[school.id] ?? []).length
                 return (
                   <button
                     key={school.id}
@@ -86,7 +85,7 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
                     <div>
                       <div className="font-medium text-gray-900 text-sm">{school.name}</div>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        {ranked.length > 0 ? `${ranked.length} subs ranked` : 'No priority set yet'}
+                        {assignedCount > 0 ? `${assignedCount} subs assigned` : 'No subs assigned yet'}
                       </div>
                     </div>
                   </button>
@@ -121,7 +120,12 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
         </p>
 
         {orderedIds.length === 0 ? (
-          <p className="text-sm text-gray-400">No active substitutes found.</p>
+          <div className="rounded-lg border border-dashed border-gray-200 px-6 py-8 text-center">
+            <p className="text-sm font-medium text-gray-500">No substitutes assigned to this school yet.</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Go to <strong>Sub Roster</strong>, click a sub&apos;s name, and check this school under School Assignments.
+            </p>
+          </div>
         ) : (
           <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
             {orderedIds.map((id, index) => {
