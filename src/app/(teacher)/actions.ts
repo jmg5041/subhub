@@ -36,6 +36,12 @@ async function getTeacherContext() {
   return { profile, employee, orgId: profile.organizationId }
 }
 
+export async function saveAvatar(url: string) {
+  const { profile } = await getTeacherContext()
+  await db.update(users).set({ avatarUrl: url }).where(eq(users.id, profile.id))
+  revalidatePath('/teacher/profile')
+}
+
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export async function getMyTeacherContext() {

@@ -4,13 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { CalendarPlus, ClipboardList, Home, LogOut, Menu, X } from 'lucide-react'
+import { CalendarPlus, ClipboardList, Home, LogOut, Menu, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { href: '/teacher', label: 'Home', icon: Home },
   { href: '/teacher/absences/new', label: 'Submit Request', icon: CalendarPlus },
   { href: '/teacher/absences', label: 'My Absences', icon: ClipboardList },
+  { href: '/teacher/profile', label: 'My Profile', icon: User },
 ]
 
 export function TeacherShell({
@@ -19,12 +20,14 @@ export function TeacherShell({
   lastName,
   schoolName,
   initials,
+  avatarUrl,
 }: {
   children: React.ReactNode
   firstName: string
   lastName: string
   schoolName: string | null
   initials: string
+  avatarUrl: string | null
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
@@ -75,9 +78,13 @@ export function TeacherShell({
 
       <div className="px-4 py-4 border-t border-gray-100 space-y-3">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {initials}
-          </div>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {initials}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="text-sm font-medium text-gray-900 truncate">{firstName} {lastName}</div>
             {schoolName && <div className="text-xs text-gray-400 truncate">{schoolName}</div>}
@@ -110,9 +117,13 @@ export function TeacherShell({
             <Menu className="h-5 w-5" />
           </button>
           <span className="text-sm font-semibold text-blue-600">SubHub</span>
-          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
-            {initials}
-          </div>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+              {initials}
+            </div>
+          )}
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

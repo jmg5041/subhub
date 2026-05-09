@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser } from '../actions'
-import { X } from 'lucide-react'
+import { useRef, useState, useTransition } from 'react'
+import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar } from '../actions'
+import { Camera, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 type User = {
   id: string
@@ -13,6 +14,7 @@ type User = {
   role: string
   status: string | null
   schoolId: string | null
+  avatarUrl: string | null
 }
 
 type Invite = {
@@ -58,6 +60,9 @@ export default function ManageUsersClient({
   const [pendingInviteLink, setPendingInviteLink] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   function showMessage(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -66,6 +71,7 @@ export default function ManageUsersClient({
 
   function openEditModal(u: User) {
     setEditingUser(u)
+    setEditAvatarUrl(u.avatarUrl)
     setEditForm({
       firstName: u.firstName,
       lastName: u.lastName,
@@ -73,6 +79,29 @@ export default function ManageUsersClient({
       phone: u.phone ?? '',
       role: u.role,
     })
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !editingUser) return
+    setUploadingAvatar(true)
+    try {
+      const supabase = createClient()
+      const path = `avatars/${editingUser.id}`
+      const { error } = await supabase.storage
+        .from('absence-attachments')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
+      await saveUserAvatar(editingUser.id, publicUrl)
+      setEditAvatarUrl(publicUrl + '?t=' + Date.now())
+      showMessage('Photo updated.', 'success')
+    } catch {
+      showMessage('Photo upload failed.', 'error')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
   }
 
   function handleSaveEdit() {
@@ -199,6 +228,34 @@ export default function ManageUsersClient({
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              {/* Avatar */}
+              <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    {editAvatarUrl ? (
+                      <img src={editAvatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-gray-600 text-lg font-bold">
+                        {editForm.firstName?.[0]}{editForm.lastName?.[0]}
+                      </span>
+                    )}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 cursor-pointer rounded-full bg-white border border-gray-200 p-1 shadow-sm hover:bg-gray-50">
+                    <Camera className="h-3 w-3 text-gray-500" />
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                  </label>
+                </div>
+                <div className="text-xs text-gray-400">
+                  {uploadingAvatar ? 'Uploading…' : 'Click the camera to upload a photo'}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
@@ -364,6 +421,15 @@ export default function ManageUsersClient({
         <div className="divide-y divide-gray-100">
           {users.map(u => (
             <div key={u.id} className="flex items-center gap-3 px-6 py-3 flex-wrap">
+              <div className="flex-shrink-0">
+                {u.avatarUrl ? (
+                  <img src={u.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
+                    {u.firstName[0]}{u.lastName[0]}
+                  </div>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-900 text-sm">{u.lastName}, {u.firstName}</div>
                 <div className="text-xs text-gray-400 truncate">{u.email}{u.phone && ` · ${u.phone}`}</div>

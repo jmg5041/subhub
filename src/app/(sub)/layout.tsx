@@ -28,6 +28,7 @@ export default async function SubLayout({ children }: { children: React.ReactNod
       firstName={profile.firstName}
       lastName={profile.lastName}
       initials={initials}
+      avatarUrl={profile.avatarUrl ?? null}
     >
       {children}
     </SubShell>

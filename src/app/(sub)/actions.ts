@@ -261,6 +261,18 @@ export async function getDirectoryCountyCounts() {
   return rows
 }
 
+export async function saveAvatar(url: string) {
+  const { profile } = await getSubContext()
+  await db.update(users).set({ avatarUrl: url }).where(eq(users.id, profile.id))
+  revalidatePath('/sub/profile')
+}
+
+export async function saveResume(url: string) {
+  const { sub } = await getSubContext()
+  await db.update(substitutes).set({ resumeUrl: url }).where(eq(substitutes.id, sub.id))
+  revalidatePath('/sub/profile')
+}
+
 export async function toggleUnavailableDate(date: string) {
   const { sub } = await getSubContext()
 

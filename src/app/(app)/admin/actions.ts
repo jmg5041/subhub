@@ -37,6 +37,7 @@ export async function getOrgUsers() {
         role: users.role,
         status: users.status,
         schoolId: users.schoolId,
+        avatarUrl: users.avatarUrl,
       })
       .from(users)
       .where(eq(users.organizationId, orgId))
@@ -411,4 +412,12 @@ export async function claimDirectorySchool(schoolId: string, directoryEntryId: s
 
   revalidatePath('/admin/schools')
   return { success: true, entry }
+}
+
+export async function saveUserAvatar(userId: string, url: string) {
+  const { orgId } = await getAdminContext()
+  const target = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!target || target.organizationId !== orgId) throw new Error('User not found')
+  await db.update(users).set({ avatarUrl: url }).where(eq(users.id, userId))
+  revalidatePath('/admin/users')
 }

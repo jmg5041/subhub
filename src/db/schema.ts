@@ -80,6 +80,7 @@ export const substitutes = pgTable('substitutes', {
   notificationPreference: text('notification_preference').default('all'),
   // 'sms' | 'email' | 'phone' | 'all'
   county: text('county'),
+  resumeUrl: text('resume_url'),
 });
 
 // Absence Reasons (per organization)

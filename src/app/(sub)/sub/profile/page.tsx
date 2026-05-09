@@ -1,8 +1,3 @@
-/**
- * Sub profile page — lets subs update their county and phone number.
- * County determines which schools they see in the Find Schools browser.
- */
-
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
@@ -34,12 +29,15 @@ export default async function SubProfilePage() {
       </div>
 
       <ProfileForm
+        userId={profile.id}
         firstName={profile.firstName}
         lastName={profile.lastName}
         email={profile.email}
         phone={profile.phone ?? ''}
         county={sub.county ?? ''}
         counties={counties}
+        avatarUrl={profile.avatarUrl ?? null}
+        resumeUrl={sub.resumeUrl ?? null}
       />
     </div>
   )

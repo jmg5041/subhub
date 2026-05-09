@@ -29,6 +29,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
       lastName={profile.lastName}
       schoolName={profile.school?.name ?? null}
       initials={initials}
+      avatarUrl={profile.avatarUrl ?? null}
     >
       {children}
     </TeacherShell>
