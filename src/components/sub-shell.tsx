@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Briefcase, Calendar, Home, LogOut, Menu, School, User, X } from 'lucide-react'
+import { Briefcase, Calendar, HelpCircle, Home, LogOut, Menu, School, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/sub/past-jobs', label: 'Past Jobs', icon: Briefcase },
   { href: '/sub/schools', label: 'Find Schools', icon: School },
   { href: '/sub/profile', label: 'My Profile', icon: User },
+  { href: '/sub/help', label: 'Help', icon: HelpCircle },
 ]
 
 export function SubShell({

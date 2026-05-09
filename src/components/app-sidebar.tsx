@@ -27,6 +27,7 @@ import {
   School,
   Users,
   Building2,
+  HelpCircle,
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -66,6 +67,12 @@ const navGroups = [
       { href: '/settings', label: 'Settings', icon: Settings },
       { href: '/admin/users', label: 'Manage Users', icon: Users },
       { href: '/admin/schools', label: 'Schools', icon: Building2 },
+    ],
+  },
+  {
+    label: 'Support',
+    items: [
+      { href: '/help', label: 'Help & Guide', icon: HelpCircle },
     ],
   },
 ];

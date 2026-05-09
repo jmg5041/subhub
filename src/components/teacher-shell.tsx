@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { CalendarPlus, ClipboardList, Home, LogOut, Menu, User, X } from 'lucide-react'
+import { CalendarPlus, ClipboardList, HelpCircle, Home, LogOut, Menu, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/teacher/absences/new', label: 'Submit Request', icon: CalendarPlus },
   { href: '/teacher/absences', label: 'My Absences', icon: ClipboardList },
   { href: '/teacher/profile', label: 'My Profile', icon: User },
+  { href: '/teacher/help', label: 'Help', icon: HelpCircle },
 ]
 
 export function TeacherShell({
