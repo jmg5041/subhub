@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from 'react'
 import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar } from '../actions'
 import { Camera, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { resizeImage } from '@/lib/resize-image'
 
 type User = {
@@ -87,16 +86,15 @@ export default function ManageUsersClient({
     if (!file || !editingUser) return
     setUploadingAvatar(true)
     try {
-      const supabase = createClient()
-      const path = `avatars/${editingUser.id}`
       const resized = await resizeImage(file)
-      const { error } = await supabase.storage
-        .from('absence-attachments')
-        .upload(path, resized, { upsert: true, contentType: 'image/jpeg' })
-      if (error) throw error
-      const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
-      await saveUserAvatar(editingUser.id, publicUrl)
-      setEditAvatarUrl(publicUrl + '?t=' + Date.now())
+      const fd = new FormData()
+      fd.append('file', resized, 'avatar.jpg')
+      fd.append('targetUserId', editingUser.id)
+      const res = await fetch('/api/upload/avatar', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
+      const { url } = await res.json()
+      await saveUserAvatar(editingUser.id, url)
+      setEditAvatarUrl(url + '?t=' + Date.now())
       showMessage('Photo updated.', 'success')
     } catch {
       showMessage('Photo upload failed.', 'error')

@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { Camera, ChevronDown, FileText } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { resizeImage } from '@/lib/resize-image'
 import { updateMyProfile, saveAvatar, saveResume } from '../../actions'
 
@@ -52,16 +51,14 @@ export function ProfileForm({
     setUploadingPhoto(true)
     setPhotoError(null)
     try {
-      const supabase = createClient()
-      const path = `avatars/${userId}`
       const resized = await resizeImage(file)
-      const { error: uploadError } = await supabase.storage
-        .from('absence-attachments')
-        .upload(path, resized, { upsert: true, contentType: 'image/jpeg' })
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
-      await saveAvatar(publicUrl)
-      setPhotoUrl(publicUrl + '?t=' + Date.now())
+      const fd = new FormData()
+      fd.append('file', resized, 'avatar.jpg')
+      const res = await fetch('/api/upload/avatar', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
+      const { url } = await res.json()
+      await saveAvatar(url)
+      setPhotoUrl(url + '?t=' + Date.now())
     } catch {
       setPhotoError('Upload failed. Please try again.')
     } finally {
@@ -76,15 +73,13 @@ export function ProfileForm({
     setUploadingResume(true)
     setResumeError(null)
     try {
-      const supabase = createClient()
-      const path = `resumes/${userId}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('absence-attachments')
-        .upload(path, file, { upsert: true, contentType: 'application/pdf' })
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
-      await saveResume(publicUrl)
-      setResumeUrl(publicUrl)
+      const fd = new FormData()
+      fd.append('file', file, 'resume.pdf')
+      const res = await fetch('/api/upload/resume', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
+      const { url } = await res.json()
+      await saveResume(url)
+      setResumeUrl(url)
     } catch {
       setResumeError('Upload failed. Please try again.')
     } finally {

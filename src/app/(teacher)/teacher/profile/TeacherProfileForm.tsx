@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { resizeImage } from '@/lib/resize-image'
 import { saveAvatar } from '../../actions'
 
@@ -33,16 +32,14 @@ export function TeacherProfileForm({
     setUploading(true)
     setError(null)
     try {
-      const supabase = createClient()
-      const path = `avatars/${userId}`
       const resized = await resizeImage(file)
-      const { error: uploadError } = await supabase.storage
-        .from('absence-attachments')
-        .upload(path, resized, { upsert: true, contentType: 'image/jpeg' })
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
-      await saveAvatar(publicUrl)
-      setPhotoUrl(publicUrl + '?t=' + Date.now())
+      const fd = new FormData()
+      fd.append('file', resized, 'avatar.jpg')
+      const res = await fetch('/api/upload/avatar', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
+      const { url } = await res.json()
+      await saveAvatar(url)
+      setPhotoUrl(url + '?t=' + Date.now())
     } catch {
       setError('Upload failed. Please try again.')
     } finally {
