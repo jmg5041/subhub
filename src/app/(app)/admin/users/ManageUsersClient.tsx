@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar } from '../actions'
 import { Camera, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { resizeImage } from '@/lib/resize-image'
 
 type User = {
   id: string
@@ -88,9 +89,10 @@ export default function ManageUsersClient({
     try {
       const supabase = createClient()
       const path = `avatars/${editingUser.id}`
+      const resized = await resizeImage(file)
       const { error } = await supabase.storage
         .from('absence-attachments')
-        .upload(path, file, { upsert: true, contentType: file.type })
+        .upload(path, resized, { upsert: true, contentType: 'image/jpeg' })
       if (error) throw error
       const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
       await saveUserAvatar(editingUser.id, publicUrl)

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { resizeImage } from '@/lib/resize-image'
 import { saveAvatar } from '../../actions'
 
 export function TeacherProfileForm({
@@ -34,9 +35,10 @@ export function TeacherProfileForm({
     try {
       const supabase = createClient()
       const path = `avatars/${userId}`
+      const resized = await resizeImage(file)
       const { error: uploadError } = await supabase.storage
         .from('absence-attachments')
-        .upload(path, file, { upsert: true, contentType: file.type })
+        .upload(path, resized, { upsert: true, contentType: 'image/jpeg' })
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('absence-attachments').getPublicUrl(path)
       await saveAvatar(publicUrl)
