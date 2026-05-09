@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, substitutes, subPriorityOrders, schools, subSchoolAssignments } from '@/db/schema'
-import { eq, asc, and } from 'drizzle-orm'
+import { eq, asc, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 async function getOrgId(): Promise<string> {
@@ -111,5 +111,57 @@ export async function saveSchoolPriorityOrder(orderedSubIds: string[], schoolId:
   }
 
   revalidatePath('/admin/subs/roster')
+  return { success: true }
+}
+
+export async function getSubDetailData(subId: string) {
+  const orgId = await getOrgId()
+
+  const [orgSchools, currentAssignments] = await Promise.all([
+    db
+      .select({ id: schools.id, name: schools.name })
+      .from(schools)
+      .where(eq(schools.organizationId, orgId))
+      .orderBy(asc(schools.name)),
+
+    db
+      .select({ schoolId: subSchoolAssignments.schoolId, status: subSchoolAssignments.status })
+      .from(subSchoolAssignments)
+      .where(
+        and(
+          eq(subSchoolAssignments.substituteId, subId),
+          eq(subSchoolAssignments.organizationId, orgId)
+        )
+      ),
+  ])
+
+  return { orgSchools, currentAssignments }
+}
+
+export async function setSubSchoolAssignments(subId: string, schoolIds: string[]) {
+  const orgId = await getOrgId()
+
+  await db
+    .delete(subSchoolAssignments)
+    .where(
+      and(
+        eq(subSchoolAssignments.substituteId, subId),
+        eq(subSchoolAssignments.organizationId, orgId)
+      )
+    )
+
+  if (schoolIds.length > 0) {
+    await db.insert(subSchoolAssignments).values(
+      schoolIds.map(schoolId => ({
+        substituteId: subId,
+        schoolId,
+        organizationId: orgId,
+        status: 'active' as const,
+      }))
+    )
+  }
+
+  revalidatePath('/admin/subs/roster')
+  revalidatePath(`/admin/subs/roster/${subId}`)
   return { success: true }
 }

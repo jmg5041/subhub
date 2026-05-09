@@ -6,6 +6,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, Mail, Phone, MapPin, Star, FileText } from 'lucide-react'
 import { notFound } from 'next/navigation'
+import { getSubDetailData } from '../actions'
+import SchoolAssignmentEditor from './SchoolAssignmentEditor'
 
 export default async function SubDetailPage({ params }: { params: Promise<{ subId: string }> }) {
   const { subId } = await params
@@ -17,26 +19,33 @@ export default async function SubDetailPage({ params }: { params: Promise<{ subI
   const me = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!me) return null
 
-  const [sub] = await db
-    .select({
-      id: substitutes.id,
-      status: substitutes.status,
-      county: substitutes.county,
-      rating: substitutes.rating,
-      ratingCount: substitutes.ratingCount,
-      resumeUrl: substitutes.resumeUrl,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      email: users.email,
-      phone: users.phone,
-      avatarUrl: users.avatarUrl,
-      userStatus: users.status,
-    })
-    .from(substitutes)
-    .innerJoin(users, eq(substitutes.userId, users.id))
-    .where(eq(substitutes.id, subId))
+  const [[sub], { orgSchools, currentAssignments }] = await Promise.all([
+    db
+      .select({
+        id: substitutes.id,
+        status: substitutes.status,
+        county: substitutes.county,
+        rating: substitutes.rating,
+        ratingCount: substitutes.ratingCount,
+        resumeUrl: substitutes.resumeUrl,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+        avatarUrl: users.avatarUrl,
+        userStatus: users.status,
+      })
+      .from(substitutes)
+      .innerJoin(users, eq(substitutes.userId, users.id))
+      .where(eq(substitutes.id, subId)),
+    getSubDetailData(subId),
+  ])
 
-  if (!sub || me.organizationId !== me.organizationId) notFound()
+  if (!sub) notFound()
+
+  const assignedSchoolIds = currentAssignments
+    .filter(a => a.status === 'active')
+    .map(a => a.schoolId)
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -105,10 +114,11 @@ export default async function SubDetailPage({ params }: { params: Promise<{ subI
         </dl>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="font-semibold text-gray-900 mb-2">School Assignments</h2>
-        <p className="text-sm text-gray-400">School association coming soon.</p>
-      </div>
+      <SchoolAssignmentEditor
+        subId={subId}
+        schools={orgSchools}
+        assignedSchoolIds={assignedSchoolIds}
+      />
     </div>
   )
 }
