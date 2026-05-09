@@ -382,7 +382,7 @@ function PartialDayPanel({
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
       <p className="text-sm font-medium text-amber-800">
-        This is a {absenceHours.toFixed(1)}-hour absence — not a full school day. How should we record this sub's time?
+        This is a {absenceHours.toFixed(1)}-hour absence — not a full school day. How should we record this sub&apos;s time?
       </p>
       <div className="space-y-2">
         {options.map(opt => (

@@ -84,7 +84,7 @@ export default function AdminHelpPage() {
           'Add substitutes — subs need accounts to receive job notifications.',
         ]} />
         <p>The checklist disappears automatically once all three steps are done.</p>
-        <Tip>Your dashboard shows today's absences and upcoming absences at a glance. Use it as your daily starting point.</Tip>
+        <Tip>Your dashboard shows today&apos;s absences and upcoming absences at a glance. Use it as your daily starting point.</Tip>
       </Section>
 
       {/* ── Managing Users ── */}
@@ -109,11 +109,11 @@ export default function AdminHelpPage() {
         ]} />
         <Note>
           <strong>Send invites</strong> emails each person a link to set their password.{' '}
-          <strong>Silent import</strong> creates their accounts immediately — tell them to go to the app and use "Forgot Password" with their school email to log in. Silent import is often easier for onboarding a whole staff at once.
+          <strong>Silent import</strong> creates their accounts immediately — tell them to go to the app and use &quot;Forgot Password&quot; with their school email to log in. Silent import is often easier for onboarding a whole staff at once.
         </Note>
 
         <h3 className="font-semibold text-gray-800 mt-4">Resending an invite</h3>
-        <p>If someone's invite expired (7-day window) or they can't find the email, click <strong>Resend</strong> next to their name in the Pending Invites section. This cancels the old link and sends a fresh one.</p>
+        <p>If someone&apos;s invite expired (7-day window) or they can&apos;t find the email, click <strong>Resend</strong> next to their name in the Pending Invites section. This cancels the old link and sends a fresh one.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Editing a user</h3>
         <p>Click <strong>Edit</strong> next to any user to update their name, email, phone number, or role. You can also update their profile photo from here.</p>
@@ -139,13 +139,13 @@ export default function AdminHelpPage() {
 
       {/* ── Approving Absences ── */}
       <Section id="approving" title="Approving Absences">
-        <p>Go to <strong>Approve Absences</strong> to review pending requests. Absences submitted by teachers start as "Pending Approval" — they need your sign-off before subs are notified.</p>
+        <p>Go to <strong>Approve Absences</strong> to review pending requests. Absences submitted by teachers start as &quot;Pending Approval&quot; — they need your sign-off before subs are notified.</p>
         <Steps items={[
           'Click an absence to open its detail page.',
           'Review the details.',
           'Click Approve to confirm, or Deny to reject the request.',
         ]} />
-        <Note>Approving an absence does not automatically notify substitutes. You still need to go to Find Substitute and either assign a sub manually or click "Notify All Subs."</Note>
+        <Note>Approving an absence does not automatically notify substitutes. You still need to go to Find Substitute and either assign a sub manually or click &quot;Notify All Subs.&quot;</Note>
       </Section>
 
       {/* ── Finding a Substitute ── */}
@@ -162,8 +162,8 @@ export default function AdminHelpPage() {
         </ul>
 
         <h3 className="font-semibold text-gray-800 mt-4">Option 2 — Assign a Specific Sub</h3>
-        <p>Click <strong>Choose a Substitute</strong>, search by name, select a sub, and click <strong>Assign This Sub</strong>. The sub is booked immediately — no notification is sent. Use this when you've already arranged coverage by phone.</p>
-        <Tip>If the absence is less than a full school day, SubHub will ask how to record the sub's hours before you confirm. See the Partial-Day Assignments section below.</Tip>
+        <p>Click <strong>Choose a Substitute</strong>, search by name, select a sub, and click <strong>Assign This Sub</strong>. The sub is booked immediately — no notification is sent. Use this when you&apos;ve already arranged coverage by phone.</p>
+        <Tip>If the absence is less than a full school day, SubHub will ask how to record the sub&apos;s hours before you confirm. See the Partial-Day Assignments section below.</Tip>
 
         <h3 className="font-semibold text-gray-800 mt-4">Option 3 — Covered by Staff</h3>
         <p>Toggle <strong>Covered by Staff</strong> if another teacher, an aide, or an administrator is covering the class. No sub is needed and no notification is sent. The absence is still tracked for records.</p>
@@ -171,7 +171,7 @@ export default function AdminHelpPage() {
 
       {/* ── Partial-Day Assignments ── */}
       <Section id="partial-day" title="Partial-Day Assignments">
-        <p>When you assign a sub to an absence that is shorter than a full school day, SubHub shows a prompt asking how to record the sub's time. This matters for accurate payroll — a sub may be on campus longer than just the absence they're filling.</p>
+        <p>When you assign a sub to an absence that is shorter than a full school day, SubHub shows a prompt asking how to record the sub&apos;s time. This matters for accurate payroll — a sub may be on campus longer than just the absence they&apos;re filling.</p>
 
         <p className="mt-3">You have five choices:</p>
 
@@ -182,7 +182,7 @@ export default function AdminHelpPage() {
           </div>
           <div>
             <p className="font-semibold text-gray-800">Half day</p>
-            <p>The sub is credited for your school's standard half-day block (default: 4 hours), regardless of exact absence length. Use this when your school pays subs in half-day increments.</p>
+            <p>The sub is credited for your school&apos;s standard half-day block (default: 4 hours), regardless of exact absence length. Use this when your school pays subs in half-day increments.</p>
           </div>
           <div>
             <p className="font-semibold text-gray-800">Full day</p>
@@ -190,11 +190,11 @@ export default function AdminHelpPage() {
           </div>
           <div>
             <p className="font-semibold text-gray-800">Combine with another absence today</p>
-            <p>If another teacher is also out that day (at a different time with no overlap), you can bundle both absences into one shift for the same sub. SubHub shows eligible absences as a checklist — select them and the sub's total hours update automatically. This eliminates the need for a separate spreadsheet to track split-day sub work.</p>
+            <p>If another teacher is also out that day (at a different time with no overlap), you can bundle both absences into one shift for the same sub. SubHub shows eligible absences as a checklist — select them and the sub&apos;s total hours update automatically. This eliminates the need for a separate spreadsheet to track split-day sub work.</p>
           </div>
           <div>
             <p className="font-semibold text-gray-800">General duties for remaining time</p>
-            <p>The sub fills the absence, then stays on campus for the rest of a half or full day doing non-classroom work — lunchroom supervision, PE yard duty, front office coverage, etc. Enter a short description of the duties. The sub's total hours include both the absence coverage and the general duty time.</p>
+            <p>The sub fills the absence, then stays on campus for the rest of a half or full day doing non-classroom work — lunchroom supervision, PE yard duty, front office coverage, etc. Enter a short description of the duties. The sub&apos;s total hours include both the absence coverage and the general duty time.</p>
           </div>
         </div>
 
@@ -202,7 +202,7 @@ export default function AdminHelpPage() {
           <p>A live <strong>hours preview</strong> at the bottom of the panel updates as you make selections so you always see what the sub will be credited before you confirm.</p>
         </div>
 
-        <Note>The "Combine" and "General duties" options solve the problem of a sub who covers multiple teachers in one day being under-credited. Without these options, payroll would only see the hours for one teacher's absence — not the sub's actual full day.</Note>
+        <Note>The &quot;Combine&quot; and &quot;General duties&quot; options solve the problem of a sub who covers multiple teachers in one day being under-credited. Without these options, payroll would only see the hours for one teacher&apos;s absence — not the sub&apos;s actual full day.</Note>
 
         <h3 className="font-semibold text-gray-800 mt-4">Setting your pay model</h3>
         <p>Go to <strong>Settings → Sub Pay Model</strong> to choose how your school records sub hours:</p>
@@ -226,10 +226,10 @@ export default function AdminHelpPage() {
         <h3 className="font-semibold text-gray-800 mt-4">What reconciliation covers</h3>
         <div className="space-y-2">
           <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub worked exactly as assigned — confirm and done.</span></div>
-          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub covered one teacher's absence and general duties — total hours already recorded at assign time.</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub covered one teacher&apos;s absence and general duties — total hours already recorded at assign time.</span></div>
           <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub covered two teachers in one combined shift — hours already summed at assign time, both teacher absence records linked.</span></div>
           <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub left early or the teacher came back — adjust hours at reconcile time (coming in a future update).</span></div>
-          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub didn't show — mark accordingly (coming in a future update).</span></div>
+          <div className="flex gap-2"><span className="text-gray-400">→</span><span>Sub didn&apos;t show — mark accordingly (coming in a future update).</span></div>
         </div>
 
         <Note>Sub ratings and manual hour adjustments at reconcile time are planned for the next update. For now, reconciliation is a confirmation step — the hour corrections are handled at assign time using the partial-day options above.</Note>
@@ -258,7 +258,7 @@ export default function AdminHelpPage() {
 
       {/* ── Schools ── */}
       <Section id="schools" title="Schools">
-        <p>Go to <strong>Admin → Schools</strong> to manage your school's contact information.</p>
+        <p>Go to <strong>Admin → Schools</strong> to manage your school&apos;s contact information.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Configuring your school</h3>
         <p>Click Edit on your school to set the address, phone, website, and school day start/end times. The start and end times are used as defaults when creating absences.</p>
