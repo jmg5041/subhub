@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Image from 'next/image'
 import { Camera, ChevronDown, FileText } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
 import { updateMyProfile, saveAvatar, saveResume } from '../../actions'
@@ -110,7 +111,7 @@ export function ProfileForm({
         <div className="relative flex-shrink-0">
           <div className="h-16 w-16 rounded-full overflow-hidden bg-orange-500 flex items-center justify-center">
             {photoUrl ? (
-              <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+              <Image src={photoUrl} alt="" width={64} height={64} className="object-cover" />
             ) : (
               <span className="text-white text-xl font-bold">{initials}</span>
             )}

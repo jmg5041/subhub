@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -79,7 +80,7 @@ export function TeacherShell({
       <div className="px-4 py-4 border-t border-gray-100 space-y-3">
         <div className="flex items-center gap-2.5">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
+            <Image src={avatarUrl} alt="" width={32} height={32} className="rounded-full object-cover flex-shrink-0" />
           ) : (
             <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               {initials}
@@ -121,7 +122,7 @@ export function TeacherShell({
           </button>
           <span className="text-sm font-semibold text-blue-600">SubHub</span>
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+            <Image src={avatarUrl} alt="" width={32} height={32} className="rounded-full object-cover" />
           ) : (
             <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
               {initials}

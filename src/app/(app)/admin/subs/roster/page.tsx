@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, substitutes } from '@/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import Image from 'next/image'
 import { UserCog, Phone, Mail, MapPin, Star } from 'lucide-react'
 
 export default async function SubRosterPage() {
@@ -98,7 +99,7 @@ function SubTable({ subs, dim }: { subs: SubRow[]; dim?: boolean }) {
           {/* Name + avatar */}
           <div className="flex items-center gap-3">
             {sub.avatarUrl ? (
-              <img src={sub.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
+              <Image src={sub.avatarUrl} alt="" width={36} height={36} className="rounded-full object-cover flex-shrink-0" />
             ) : (
               <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold flex-shrink-0">
                 {sub.firstName[0]}{sub.lastName[0]}

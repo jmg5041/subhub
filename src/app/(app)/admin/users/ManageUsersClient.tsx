@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import Image from 'next/image'
 import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar, bulkInviteUsers } from '../actions'
 import { Camera, X } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
@@ -273,7 +274,7 @@ export default function ManageUsersClient({
                 <div className="relative flex-shrink-0">
                   <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {editAvatarUrl ? (
-                      <img src={editAvatarUrl} alt="" className="h-full w-full object-cover" />
+                      <Image src={editAvatarUrl} alt="" width={56} height={56} className="object-cover" />
                     ) : (
                       <span className="text-gray-600 text-lg font-bold">
                         {editForm.firstName?.[0]}{editForm.lastName?.[0]}
@@ -605,7 +606,7 @@ export default function ManageUsersClient({
             <div key={u.id} className="flex items-center gap-3 px-6 py-3 flex-wrap">
               <div className="flex-shrink-0">
                 {u.avatarUrl ? (
-                  <img src={u.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                  <Image src={u.avatarUrl} alt="" width={32} height={32} className="rounded-full object-cover" />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
                     {u.firstName[0]}{u.lastName[0]}
