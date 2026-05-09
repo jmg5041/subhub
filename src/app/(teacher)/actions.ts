@@ -13,6 +13,7 @@ import { db } from '@/db'
 import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools } from '@/db/schema'
 import { eq, and, asc, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { notifyAdminsOfAbsenceRequest } from '@/lib/notifications'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ export async function submitAbsenceRequest(data: {
   notesToSub: string
   requestedSubId: string | null
 }) {
-  const { employee, orgId } = await getTeacherContext()
+  const { profile, employee, orgId } = await getTeacherContext()
   if (!employee) throw new Error('No employee record found — contact your admin.')
 
   await db.insert(teacherTimeOff).values({
@@ -122,11 +123,26 @@ export async function submitAbsenceRequest(data: {
     substituteRequired: data.substituteRequired,
     notesToSub: data.notesToSub || null,
     requestedSubId: data.requestedSubId || null,
+    approvalStatus: 'approved',
     subOutreachStatus: 'not_started',
   })
 
+  // Notify admins so they know a request came in and can cancel before 6am if needed
+  if (data.substituteRequired) {
+    const teacherName = `${profile.firstName} ${profile.lastName}`
+    const school = await db.query.schools.findFirst({ where: eq(schools.id, employee.schoolId) })
+    await notifyAdminsOfAbsenceRequest({
+      orgId,
+      teacherName,
+      schoolName: school?.name ?? 'your school',
+      startDate: data.startDate,
+      endDate: data.endDate || null,
+      absenceId: '',
+    }).catch(() => {}) // don't fail the request if email fails
+  }
+
   revalidatePath('/teacher/absences')
-  revalidatePath('/dashboard') // admin dashboard also updates
+  revalidatePath('/dashboard')
   return { success: true }
 }
 

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/morning-blast",
+      "schedule": "0 14 * * *"
+    }
+  ]
+}
