@@ -52,7 +52,7 @@ const navGroups = [
     label: 'Substitutes',
     items: [
       { href: '/absences/find-sub', label: 'Find Substitute', icon: UserSearch },
-      { href: '/admin/subs', label: 'Sub Directory', icon: Users },
+      { href: '/admin/subs', label: 'Hire Subs', icon: Users },
     ],
   },
   {
