@@ -173,26 +173,38 @@ export async function notifyAllSubs(
   })
   if (!org) throw new Error(`Org not found for absence ${teacherTimeOffId}`)
 
-  // Get all subs for this org, sorted by priority rank (lower = called first)
+  // Get priority order for THIS school specifically
   const priorityRows = await db
     .select()
     .from(schema.subPriorityOrders)
-    .where(eq(schema.subPriorityOrders.organizationId, absence.organizationId))
+    .where(and(
+      eq(schema.subPriorityOrders.organizationId, absence.organizationId),
+      eq(schema.subPriorityOrders.schoolId, absence.schoolId)
+    ))
     .orderBy(asc(schema.subPriorityOrders.priorityRank))
 
   const rankedSubIds = new Set(priorityRows.map(r => r.substituteId))
 
-  // Get all active subs in this org
+  // Get only subs assigned to this school (active assignments)
+  const schoolAssignments = await db
+    .select({ substituteId: schema.subSchoolAssignments.substituteId })
+    .from(schema.subSchoolAssignments)
+    .where(and(
+      eq(schema.subSchoolAssignments.schoolId, absence.schoolId),
+      eq(schema.subSchoolAssignments.organizationId, absence.organizationId),
+      eq(schema.subSchoolAssignments.status, 'active')
+    ))
+  const schoolSubIds = new Set(schoolAssignments.map(r => r.substituteId))
+
+  // Get active subs who are assigned to this school
   const allSubs = await db.query.substitutes.findMany({
     where: eq(schema.substitutes.status, 'active'),
     with: { user: true },
   })
 
-  // Filter to subs who belong to this org and aren't excluded from this school
   const eligibleSubs = allSubs.filter(sub => {
     if (sub.user.organizationId !== absence.organizationId) return false
-    const excluded = (sub.excludedFromSchools as string[]) ?? []
-    if (excluded.includes(absence.schoolId)) return false
+    if (!schoolSubIds.has(sub.id)) return false  // must be assigned to this school
     return true
   })
 
