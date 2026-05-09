@@ -75,6 +75,9 @@ export async function getOrgSettings() {
 export async function saveOrgSettings(formData: FormData) {
   const orgId = await getOrgId()
 
+  const halfDay = parseFloat(formData.get('halfDayHours') as string)
+  const fullDay = parseFloat(formData.get('fullDayHours') as string)
+
   await db
     .update(organizations)
     .set({
@@ -82,6 +85,9 @@ export async function saveOrgSettings(formData: FormData) {
       notifyByEmail: formData.get('notifyByEmail') === 'true',
       notifyBySms: formData.get('notifyBySms') === 'true',
       notifyByPhone: formData.get('notifyByPhone') === 'true',
+      subPayModel: (formData.get('subPayModel') as string) || 'block',
+      halfDayHours: isNaN(halfDay) ? '4.0' : halfDay.toFixed(1),
+      fullDayHours: isNaN(fullDay) ? '8.0' : fullDay.toFixed(1),
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, orgId))

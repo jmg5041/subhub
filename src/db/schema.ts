@@ -18,6 +18,9 @@ export const organizations = pgTable('organizations', {
   notifyBySms: boolean('notify_by_sms').default(true),
   notifyByEmail: boolean('notify_by_email').default(true),
   notifyByPhone: boolean('notify_by_phone').default(false),
+  subPayModel: text('sub_pay_model').default('block'), // 'block' | 'hourly'
+  halfDayHours: numeric('half_day_hours', { precision: 3, scale: 1 }).default('4.0'),
+  fullDayHours: numeric('full_day_hours', { precision: 3, scale: 1 }).default('8.0'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -136,6 +139,9 @@ export const subAssignments = pgTable('sub_assignments', {
   totalHours: numeric('total_hours', { precision: 4, scale: 2 }),
   status: assignmentStatusEnum('status').default('assigned'),
   assignedByAdmin: boolean('assigned_by_admin').default(false),
+  payBasis: text('pay_basis').default('exact'), // 'exact' | 'half_day' | 'full_day'
+  generalDutiesHours: numeric('general_duties_hours', { precision: 4, scale: 2 }),
+  generalDutiesNotes: text('general_duties_notes'),
   payRate: numeric('pay_rate', { precision: 6, scale: 2 }),
   totalPay: numeric('total_pay', { precision: 8, scale: 2 }),
   subFeedbackRating: integer('sub_feedback_rating'),

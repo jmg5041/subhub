@@ -30,6 +30,7 @@ import {
   subAssignments,
   assignmentTimeOff,
   subPriorityOrders,
+  organizations,
 } from '@/db/schema'
 import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql, ne } from 'drizzle-orm'
 import { countWeekdays } from '@/lib/date-utils'
@@ -497,23 +498,65 @@ export async function getAvailableSubs(schoolId?: string | null) {
 export async function assignSubDirectly(formData: FormData) {
   const timeOffId = formData.get('timeOffId') as string
   const substituteId = formData.get('substituteId') as string
+  const payBasis = (formData.get('payBasis') as string) || 'exact'
+  const generalDutiesHours = formData.get('generalDutiesHours') as string | null
+  const generalDutiesNotes = formData.get('generalDutiesNotes') as string | null
+  // Comma-separated list of additional absence IDs to combine into this shift
+  const additionalTimeOffIds = (formData.get('additionalTimeOffIds') as string || '')
+    .split(',').map(s => s.trim()).filter(Boolean)
 
   const { orgId } = await getOrgAndUserId()
 
-  // Load the absence to get date/time/school
+  // Load the org for half/full day hour defaults
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const halfDayHours = parseFloat(org?.halfDayHours ?? '4.0')
+  const fullDayHours = parseFloat(org?.fullDayHours ?? '8.0')
+
+  // Load the primary absence
   const absence = await db.query.teacherTimeOff.findFirst({
-    where: and(
-      eq(teacherTimeOff.id, timeOffId),
-      eq(teacherTimeOff.organizationId, orgId)
-    ),
+    where: and(eq(teacherTimeOff.id, timeOffId), eq(teacherTimeOff.organizationId, orgId)),
   })
   if (!absence) throw new Error('Absence not found')
 
-  // Compute total hours (daily hours × number of school days)
+  // Calculate hours from the primary absence
   const [sh, sm] = absence.startTime.split(':').map(Number)
   const [eh, em] = absence.endTime.split(':').map(Number)
-  const dailyHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
-  const totalHours = dailyHours * countWeekdays(absence.startDate, absence.endDate)
+  const primaryDailyHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  const primaryHours = primaryDailyHours * countWeekdays(absence.startDate, absence.endDate)
+
+  // Determine total hours based on pay basis
+  let absenceCoverageHours = primaryHours
+  if (additionalTimeOffIds.length > 0) {
+    // Add hours from any additional absences being combined into this shift
+    const extras = await db.query.teacherTimeOff.findMany({
+      where: and(
+        eq(teacherTimeOff.organizationId, orgId),
+        // Only combine single-day absences for simplicity
+        eq(teacherTimeOff.startDate, absence.startDate),
+      ),
+    })
+    for (const extra of extras) {
+      if (additionalTimeOffIds.includes(extra.id)) {
+        const [s2h, s2m] = extra.startTime.split(':').map(Number)
+        const [e2h, e2m] = extra.endTime.split(':').map(Number)
+        absenceCoverageHours += ((e2h * 60 + e2m) - (s2h * 60 + s2m)) / 60
+      }
+    }
+  }
+
+  let totalHours: number
+  if (payBasis === 'half_day') {
+    totalHours = halfDayHours
+  } else if (payBasis === 'full_day') {
+    totalHours = fullDayHours
+  } else {
+    // 'exact' — use actual absence coverage hours
+    totalHours = absenceCoverageHours
+  }
+
+  // Add general duties hours if specified
+  const genHours = generalDutiesHours ? parseFloat(generalDutiesHours) : 0
+  if (genHours > 0) totalHours = absenceCoverageHours + genHours
 
   // Create the sub assignment
   const [assignment] = await db
@@ -528,16 +571,25 @@ export async function assignSubDirectly(formData: FormData) {
       totalHours: totalHours.toFixed(2),
       status: 'assigned',
       assignedByAdmin: true,
+      payBasis,
+      generalDutiesHours: genHours > 0 ? genHours.toFixed(2) : null,
+      generalDutiesNotes: generalDutiesNotes || null,
     })
     .returning()
 
-  // Link the assignment to this absence
-  await db.insert(assignmentTimeOff).values({
-    assignmentId: assignment.id,
-    timeOffId,
-  })
+  // Link the assignment to the primary absence
+  await db.insert(assignmentTimeOff).values({ assignmentId: assignment.id, timeOffId })
 
-  // Mark absence as filled and auto-approve (admin assigning directly = implicit approval)
+  // Link and mark any additional combined absences
+  for (const additionalId of additionalTimeOffIds) {
+    await db.insert(assignmentTimeOff).values({ assignmentId: assignment.id, timeOffId: additionalId })
+    await db.update(teacherTimeOff)
+      .set({ subOutreachStatus: 'filled', approvalStatus: 'approved', updatedAt: new Date() })
+      .where(eq(teacherTimeOff.id, additionalId))
+    revalidatePath(`/absences/find-sub/${additionalId}`)
+  }
+
+  // Mark the primary absence as filled
   await db
     .update(teacherTimeOff)
     .set({ subOutreachStatus: 'filled', approvalStatus: 'approved', updatedAt: new Date() })
@@ -547,6 +599,53 @@ export async function assignSubDirectly(formData: FormData) {
   revalidatePath('/absences/find-sub')
   revalidatePath(`/absences/find-sub/${timeOffId}`)
   return { success: true }
+}
+
+/**
+ * Returns other approved, unfilled absences on the same date and school
+ * whose time doesn't overlap with the given absence — eligible to combine into one shift.
+ */
+export async function getOtherOpenAbsencesForDate(
+  excludeTimeOffId: string,
+  date: string,
+  schoolId: string,
+  startTime: string,
+  endTime: string,
+) {
+  const { orgId } = await getOrgAndUserId()
+
+  // Convert HH:MM:SS strings to minutes for overlap detection
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+  const absStart = toMin(startTime)
+  const absEnd = toMin(endTime)
+
+  const candidates = await db
+    .select({
+      id: teacherTimeOff.id,
+      startTime: teacherTimeOff.startTime,
+      endTime: teacherTimeOff.endTime,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(teacherTimeOff)
+    .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
+    .innerJoin(users, eq(employees.userId, users.id))
+    .where(and(
+      eq(teacherTimeOff.organizationId, orgId),
+      eq(teacherTimeOff.schoolId, schoolId),
+      eq(teacherTimeOff.startDate, date),
+      eq(teacherTimeOff.approvalStatus, 'approved'),
+      eq(teacherTimeOff.substituteRequired, true),
+      ne(teacherTimeOff.id, excludeTimeOffId),
+    ))
+
+  // Filter out filled and overlapping in JS (simpler than SQL time comparison)
+  return candidates.filter(c => {
+    const cStart = toMin(c.startTime)
+    const cEnd = toMin(c.endTime)
+    // Non-overlapping: ends before ours starts, or starts after ours ends
+    return cEnd <= absStart || cStart >= absEnd
+  })
 }
 
 /**

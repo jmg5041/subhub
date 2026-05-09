@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Clock, Users, CalendarPlus, Briefcase, CheckCircle2 } from 'lucide-react'
 import { assignSubDirectly, notifyAllSubsAction, cancelSubAssignment, toggleStaffCoverage } from '../../actions'
 
 type Sub = {
@@ -14,6 +15,16 @@ type Sub = {
   priorityRank: number
 }
 
+type CombinableAbsence = {
+  id: string
+  startTime: string
+  endTime: string
+  firstName: string
+  lastName: string
+}
+
+type PayBasis = 'exact' | 'half_day' | 'full_day' | 'combine' | 'general_duties'
+
 type Props = {
   timeOffId: string
   subs: Sub[]
@@ -21,36 +32,100 @@ type Props = {
   filledByName?: string
   outreachStatus: string
   substituteRequired: boolean
+  absenceStartTime: string
+  absenceEndTime: string
+  schoolDayStart: string
+  schoolDayEnd: string
+  payModel: 'block' | 'hourly'
+  halfDayHours: number
+  fullDayHours: number
+  combinableAbsences: CombinableAbsence[]
 }
 
-export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filledByName, outreachStatus, substituteRequired }: Props) {
+function toMin(t: string) {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function fmt(t: string) {
+  const [hourStr, min] = t.split(':')
+  const h = parseInt(hourStr, 10)
+  return `${h % 12 || 12}:${min} ${h >= 12 ? 'PM' : 'AM'}`
+}
+
+export default function FindSubClient({
+  timeOffId, subs, isAlreadyFilled, filledByName, outreachStatus, substituteRequired,
+  absenceStartTime, absenceEndTime, schoolDayStart, schoolDayEnd,
+  payModel, halfDayHours, fullDayHours, combinableAbsences,
+}: Props) {
   const router = useRouter()
   const [selectedSubId, setSelectedSubId] = useState('')
   const [search, setSearch] = useState('')
   const [showAssignPanel, setShowAssignPanel] = useState(false)
+  const [payBasis, setPayBasis] = useState<PayBasis | null>(null)
+  const [selectedCombineIds, setSelectedCombineIds] = useState<string[]>([])
+  const [generalDutiesNotes, setGeneralDutiesNotes] = useState('')
   const [isNotifying, startNotifyTransition] = useTransition()
   const [isAssigning, startAssignTransition] = useTransition()
   const [isToggling, startToggleTransition] = useTransition()
-  const [isCancelling, startCancelTransition] = useTransition()
   const [result, setResult] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  const isPending = isNotifying || isAssigning || isToggling || isCancelling
+  const isPending = isNotifying || isAssigning || isToggling
   const isStaffCovered = !substituteRequired
   const notifyDisabled = isNotifying || isStaffCovered || !!selectedSubId
+
+  // Partial-day detection
+  const absenceMinutes = toMin(absenceEndTime) - toMin(absenceStartTime)
+  const schoolDayMinutes = toMin(schoolDayEnd) - toMin(schoolDayStart)
+  const absenceHours = absenceMinutes / 60
+  const isPartialDay = absenceMinutes < schoolDayMinutes
 
   const filteredSubs = subs.filter(s =>
     `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase())
   )
 
+  function previewHours(): number {
+    if (payBasis === 'half_day') return halfDayHours
+    if (payBasis === 'full_day') return fullDayHours
+    if (payBasis === 'general_duties') {
+      const block = halfDayHours > absenceHours ? halfDayHours : fullDayHours
+      return block
+    }
+    if (payBasis === 'combine') {
+      let total = absenceHours
+      for (const id of selectedCombineIds) {
+        const ca = combinableAbsences.find(c => c.id === id)
+        if (ca) total += (toMin(ca.endTime) - toMin(ca.startTime)) / 60
+      }
+      return total
+    }
+    return absenceHours
+  }
+
   function handleAssignDirectly() {
     if (!selectedSubId) return
-    const sub = subs.find(s => s.id === selectedSubId)
-    if (!confirm(`Assign ${sub?.firstName} ${sub?.lastName} to this absence? No notification will be sent.`)) return
-
+    if (isPartialDay && payModel === 'block' && !payBasis) {
+      setResult({ message: 'Please select how to record this sub\'s hours before assigning.', type: 'error' })
+      return
+    }
     startAssignTransition(async () => {
       const formData = new FormData()
       formData.set('timeOffId', timeOffId)
       formData.set('substituteId', selectedSubId)
+
+      if (payBasis === 'combine') {
+        formData.set('payBasis', 'exact')
+        if (selectedCombineIds.length > 0) formData.set('additionalTimeOffIds', selectedCombineIds.join(','))
+      } else if (payBasis === 'general_duties') {
+        const block = halfDayHours > absenceHours ? halfDayHours : fullDayHours
+        const remaining = block - absenceHours
+        formData.set('payBasis', halfDayHours > absenceHours ? 'half_day' : 'full_day')
+        formData.set('generalDutiesHours', remaining.toFixed(2))
+        formData.set('generalDutiesNotes', generalDutiesNotes || 'General campus duties')
+      } else {
+        formData.set('payBasis', payBasis ?? 'exact')
+      }
+
       const res = await assignSubDirectly(formData)
       if (res.success) {
         router.push('/absences/find-sub')
@@ -62,7 +137,6 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
 
   function handleNotifyAll() {
     if (!confirm('Send a notification to all available substitutes? The first to accept will be assigned.')) return
-
     startNotifyTransition(async () => {
       const res = await notifyAllSubsAction(timeOffId)
       if ('sent' in res) {
@@ -78,65 +152,41 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
 
   function handleToggleStaff() {
     if (isStaffCovered) {
-      // Turning OFF — warn the admin
-      if (!confirm(
-        'Are you sure you want to cancel staff coverage?\n\n' +
-        'This absence will need a substitute unless you manually assign one or notify all subs.'
-      )) return
+      if (!confirm('Cancel staff coverage? This absence will need a substitute.')) return
     }
-
     startToggleTransition(async () => {
       const res = await toggleStaffCoverage(timeOffId, !isStaffCovered)
-      if ('success' in res) {
-        router.refresh()
-      } else {
-        setResult({ message: 'Failed to update staff coverage. Please try again.', type: 'error' })
-      }
+      if ('success' in res) router.refresh()
+      else setResult({ message: 'Failed to update staff coverage.', type: 'error' })
     })
   }
 
-  // Sub is assigned — show filled panel with cancel option
-  if (isAlreadyFilled) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-4">
-          <div>
-            <div className="text-xl font-semibold text-green-700 mb-1">Position Filled</div>
-            {filledByName && <p className="text-green-600">Covered by {filledByName}</p>}
-          </div>
-          <div className="border-t border-green-200 pt-4">
-            <p className="text-sm text-gray-600 mb-3">Need to make a change? You can cancel this assignment and start over.</p>
-            <button
-              disabled={isPending}
-              onClick={() => {
-                if (!confirm('Cancel this sub assignment? The absence will go back to needing a sub.')) return
-                startCancelTransition(async () => {
-                  const res = await cancelSubAssignment(timeOffId)
-                  if ('success' in res) router.push(`/absences/find-sub/${timeOffId}`)
-                  else setResult({ message: 'Failed to cancel assignment.', type: 'error' })
-                })
-              }}
-              className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
-            >
-              {isCancelling ? 'Cancelling...' : 'Cancel Assignment'}
-            </button>
-            {result && <p className="mt-2 text-sm text-red-600">{result.message}</p>}
-          </div>
-        </div>
-      </div>
-    )
+  function handleCancelAssignment() {
+    if (!confirm('Cancel this sub assignment? The absence will return to unfilled.')) return
+    startAssignTransition(async () => {
+      const res = await cancelSubAssignment(timeOffId)
+      if ('success' in res) router.refresh()
+      else setResult({ message: 'Failed to cancel assignment.', type: 'error' })
+    })
   }
 
-  if (outreachStatus === 'sent' && !result) {
+  if (isAlreadyFilled) {
     return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-          <div className="text-lg font-semibold text-blue-700 mb-1">Notifications Sent</div>
-          <p className="text-blue-600 text-sm">Substitutes have been notified. The first to accept will be assigned. This page will update when someone accepts.</p>
+      <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-3">
+        <div className="flex items-center gap-2 text-green-700">
+          <CheckCircle2 className="h-5 w-5" />
+          <span className="font-semibold">Sub Assigned</span>
         </div>
-
-        {/* Staff coverage toggle — still available even after blast */}
-        <StaffCoverageToggle isStaffCovered={isStaffCovered} isPending={isToggling} onToggle={handleToggleStaff} />
+        {filledByName && (
+          <p className="text-sm text-green-700">{filledByName} has been assigned to this absence.</p>
+        )}
+        <button
+          onClick={handleCancelAssignment}
+          disabled={isPending}
+          className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-50"
+        >
+          {isPending ? 'Cancelling...' : 'Cancel assignment'}
+        </button>
       </div>
     )
   }
@@ -144,7 +194,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
   return (
     <div className="space-y-6">
       {result && (
-        <div className={`rounded-lg border p-4 ${result.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+        <div className={`rounded-lg border p-4 text-sm ${result.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
           {result.message}
         </div>
       )}
@@ -155,12 +205,8 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
         <p className="text-sm text-gray-500 mb-1">
           Send a notification to all substitutes in your pool. The first one to accept gets the position.
         </p>
-        {isStaffCovered && (
-          <p className="text-xs text-blue-600 mb-3">Disabled — this absence is covered by staff.</p>
-        )}
-        {selectedSubId && !isStaffCovered && (
-          <p className="text-xs text-gray-400 mb-3">Disabled — deselect the substitute below to enable.</p>
-        )}
+        {isStaffCovered && <p className="text-xs text-blue-600 mb-3">Disabled — this absence is covered by staff.</p>}
+        {selectedSubId && !isStaffCovered && <p className="text-xs text-gray-400 mb-3">Disabled — deselect the substitute below to enable.</p>}
         {!isStaffCovered && !selectedSubId && <div className="mb-4" />}
         <button
           onClick={handleNotifyAll}
@@ -171,19 +217,16 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
         </button>
       </div>
 
-      {/* Divider */}
       <div className="flex items-center gap-3 text-sm text-gray-400">
-        <div className="flex-1 border-t border-gray-200" />
-        or
-        <div className="flex-1 border-t border-gray-200" />
+        <div className="flex-1 border-t border-gray-200" />or<div className="flex-1 border-t border-gray-200" />
       </div>
 
       {/* Option B: Assign directly */}
-      <div className={`rounded-lg border border-gray-200 bg-white p-6 ${isStaffCovered ? 'opacity-60' : ''}`}>
-        <h3 className="font-semibold text-gray-900 mb-1">Assign a Specific Substitute</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Pick a sub and assign them directly. No notification will be sent.
-        </p>
+      <div className={`rounded-lg border border-gray-200 bg-white p-6 space-y-4 ${isStaffCovered ? 'opacity-60' : ''}`}>
+        <div>
+          <h3 className="font-semibold text-gray-900 mb-1">Assign a Specific Substitute</h3>
+          <p className="text-sm text-gray-500">Pick a sub and assign them directly. No notification will be sent.</p>
+        </div>
 
         {!showAssignPanel ? (
           <button
@@ -194,7 +237,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
             Choose a Substitute
           </button>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <input
               type="text"
               placeholder="Search substitutes..."
@@ -202,7 +245,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
               onChange={e => setSearch(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+            <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
               {filteredSubs.length === 0 ? (
                 <p className="p-3 text-sm text-gray-400">No substitutes found.</p>
               ) : (
@@ -216,7 +259,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
                       name="sub"
                       value={sub.id}
                       checked={selectedSubId === sub.id}
-                      onChange={() => setSelectedSubId(sub.id)}
+                      onChange={() => { setSelectedSubId(sub.id); setPayBasis(null) }}
                       className="text-blue-600"
                     />
                     <div className="flex-1 min-w-0">
@@ -232,6 +275,33 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
                 ))
               )}
             </div>
+
+            {/* Partial day panel — appears after sub is selected */}
+            {selectedSubId && isPartialDay && payModel === 'block' && (
+              <PartialDayPanel
+                absenceHours={absenceHours}
+                halfDayHours={halfDayHours}
+                fullDayHours={fullDayHours}
+                payBasis={payBasis}
+                onPayBasis={setPayBasis}
+                combinableAbsences={combinableAbsences}
+                selectedCombineIds={selectedCombineIds}
+                onToggleCombine={id => setSelectedCombineIds(prev =>
+                  prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                )}
+                generalDutiesNotes={generalDutiesNotes}
+                onGeneralDutiesNotes={setGeneralDutiesNotes}
+              />
+            )}
+
+            {/* Hours preview */}
+            {selectedSubId && (
+              <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 flex items-center justify-between text-sm">
+                <span className="text-gray-600">Sub will be credited:</span>
+                <span className="font-semibold text-gray-900">{previewHours().toFixed(1)} hours</span>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-1">
               <button
                 onClick={handleAssignDirectly}
@@ -241,7 +311,7 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
                 {isAssigning ? 'Assigning...' : 'Assign This Sub'}
               </button>
               <button
-                onClick={() => { setShowAssignPanel(false); setSelectedSubId(''); setSearch('') }}
+                onClick={() => { setShowAssignPanel(false); setSelectedSubId(''); setSearch(''); setPayBasis(null) }}
                 className="text-gray-500 px-4 py-2.5 hover:text-gray-700"
               >
                 Cancel
@@ -251,8 +321,127 @@ export default function FindSubClient({ timeOffId, subs, isAlreadyFilled, filled
         )}
       </div>
 
-      {/* Staff Coverage Toggle */}
       <StaffCoverageToggle isStaffCovered={isStaffCovered} isPending={isToggling} onToggle={handleToggleStaff} />
+    </div>
+  )
+}
+
+function PartialDayPanel({
+  absenceHours, halfDayHours, fullDayHours, payBasis, onPayBasis,
+  combinableAbsences, selectedCombineIds, onToggleCombine,
+  generalDutiesNotes, onGeneralDutiesNotes,
+}: {
+  absenceHours: number
+  halfDayHours: number
+  fullDayHours: number
+  payBasis: PayBasis | null
+  onPayBasis: (b: PayBasis) => void
+  combinableAbsences: CombinableAbsence[]
+  selectedCombineIds: string[]
+  onToggleCombine: (id: string) => void
+  generalDutiesNotes: string
+  onGeneralDutiesNotes: (n: string) => void
+}) {
+  const options: { value: PayBasis; label: string; desc: string; icon: React.ReactNode }[] = [
+    {
+      value: 'exact',
+      label: `Exact hours (${absenceHours.toFixed(1)} hrs)`,
+      desc: 'Sub is paid only for the absence duration.',
+      icon: <Clock className="h-4 w-4 flex-shrink-0" />,
+    },
+    {
+      value: 'half_day',
+      label: `Half day (${halfDayHours} hrs)`,
+      desc: 'Sub is paid for a half day.',
+      icon: <CalendarPlus className="h-4 w-4 flex-shrink-0" />,
+    },
+    {
+      value: 'full_day',
+      label: `Full day (${fullDayHours} hrs)`,
+      desc: 'Sub is paid for a full school day.',
+      icon: <Briefcase className="h-4 w-4 flex-shrink-0" />,
+    },
+  ]
+
+  if (combinableAbsences.length > 0) {
+    options.push({
+      value: 'combine',
+      label: 'Combine with another absence today',
+      desc: `${combinableAbsences.length} other open absence${combinableAbsences.length !== 1 ? 's' : ''} — sub covers both in one shift.`,
+      icon: <Users className="h-4 w-4 flex-shrink-0" />,
+    })
+  }
+
+  options.push({
+    value: 'general_duties',
+    label: 'Sub handles other duties for remaining time',
+    desc: 'Lunchroom, PE yard, front office — sub stays on campus for a half or full day.',
+    icon: <Users className="h-4 w-4 flex-shrink-0" />,
+  })
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+      <p className="text-sm font-medium text-amber-800">
+        This is a {absenceHours.toFixed(1)}-hour absence — not a full school day. How should we record this sub's time?
+      </p>
+      <div className="space-y-2">
+        {options.map(opt => (
+          <label
+            key={opt.value}
+            className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+              payBasis === opt.value ? 'border-blue-500 bg-white' : 'border-transparent bg-white/60 hover:bg-white'
+            }`}
+          >
+            <input
+              type="radio"
+              name="payBasis"
+              value={opt.value}
+              checked={payBasis === opt.value}
+              onChange={() => onPayBasis(opt.value)}
+              className="mt-0.5 text-blue-600"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
+                {opt.icon} {opt.label}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+            </div>
+          </label>
+        ))}
+      </div>
+
+      {payBasis === 'combine' && combinableAbsences.length > 0 && (
+        <div className="space-y-1 pl-1">
+          <p className="text-xs font-medium text-gray-600 mb-1">Select absences to combine into this shift:</p>
+          {combinableAbsences.map(ca => (
+            <label key={ca.id} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedCombineIds.includes(ca.id)}
+                onChange={() => onToggleCombine(ca.id)}
+                className="text-blue-600 rounded"
+              />
+              <span className="text-gray-800">
+                {ca.firstName} {ca.lastName}
+                <span className="text-gray-400 ml-1 text-xs">{fmt(ca.startTime)}–{fmt(ca.endTime)}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {payBasis === 'general_duties' && (
+        <div className="pl-1">
+          <label className="text-xs font-medium text-gray-600 block mb-1">What duties? (optional)</label>
+          <input
+            type="text"
+            placeholder="e.g. Lunchroom supervision, PE yard duty"
+            value={generalDutiesNotes}
+            onChange={e => onGeneralDutiesNotes(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -281,11 +470,7 @@ function StaffCoverageToggle({ isStaffCovered, isPending, onToggle }: {
             isStaffCovered ? 'bg-blue-600' : 'bg-gray-200'
           }`}
         >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-              isStaffCovered ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${isStaffCovered ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
     </div>

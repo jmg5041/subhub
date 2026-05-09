@@ -12,10 +12,13 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getAbsenceWithDetails, getAvailableSubs, getUserContext } from '../../actions'
+import { getAbsenceWithDetails, getAvailableSubs, getUserContext, getOtherOpenAbsencesForDate } from '../../actions'
 import AbsenceDetailsCard from './AbsenceDetailsCard'
 import FindSubClient from './FindSubClient'
 import { formatDateRange, countWeekdays } from '@/lib/date-utils'
+import { db } from '@/db'
+import { organizations, schools } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -35,7 +38,25 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
 
   if (!absence) notFound()
 
-  const subs = await getAvailableSubs(absence.schoolId)
+  const [subs, org, school] = await Promise.all([
+    getAvailableSubs(absence.schoolId),
+    db.query.organizations.findFirst({ where: eq(organizations.id, orgId) }),
+    absence.schoolId
+      ? db.query.schools.findFirst({ where: eq(schools.id, absence.schoolId) })
+      : Promise.resolve(null),
+  ])
+
+  // Only look for combinable absences on single-day requests
+  const isSingleDay = !absence.endDate || absence.endDate === absence.startDate
+  const combinableAbsences = isSingleDay
+    ? await getOtherOpenAbsencesForDate(
+        id,
+        absence.startDate,
+        absence.schoolId ?? '',
+        absence.startTime,
+        absence.endTime,
+      )
+    : []
 
   const teacher = absence.employee?.user
   const filledAssignment = absence.assignmentLinks?.[0]?.assignment
@@ -94,6 +115,14 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         filledByName={filledByName}
         outreachStatus={absence.subOutreachStatus ?? 'not_started'}
         substituteRequired={absence.substituteRequired ?? true}
+        absenceStartTime={absence.startTime}
+        absenceEndTime={absence.endTime}
+        schoolDayStart={school?.dayStartTime ?? '07:30:00'}
+        schoolDayEnd={school?.dayEndTime ?? '15:30:00'}
+        payModel={(org?.subPayModel ?? 'block') as 'block' | 'hourly'}
+        halfDayHours={parseFloat(org?.halfDayHours ?? '4.0')}
+        fullDayHours={parseFloat(org?.fullDayHours ?? '8.0')}
+        combinableAbsences={combinableAbsences}
       />
     </div>
   )
