@@ -49,13 +49,17 @@ export default async function DashboardPage() {
   const schoolName = profile?.school?.name || ''
   const orgId = profile?.organizationId
 
-  // Today's date in Pacific time — server runs UTC so toISOString() would give tomorrow after 5 PM PT
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+  const TZ = 'America/Los_Angeles'
 
-  // Greeting based on time of day
-  const hour = new Date().getHours()
-  const greeting =
-    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  // Today's date in Pacific time — server runs UTC so toISOString() would give tomorrow after 5 PM PT
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+
+  // Current Pacific time as HH:MM — used to filter out absences whose end time has already passed
+  const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+
+  // Greeting based on Pacific time hour (getHours() returns UTC — use toLocaleString instead)
+  const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
 
   // Single query for all org absences — split in JS for today/upcoming
   const allAbsences = orgId
@@ -82,10 +86,12 @@ export default async function DashboardPage() {
         .where(eq(teacherTimeOff.organizationId, orgId))
     : []
 
-  // "Today" = absence spans today. Null endDate means single-day — use startDate as the effective end.
+  // "Today" = absence spans today and hasn't ended yet. On the last day, hide once end time passes.
   const todayAbsences = allAbsences.filter(a => {
     const effectiveEnd = a.endDate ?? a.startDate
-    return a.startDate <= today && effectiveEnd >= today
+    if (a.startDate > today || effectiveEnd < today) return false
+    if (effectiveEnd === today) return a.endTime.slice(0, 5) >= nowTime
+    return true
   })
   // "Upcoming" = absence hasn't started yet
   const upcomingAbsences = allAbsences.filter(a => a.startDate > today)
@@ -116,7 +122,7 @@ export default async function DashboardPage() {
           {greeting}, {firstName}
         </h1>
         <p className="text-gray-500">
-          {schoolName} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {schoolName} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
 
