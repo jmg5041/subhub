@@ -69,7 +69,7 @@ export default function PriorityTab({ subs, schools, priorityBySchool }: Props) 
           {schools.length === 0 ? (
             <p className="text-sm text-gray-400">No schools configured yet. Add schools in <strong>Admin → Schools</strong>.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
               {schools.map(school => {
                 const ranked = (priorityBySchool[school.id] ?? []).filter(id => subs.find(s => s.id === id))
                 return (
