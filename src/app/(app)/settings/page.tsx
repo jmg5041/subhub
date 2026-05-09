@@ -11,7 +11,7 @@ import { getOrgSettings } from './actions'
 import SettingsClient from './SettingsClient'
 
 export default async function SettingsPage() {
-  const { org, subs } = await getOrgSettings()
+  const { org } = await getOrgSettings()
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -28,7 +28,6 @@ export default async function SettingsPage() {
         initialEmail={org?.notifyByEmail ?? true}
         initialSms={org?.notifyBySms ?? true}
         initialPhone={org?.notifyByPhone ?? false}
-        subs={subs}
       />
     </div>
   )

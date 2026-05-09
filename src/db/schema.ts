@@ -162,6 +162,7 @@ export const assignmentTimeOff = pgTable('assignment_time_off', {
 export const subPriorityOrders = pgTable('sub_priority_orders', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  schoolId: uuid('school_id').references(() => schools.id),
   substituteId: uuid('substitute_id').references(() => substitutes.id).notNull(),
   priorityRank: integer('priority_rank').default(999),
 });
@@ -375,6 +376,10 @@ export const subPriorityOrdersRelations = relations(subPriorityOrders, ({ one })
   organization: one(organizations, {
     fields: [subPriorityOrders.organizationId],
     references: [organizations.id],
+  }),
+  school: one(schools, {
+    fields: [subPriorityOrders.schoolId],
+    references: [schools.id],
   }),
   substitute: one(substitutes, {
     fields: [subPriorityOrders.substituteId],
