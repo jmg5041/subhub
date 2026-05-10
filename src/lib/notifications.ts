@@ -367,6 +367,7 @@ export async function notifyAllSubs(
   const eligibleSubs = allSubs.filter(sub => {
     if (sub.user.organizationId !== absence.organizationId) return false
     if (!schoolSubIds.has(sub.id)) return false  // must be assigned to this school
+    if (sub.user.role !== 'substitute') return false  // never blast admin/principal/staff accounts
     return true
   })
 
