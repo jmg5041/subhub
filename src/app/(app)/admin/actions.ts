@@ -254,11 +254,32 @@ export async function updateUser(formData: FormData) {
     await supabaseAdmin.auth.admin.updateUserById(userId, { email })
   }
 
-  // Rebuild employee school rows for teachers/staff (supports multi-school)
+  // Sync employee school rows for teachers/staff (multi-school support)
+  // We never delete a row that has teacher_time_off records pointing to it — that would
+  // violate the FK. So: add new schools freely; only remove schools with no absence history.
   if (['teacher', 'staff'].includes(existing.role)) {
-    await db.delete(employees).where(eq(employees.userId, userId))
-    if (schoolIds.length > 0) {
-      await db.insert(employees).values(schoolIds.map(sid => ({ userId, schoolId: sid })))
+    const currentRows = await db
+      .select({ id: employees.id, schoolId: employees.schoolId })
+      .from(employees)
+      .where(eq(employees.userId, userId))
+
+    const currentSchoolIds = new Set(currentRows.map(r => r.schoolId))
+
+    // Insert rows for newly added schools
+    const toAdd = schoolIds.filter(sid => !currentSchoolIds.has(sid))
+    if (toAdd.length > 0) {
+      await db.insert(employees).values(toAdd.map(sid => ({ userId, schoolId: sid })))
+    }
+
+    // Remove rows for unchecked schools only if they have no absence history
+    const toRemove = currentRows.filter(r => !schoolIds.includes(r.schoolId))
+    for (const row of toRemove) {
+      const hasAbsences = await db.query.teacherTimeOff.findFirst({
+        where: eq(teacherTimeOff.employeeId, row.id),
+      })
+      if (!hasAbsences) {
+        await db.delete(employees).where(eq(employees.id, row.id))
+      }
     }
   }
 
