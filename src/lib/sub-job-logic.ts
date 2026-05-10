@@ -1,3 +1,30 @@
+/**
+ * Shared accept/decline logic for substitute job tokens.
+ *
+ * WHY THIS FILE EXISTS
+ * Two separate paths lead to a sub accepting a job:
+ *   1. Web link — sub clicks Accept in their email or dashboard (/sub/jobs/[token]/actions.ts)
+ *   2. Phone IVR — sub presses a digit during a Twilio call (api/twilio/gather/[token]/route.ts)
+ *
+ * Both paths need the same database operations (create assignment, mark filled, send
+ * confirmation email, auto-decline other same-date tokens). This file contains that
+ * shared logic so it doesn't get duplicated and drift out of sync.
+ *
+ * The difference between the two paths:
+ *   - performAcceptJob: returns a typed result object (IVR needs to speak the outcome)
+ *   - acceptSubJob (in actions.ts): calls redirect() directly (web path goes to confirmed page)
+ *
+ * RACE CONDITION PROTECTION
+ * The token update uses WHERE usedAt IS NULL so only one concurrent accept wins at the
+ * database level. Two simultaneous accepts (e.g. phone + web button at same instant)
+ * cannot both succeed — the second one gets back an empty result and bails out.
+ *
+ * AUTO-DECLINE
+ * After a sub accepts any one position, all their other same-date unused tokens are
+ * immediately marked as declined. This prevents a sub from being double-booked on
+ * the same day.
+ */
+
 import { db } from '@/db'
 import {
   subNotificationTokens,

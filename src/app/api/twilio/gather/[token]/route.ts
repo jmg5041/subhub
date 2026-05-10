@@ -1,3 +1,31 @@
+/**
+ * Twilio Gather webhook — called when a substitute presses a digit during the IVR call.
+ *
+ * HOW IT WORKS
+ * After the voice route speaks the position list, Twilio's <Gather> element waits for
+ * a keypress. When the sub presses a digit, Twilio POSTs the digit to this route.
+ *
+ * We re-run the same position query as the voice route (same sort: school name A→Z)
+ * to map the digit back to the correct position. It's critical this sort matches.
+ *
+ * DIGIT HANDLING
+ *   0 → Redirect back to the voice route to repeat the options
+ *
+ *   Single position mode (only 1 active position for this sub/date):
+ *     1 → Accept the position
+ *     2 → Decline the position
+ *
+ *   Multi-position mode (2+ active positions):
+ *     1–9 → Accept the position at that index (digit − 1)
+ *     (No phone decline in multi-position mode. Sub can decline via email links.)
+ *
+ * After acceptance, performAcceptJob handles:
+ *   - Creating the sub_assignment record
+ *   - Marking the absence as filled
+ *   - Auto-declining all other same-date tokens for this sub
+ *   - Sending a confirmation email
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { performAcceptJob, performDeclineJob } from '@/lib/sub-job-logic'
 import { db } from '@/db'

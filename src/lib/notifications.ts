@@ -1,11 +1,33 @@
 /**
- * Notification utilities — builds messages and sends them to substitutes.
+ * Notification system — the heart of SubHub's substitute outreach.
  *
- * Phase 3 delivers email only. SMS and phone are wired up but disabled until
- * Twilio A2P 10DLC registration is complete (Phase 4).
+ * DESIGN: Sub-centric bundled blasts
+ * ------------------------------------
+ * When multiple positions are open on the same date, each substitute receives
+ * exactly ONE notification listing ALL positions they're eligible for. This
+ * prevents a sub who works at two schools from getting two simultaneous calls.
  *
- * Email is sent via Resend. Requires RESEND_API_KEY in environment variables.
- * Without the key, sends are logged to console only (safe for local dev).
+ * The main entry point is `notifyAllSubs(teacherTimeOffIds[])`.
+ * Call it with an array of absence IDs for the same date. It:
+ *   1. Builds a pool of eligible subs per absence (via sub_school_assignments)
+ *   2. Inverts to: per sub → which absences are they eligible for?
+ *   3. Generates one UUID token per (sub, absence) pair
+ *   4. Sends ONE email + ONE SMS + ONE phone call per sub
+ *
+ * TOKEN SYSTEM
+ * Each sub_notification_token row = one sub's claim on one absence.
+ * Tokens expire in 48h. Accepting marks usedAt; auto-decline marks all other
+ * same-date tokens for that sub as declined to prevent double-booking.
+ *
+ * CHANNELS (controlled by org settings: notifyByEmail / notifyBySms / notifyByPhone)
+ *   Email: full details + Accept/Decline buttons per position
+ *   SMS:   single position → direct links; multiple → numbered list + dashboard URL
+ *   Phone: Twilio IVR (see voice/[token]/route.ts and gather/[token]/route.ts)
+ *
+ * SENDING
+ * Email goes through Resend (RESEND_API_KEY env var required).
+ * Without the key, emails are logged to console — safe for local dev.
+ * SMS/voice go through Twilio (TWILIO_* env vars).
  */
 
 import { db } from '@/db'

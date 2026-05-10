@@ -11,7 +11,7 @@ and avoid unnecessary abstractions.
 
 | Thing | Location |
 |-------|----------|
-| Code | `/Users/jessegentile/.openclaw/workspace/substitute-app/` |
+| Code | `/Users/jessegentile/Developer/subhub/` |
 | Git repo | `github.com/jmg5041/subhub` (branch: `main`) |
 | Production app | `https://app.substitutes.us` (Vercel, auto-deploys on push to `main`) |
 | Marketing site | `substitutes.us` (SiteGround static HTML — **separate, do not touch**) |
@@ -156,20 +156,22 @@ This lets an admin share a recovery link from their own logged-in browser.
 
 | Table | Purpose |
 |-------|---------|
-| `organizations` | Top-level org (school district). Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms` |
+| `organizations` | Top-level org (school district). Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms`, `notifyByPhone` |
 | `schools` | Campus within an org. Has `dayStartTime` / `dayEndTime` (HH:MM:SS) |
 | `users` | Everyone. `role` enum: admin/principal/staff/teacher/substitute |
-| `employees` | Teacher/staff as payroll employee. Links `user → school` |
+| `employees` | Teacher/staff as payroll employee. Links `user → school`. One user can have multiple rows (one per school — e.g. a PE teacher at ES and MS). Never delete a row that has `teacherTimeOff` references. |
 | `teacher_time_off` | An absence gap. Has `approvalStatus`, `subOutreachStatus`, `substituteRequired` |
 | `sub_assignments` | A sub covering a gap. Separate from time-off (decoupled model) |
 | `assignment_time_off` | Junction: links assignments ↔ time-off records (many-to-many) |
 | `substitutes` | Sub profile. Has `excludedFromSchools` (JSON array of schoolIds) |
-| `sub_priority_orders` | Admin-ranked order for notification blast |
-| `sub_notification_tokens` | UUID tokens for accept/decline deep links (48h expiry) |
+| `sub_school_assignments` | Which subs are in which school's pool (`status: active/inactive`) |
+| `sub_priority_orders` | Admin-ranked order for notification blast per school |
+| `sub_notification_tokens` | UUID tokens for accept/decline deep links (48h expiry). One token per sub per absence. |
 | `invitations` | Tracks invite emails: email, role, orgId, expiresAt, usedAt |
 | `sub_unavailability` | Dates a sub has marked unavailable. Blast skips these subs |
 | `absence_reasons` | Dropdown options per org (Sick Day, Personal Day, etc.) |
 | `attachments` | Files attached to absences (lesson plans, etc.). Stored in Supabase Storage |
+| `school_directory` | CA public school data from CDE (3,194 schools). Used for school search/claim. |
 
 ### Drizzle ORM
 - Schema defined in `src/db/schema.ts`
@@ -182,17 +184,13 @@ This lets an admin share a recovery link from their own logged-in browser.
 
 ## File Storage (Supabase Storage)
 
-Bucket: `absence-attachments` (public bucket — files are readable by URL)
+Buckets: `absence-attachments` (public), `avatars` (public), `resumes` (public)
 
-Upload policy: authenticated users only (`auth.role() = 'authenticated'`).
+All uploads go through server-side API routes (`/api/upload/avatar`, `/api/upload/resume`)
+using the admin Supabase client, which bypasses RLS. Direct browser upload would fail
+because the RLS policy uses an incompatible path format.
 
 Upload path format: `{orgId}/{userId}-{timestamp}-{filename}`
-
-Files upload directly from the browser using the Supabase JS client (anon key).
-After upload, a row is saved to the `attachments` table via a server action.
-
-Deleting an attachment removes the database row. The file remains in storage
-(orphaned) — storage cleanup can be done manually or added as a cron job later.
 
 ---
 
@@ -204,7 +202,7 @@ There are three different Supabase client files. Using the wrong one causes subt
 |------|---------|-----|
 | `src/lib/supabase/client.ts` | Client components (`'use client'`) | Uses anon key, runs in browser |
 | `src/lib/supabase/server.ts` | Server Components, Server Actions, Route Handlers | Reads cookies for session |
-| `src/lib/supabase/admin.ts` | Admin-only operations (invite users, generate links) | Uses service role key, bypasses RLS |
+| `src/lib/supabase/admin.ts` | Admin-only operations (invite users, generate links, file upload) | Uses service role key, bypasses RLS |
 
 ---
 
@@ -217,8 +215,11 @@ There are three different Supabase client files. Using the wrong one causes subt
 | `SUPABASE_SERVICE_ROLE_KEY` | ✓ | ✓ | Admin API (bypasses RLS) |
 | `DATABASE_URL` | ✓ | ✓ | Postgres connection string (pooled) |
 | `NEXT_PUBLIC_APP_URL` | — | ✓ | `https://app.substitutes.us` |
-| `RESEND_API_KEY` | — | — | Email sending. **Not set** — resend shows a copyable link instead |
-| `TWILIO_*` | ✓ | ✓ | SMS and voice IVR for sub notifications |
+| `RESEND_API_KEY` | — | ✓ | Email sending via Resend (set in Vercel) |
+| `TWILIO_ACCOUNT_SID` | ✓ | ✓ | Twilio account |
+| `TWILIO_AUTH_TOKEN` | ✓ | ✓ | Twilio auth |
+| `TWILIO_PHONE_NUMBER` | ✓ | ✓ | Twilio outbound phone number |
+| `CRON_SECRET` | — | ✓ | Bearer token to authenticate cron job calls |
 
 ### Supabase Dashboard Settings (must not change)
 - Auth → URL Configuration → **Site URL**: `https://app.substitutes.us`
@@ -226,51 +227,159 @@ There are three different Supabase client files. Using the wrong one causes subt
 
 ---
 
-## Notification System (`src/lib/notifications.ts`)
+## Notification System
 
-When "Notify All Subs" is triggered for an absence:
-1. Loads subs in priority order (from `sub_priority_orders`)
-2. Filters out subs who marked the absence date as unavailable (`sub_unavailability`)
-3. Filters out subs excluded from the school (`substitutes.excludedFromSchools`)
-4. For each eligible sub, generates a UUID token (`sub_notification_tokens`, 48h expiry)
-5. Builds an email with Accept / Decline deep links (no login required)
-6. Sends via Resend (or logs to console if `RESEND_API_KEY` is not set)
-7. If Twilio is configured, also sends SMS and/or initiates a voice IVR call
+### Overview
+The system is **sub-centric**: when a blast goes out, each eligible substitute receives
+exactly ONE notification (email + SMS + phone call) listing ALL positions available to
+them on that date. This prevents a sub who works at two schools from getting two
+simultaneous calls.
 
-The deep links go to `/sub/jobs/[token]` — a public page that reads the token, shows
-the job details, and lets the sub accept or decline without creating an account.
+### Key files
+- `src/lib/notifications.ts` — core blast logic (`notifyAllSubs`)
+- `src/lib/sub-job-logic.ts` — shared accept/decline logic used by both web and phone paths
+- `src/app/api/twilio/voice/[token]/route.ts` — Twilio calls this when a sub answers
+- `src/app/api/twilio/gather/[token]/route.ts` — Twilio calls this when sub presses a digit
+- `src/app/sub/jobs/[token]/page.tsx` — public web page (no login) for email accept/decline
+- `src/app/sub/jobs/[token]/actions.ts` — server actions for web accept/decline
+
+### How `notifyAllSubs(ids[])` works
+Called with an array of `teacherTimeOff` IDs (all for the same date):
+1. Loads each absence with school + teacher info
+2. For each school, fetches that school's active sub pool (`sub_school_assignments`)
+3. Inverts the map: for each unique sub, what positions are they eligible for?
+4. Sorts subs by their best priority rank across all schools
+5. Filters out: subs marked unavailable that day, subs already booked, skipped subs
+6. For each eligible sub → generates one UUID token per position (stored in `sub_notification_tokens`, 48h expiry)
+7. Sends ONE bundled email listing all their positions with individual Accept/Decline links
+8. Sends ONE SMS (single position: direct links; multiple: numbered list + dashboard link)
+9. Makes ONE voice call (IVR route handles multi-position selection by phone)
+10. Marks all absences as `subOutreachStatus = 'sent'`
+
+### Token system
+Each `sub_notification_token` row represents one sub's claim on one absence. Fields:
+- `token` — UUID used as the URL parameter
+- `substituteId` — which sub this is for
+- `teacherTimeOffId` — which absence this covers
+- `expiresAt` — 48 hours after creation
+- `usedAt` — set when accepted or declined
+- `action` — `'accepted'` or `'declined'`
+
+**Race condition protection:** The accept update uses `WHERE usedAt IS NULL` atomically,
+so two simultaneous accepts (e.g. phone + web button at the same time) cannot both succeed.
+The second one gets redirected to the "already filled" page.
+
+**Auto-decline:** When a sub accepts any position, ALL their other same-date unused tokens
+are immediately marked as declined. This prevents a sub from being double-booked.
+
+**Past-date guard:** The sub dashboard filters out tokens for dates before today. The
+server action also rejects acceptance of past-date positions as a second line of defense.
+
+### Cron schedule (`vercel.json`)
+All times are UTC. Southlands is in Pacific time:
+- PDT (summer, Mar–Nov): UTC−7 → evening blast = 11pm, morning blast = 7am
+- PST (winter, Nov–Mar): UTC−8 → evening blast = 10pm, morning blast = 6am
+
+| Cron | UTC schedule | Pacific (PDT) | What it does |
+|------|-------------|----------------|-------------|
+| Evening blast | `0 6 * * *` | ~11pm | Notifies subs for tomorrow's `not_started` positions |
+| Morning blast | `0 14 * * *` | ~7am | Catches same-day positions submitted overnight |
+| Unfilled alert | `30 14 * * *` | ~7:30am | Emails admin if any position is still unfilled |
+
+Crons only process positions with `subOutreachStatus = 'not_started'`. Once a blast runs,
+status becomes `'sent'` and the crons won't touch it again. Re-blasts go through
+`reBlastNonDecliners()` in `notifications.ts`.
+
+### Manual blast
+Admin can click "Notify Subs Immediately" on any Find Sub page. This bundles all
+same-org same-date `not_started` positions into one blast — not just the one absence
+being viewed. The confirm dialog shows how many positions will be bundled.
+
+---
+
+## Voice IVR Flow (Twilio)
+
+When a sub's phone rings and they answer, Twilio calls our webhook:
+
+### `POST /api/twilio/voice/[token]`
+The `token` is the primary token used to identify this sub and date.
+1. Loads the primary token → gets `substituteId` and `absenceDate`
+2. Queries ALL active same-date tokens for this sub (not expired, not used, not filled)
+3. Sorts by school name A→Z (consistent with gather route — must match!)
+4. Caps at 9 positions (single-digit keypad limit)
+
+**Single position:** "You have a substitute teaching request for [teacher] at [school]
+on [date], from [time] to [time]. Press 1 to accept. Press 2 to decline."
+
+**Multiple positions:** "You have [N] positions available on [date].
+Press 1 for [school], [teacher]'s class, [time] to [time].
+Press 2 for [school2]... Press 0 to hear these options again."
+
+Note: In multi-position mode there is no phone decline option. Subs who want to decline
+all positions can use the email links. Unanswered tokens stay open and the sub may be
+re-blasted if nobody else fills the position.
+
+### `POST /api/twilio/gather/[token]`
+Called when the sub presses a digit. Uses the same sort order as the voice route.
+
+- **Digit 0:** Redirect back to `/api/twilio/voice/[token]` to repeat
+- **Single position mode** (positions.length === 1):
+  - `1` → accept, `2` → decline
+- **Multi-position mode:**
+  - `1`–`9` → accept the nth position (index = digit − 1)
+  - Any other digit → error message, check email
 
 ---
 
 ## Sub Job Accept/Decline (Public — No Login)
 
-`src/app/sub/jobs/[token]/page.tsx` and `actions.ts`
+Two separate paths lead to acceptance. Both use `sub-job-logic.ts` shared logic
+for the database writes. The difference: `performAcceptJob` returns a result (for
+the IVR path which needs to say "you are confirmed"); `acceptSubJob` redirects
+directly (for the web link path).
 
-- The token is looked up in `sub_notification_tokens`
-- Tokens expire after 48 hours (`expiresAt`)
-- On Accept: creates a `sub_assignments` row, links it via `assignment_time_off`,
-  marks the absence as `filled`, marks the token as used
-- On Decline: marks the token as used with `action = 'declined'`
-- The confirmation page is at `/sub/jobs/[token]/confirmed`
+### Web path (`/sub/jobs/[token]`)
+- Public page — no login required. The token in the URL is the authentication.
+- `?action=accept` or `?action=decline` in the URL triggers the action automatically
+- Confirmation page at `/sub/jobs/[token]/confirmed`
+
+### IVR path (Twilio webhook)
+- `performAcceptJob(token)` in `src/lib/sub-job-logic.ts`
+- Returns a typed result (`AcceptResult`) instead of redirecting
+- The gather route uses the result to speak a confirmation message
 
 ---
 
-## Seed Data
+## Cron Routes
 
-41 real teachers imported from Frontline (emails: `lavila@southlandscs.com` format).
-18 substitutes seeded. These have placeholder UUIDs as `users.id` — the real Supabase
-auth ID is linked on first login.
+All cron routes check a `Bearer {CRON_SECRET}` authorization header to prevent
+unauthorized calls. Vercel sends this automatically from the cron config in `vercel.json`.
 
-Seed scripts: `src/db/seed.ts`, `src/db/seed-teachers.ts`, `src/db/seed-subs.ts`
+- `src/app/api/cron/evening-blast/route.ts` — finds tomorrow's `not_started` positions, groups by org, calls `notifyAllSubs` once per org
+- `src/app/api/cron/morning-blast/route.ts` — same pattern but for today's positions
+- `src/app/api/cron/unfilled-alert/route.ts` — emails admin if any position is still unfilled by morning
 
 ---
 
 ## Known Pending Work
 
-- **`RESEND_API_KEY` not set in Vercel** — email sending shows a copyable link instead of sending automatically. Add the key to Vercel env vars to enable.
-- **Staff role nav restrictions** — staff users currently see all admin navigation including Settings and Manage Users. These should be hidden for the `staff` role.
-- **Sub job-board** — substitutes browsing open positions and applying (Phase 5, deferred).
-- **Reconciliation payroll details** — sub rating and exact hour adjustments on the Reconcile page (deferred).
+**Operational (needed for daily use):**
+- Completed-absences cron: 4pm Pacific daily, marks absences whose endTime has passed, moves them off dashboard, gives sub credit
+- Payroll report: exportable CSV of sub hours per pay period — the main output for whoever writes paychecks
+
+**Mid-term (before second school):**
+- Admin onboarding wizard: multi-step school setup (org, schools, pay model, users, subs)
+- Teacher onboarding: simple first-login walkthrough
+- Sub onboarding: profile, availability, schools
+
+**Longer-term:**
+- Marketing/signup site: school discovers SubHub and self-registers
+- Payment system: Stripe subscriptions, tier by school size, admin discount override
+
+**Deferred:**
+- Sub job-board: subs browse open positions and apply
+- Rich text for notes-to-sub
+- Google OAuth consent screen: shows raw Supabase project ID — fix in Google Cloud Console
 
 ---
 
@@ -285,21 +394,45 @@ Always append `T12:00:00` when constructing a `Date` from a `YYYY-MM-DD` string:
 `new Date(dateStr + 'T12:00:00')`. Without this, timezone offsets can shift the date
 by one day.
 
-**3. `revalidatePath` after mutations**
+**3. Timezone: always use Pacific explicitly**
+The server runs in UTC. Never use `new Date().toISOString()` to get today's date for
+display or query purposes — it will be wrong for Pacific users after 4pm.
+Always use:
+```ts
+const TZ = 'America/Los_Angeles'
+const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
+```
+
+**4. `revalidatePath` after mutations**
 After any database write, call `revalidatePath()` for all pages that display that data.
 Forgetting this causes stale data to show until the next hard refresh.
 
-**4. Drizzle relations vs. migrations**
+**5. Drizzle relations vs. migrations**
 The `relations()` calls in `schema.ts` are ORM-only metadata — they teach Drizzle how
 to do `with:` joins in queries. They do NOT create anything in the database.
 Changing relations = no migration needed.
 Changing table columns = run `npx drizzle-kit generate` then apply the migration.
 
-**5. Route groups don't add URL segments**
+**6. Route groups don't add URL segments**
 `(app)`, `(teacher)`, `(sub)` are organizational — they affect layouts but not URLs.
 A page at `src/app/(teacher)/teacher/page.tsx` maps to `/teacher`, not `/(teacher)/teacher`.
 
-**6. The admin Supabase client bypasses RLS**
+**7. The admin Supabase client bypasses RLS**
 `src/lib/supabase/admin.ts` uses the service role key. Only use it for operations that
-need to bypass Row Level Security (e.g., inviting users, generating auth links).
+need to bypass Row Level Security (e.g., inviting users, generating auth links, file upload).
 Never use it in client components or expose it to the browser.
+
+**8. Multi-school teachers**
+A teacher who works at multiple campuses has one `employees` row per school (same `userId`,
+different `schoolId`). When updating a teacher's school assignments, NEVER delete an
+`employees` row that has `teacherTimeOff` records pointing to it — this breaks a foreign
+key constraint. Only add new rows or remove rows with no absence history.
+
+**9. IVR sort order must match between voice and gather routes**
+Both `/api/twilio/voice/[token]` and `/api/twilio/gather/[token]` sort positions by
+school name ascending before assigning digit numbers. If you change the sort in one,
+change it in the other — otherwise "Press 2" accepts the wrong position.
+
+**10. Token race condition is handled at the database level**
+The token accept update uses `WHERE usedAt IS NULL` so only one concurrent accept wins.
+Do NOT add application-level locking or retries — the DB constraint is sufficient.

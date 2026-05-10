@@ -1,3 +1,31 @@
+/**
+ * Twilio Voice IVR — called by Twilio when a substitute answers the phone.
+ *
+ * HOW IT WORKS
+ * Twilio makes a POST to this route when a sub picks up. We respond with TwiML
+ * (XML instructions) that tell Twilio what to say and what to listen for.
+ *
+ * The [token] in the URL is the "primary token" — it identifies which sub is
+ * being called and what date we're calling about. We then look up ALL active
+ * same-date tokens for that sub to build the full position list.
+ *
+ * SINGLE POSITION: "You have a request for [teacher] at [school] on [date]...
+ *   Press 1 to accept. Press 2 to decline."
+ *
+ * MULTIPLE POSITIONS: "You have [N] positions on [date].
+ *   Press 1 for [school], [teacher]'s class, [time].
+ *   Press 2 for [school2]...
+ *   Press 0 to hear these options again."
+ *
+ * IMPORTANT: Positions are sorted by school name A→Z. The gather route
+ * (gather/[token]/route.ts) uses the SAME sort order to map digits to positions.
+ * If you change the sort here, change it there too — otherwise pressing "2"
+ * would accept the wrong position.
+ *
+ * After the <Say> block, <Gather> listens for a keypress. If no key is pressed,
+ * we fall through to a "we didn't receive your input" message.
+ */
+
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { subNotificationTokens } from '@/db/schema'
