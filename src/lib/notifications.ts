@@ -199,8 +199,77 @@ export async function notifyAdminsOfAbsenceRequest(params: {
 
 // ─── Main: notify all available subs ─────────────────────────────────────────
 
-export async function notifyAllSubs(
+// ─── Admin alert: absence still unfilled ─────────────────────────────────────
+
+export async function notifyAdminsUnfilled(teacherTimeOffId: string): Promise<void> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+
+  const [row] = await db
+    .select({
+      organizationId: schema.teacherTimeOff.organizationId,
+      startDate: schema.teacherTimeOff.startDate,
+      schoolName: schema.schools.name,
+      teacherFirst: schema.users.firstName,
+      teacherLast: schema.users.lastName,
+    })
+    .from(schema.teacherTimeOff)
+    .innerJoin(schema.schools, eq(schema.teacherTimeOff.schoolId, schema.schools.id))
+    .innerJoin(schema.employees, eq(schema.teacherTimeOff.employeeId, schema.employees.id))
+    .innerJoin(schema.users, eq(schema.employees.userId, schema.users.id))
+    .where(eq(schema.teacherTimeOff.id, teacherTimeOffId))
+
+  if (!row) return
+
+  const admins = await db
+    .select({ email: schema.users.email })
+    .from(schema.users)
+    .where(and(
+      eq(schema.users.organizationId, row.organizationId),
+      inArray(schema.users.role, ['admin', 'principal'])
+    ))
+
+  const teacherName = `${row.teacherFirst} ${row.teacherLast}`
+  const dateStr = formatDate(row.startDate)
+  const subject = `No sub yet — ${teacherName} is out ${dateStr}`
+  const html = `
+    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+      <h2 style="color: #dc2626;">Still No Substitute</h2>
+      <p><strong>${teacherName}</strong> is absent on <strong>${dateStr}</strong> at ${row.schoolName} and no substitute has accepted yet.</p>
+      <p>A second round of notifications has been sent to available subs. You may also want to assign someone manually.</p>
+      <div style="margin: 24px 0;">
+        <a href="${appUrl}/absences/find-sub" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Assign a Sub Manually</a>
+      </div>
+    </div>
+  `
+  const text = `No sub yet for ${teacherName} on ${dateStr} at ${row.schoolName}.\n\nA second round of notifications has been sent.\n\nAssign manually: ${appUrl}/absences/find-sub`
+
+  for (const admin of admins) {
+    if (!admin.email) continue
+    await sendSubEmail({ to: admin.email, subject, html, text })
+  }
+}
+
+// ─── Re-blast: notify subs who haven't explicitly declined ───────────────────
+
+export async function reBlastNonDecliners(
   teacherTimeOffId: string
+): Promise<{ sent: number; errors: string[] }> {
+  const declinedRows = await db
+    .select({ substituteId: schema.subNotificationTokens.substituteId })
+    .from(schema.subNotificationTokens)
+    .where(and(
+      eq(schema.subNotificationTokens.teacherTimeOffId, teacherTimeOffId),
+      eq(schema.subNotificationTokens.action, 'declined')
+    ))
+  const skipSubIds = new Set(declinedRows.map(r => r.substituteId))
+  return notifyAllSubs(teacherTimeOffId, { skipSubIds })
+}
+
+// ─── Main: notify all available subs ─────────────────────────────────────────
+
+export async function notifyAllSubs(
+  teacherTimeOffId: string,
+  options: { skipSubIds?: Set<string> } = {}
 ): Promise<{ sent: number; errors: string[] }> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
@@ -293,7 +362,10 @@ export async function notifyAllSubs(
     : []
   const bookedIds = new Set(bookedRows.map(r => r.substituteId))
 
-  const availableSubs = orderedSubs.filter(s => !unavailableIds.has(s.id) && !bookedIds.has(s.id))
+  const skipSubIds = options.skipSubIds ?? new Set<string>()
+  const availableSubs = orderedSubs.filter(s =>
+    !unavailableIds.has(s.id) && !bookedIds.has(s.id) && !skipSubIds.has(s.id)
+  )
 
   const errors: string[] = []
   let sent = 0
