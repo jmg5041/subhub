@@ -105,12 +105,13 @@ export default async function DashboardPage() {
     : []
 
   // "Today" = absence spans today (started on or before today, ends on or after today)
+  // Cancelled (denied) absences are excluded from all views
   const todayAbsences = allAbsences.filter(a => {
     const effectiveEnd = a.endDate ?? a.startDate
-    return a.startDate <= today && effectiveEnd >= today
+    return a.startDate <= today && effectiveEnd >= today && a.approvalStatus !== 'denied'
   })
   // "Upcoming" = absence hasn't started yet
-  const upcomingAbsences = allAbsences.filter(a => a.startDate > today)
+  const upcomingAbsences = allAbsences.filter(a => a.startDate > today && a.approvalStatus !== 'denied')
 
   function statPair(filterFn: (a: typeof allAbsences[0]) => boolean) {
     return {

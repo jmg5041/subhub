@@ -107,14 +107,14 @@ export default async function ApproveAbsencesPage() {
                   </button>
                 </form>
 
-                {/* Deny form */}
+                {/* Cancel form */}
                 <form action={denyAbsence}>
                   <input type="hidden" name="id" value={absence.id} />
                   <button
                     type="submit"
                     className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
                   >
-                    Deny
+                    Cancel
                   </button>
                 </form>
               </div>
@@ -129,7 +129,7 @@ export default async function ApproveAbsencesPage() {
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
           <p className="text-sm text-blue-700">
             Approving an absence confirms it&apos;s valid and begins the process of finding a substitute
-            (if one is required). Denying removes it from the queue without notifying anyone.
+            (if one is required). Cancelling removes it from the queue without notifying anyone.
           </p>
         </div>
       )}

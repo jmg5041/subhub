@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
 import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory } from '@/db/schema'
-import { eq, desc, ilike, or, and } from 'drizzle-orm'
+import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ async function getAdminContext() {
 export async function getOrgUsers() {
   const { orgId } = await getAdminContext()
 
-  const [allUsers, allInvites, allSchools] = await Promise.all([
+  const [allUsers, allInvites, allSchools, allEmployees] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -54,14 +54,31 @@ export async function getOrgUsers() {
       .from(schools)
       .where(eq(schools.organizationId, orgId))
       .orderBy(schools.name),
+
+    // Load all employee→school assignments so multi-school teachers show all their schools
+    db
+      .select({ userId: employees.userId, schoolId: employees.schoolId })
+      .from(employees)
+      .innerJoin(users, eq(employees.userId, users.id))
+      .where(eq(users.organizationId, orgId)),
   ])
+
+  // Group employee school assignments by userId
+  const schoolIdsByUser = new Map<string, string[]>()
+  for (const emp of allEmployees) {
+    const existing = schoolIdsByUser.get(emp.userId) ?? []
+    existing.push(emp.schoolId)
+    schoolIdsByUser.set(emp.userId, existing)
+  }
 
   // Only show users who have accepted their invite (not pending ones)
   // Pending users are shown in the Invitations section instead
   const pendingEmails = new Set(
     allInvites.filter(i => !i.usedAt).map(i => i.email)
   )
-  const acceptedUsers = allUsers.filter(u => !pendingEmails.has(u.email ?? ''))
+  const acceptedUsers = allUsers
+    .filter(u => !pendingEmails.has(u.email ?? ''))
+    .map(u => ({ ...u, schoolIds: schoolIdsByUser.get(u.id) ?? [] }))
 
   return { users: acceptedUsers, invites: allInvites, schools: allSchools }
 }
@@ -222,25 +239,26 @@ export async function updateUser(formData: FormData) {
   const lastName = formData.get('lastName') as string
   const email = formData.get('email') as string
   const phone = (formData.get('phone') as string) || null
-  const schoolId = (formData.get('schoolId') as string) || null
+  // schoolIds is a JSON array of school UUIDs (multi-school support)
+  const schoolIdsRaw = (formData.get('schoolIds') as string) || '[]'
+  const schoolIds: string[] = JSON.parse(schoolIdsRaw)
+  const primarySchoolId = schoolIds[0] ?? null
 
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!existing || existing.organizationId !== orgId) return { error: 'User not found' }
 
-  await db.update(users).set({ firstName, lastName, email, phone, schoolId }).where(eq(users.id, userId))
+  await db.update(users).set({ firstName, lastName, email, phone, schoolId: primarySchoolId }).where(eq(users.id, userId))
 
   // Keep Supabase auth email in sync if it changed
   if (email !== existing.email) {
     await supabaseAdmin.auth.admin.updateUserById(userId, { email })
   }
 
-  // Update employee school assignment for teachers/staff
-  if (schoolId && ['teacher', 'staff'].includes(existing.role)) {
-    const emp = await db.query.employees.findFirst({ where: eq(employees.userId, userId) })
-    if (emp) {
-      await db.update(employees).set({ schoolId }).where(eq(employees.id, emp.id))
-    } else {
-      await db.insert(employees).values({ userId, schoolId })
+  // Rebuild employee school rows for teachers/staff (supports multi-school)
+  if (['teacher', 'staff'].includes(existing.role)) {
+    await db.delete(employees).where(eq(employees.userId, userId))
+    if (schoolIds.length > 0) {
+      await db.insert(employees).values(schoolIds.map(sid => ({ userId, schoolId: sid })))
     }
   }
 

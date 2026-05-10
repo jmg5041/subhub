@@ -15,6 +15,7 @@ type User = {
   role: string
   status: string | null
   schoolId: string | null
+  schoolIds: string[]
   avatarUrl: string | null
 }
 
@@ -68,7 +69,7 @@ export default function ManageUsersClient({
   const [bulkResults, setBulkResults] = useState<{ sent: number; errors: string[] } | null>(null)
   const [bulkSendInvites, setBulkSendInvites] = useState(true)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '', schoolId: '' })
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '', schoolIds: [] as string[] })
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -87,7 +88,7 @@ export default function ManageUsersClient({
       email: u.email,
       phone: u.phone ?? '',
       role: u.role,
-      schoolId: u.schoolId ?? '',
+      schoolIds: u.schoolIds.length > 0 ? u.schoolIds : (u.schoolId ? [u.schoolId] : []),
     })
   }
 
@@ -134,7 +135,7 @@ export default function ManageUsersClient({
       fd.set('lastName', editForm.lastName)
       fd.set('email', editForm.email)
       fd.set('phone', editForm.phone)
-      fd.set('schoolId', editForm.schoolId)
+      fd.set('schoolIds', JSON.stringify(editForm.schoolIds))
       const res = await updateUser(fd)
       if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
       else {
@@ -352,15 +353,27 @@ export default function ManageUsersClient({
               </div>
               {['teacher', 'staff'].includes(editForm.role) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
-                  <select
-                    value={editForm.schoolId}
-                    onChange={e => setEditForm(f => ({ ...f, schoolId: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">— Select a school —</option>
-                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Schools</label>
+                  <div className="space-y-2">
+                    {schools.map(s => (
+                      <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.schoolIds.includes(s.id)}
+                          onChange={e => {
+                            setEditForm(f => ({
+                              ...f,
+                              schoolIds: e.target.checked
+                                ? [...f.schoolIds, s.id]
+                                : f.schoolIds.filter(id => id !== s.id),
+                            }))
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{s.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
