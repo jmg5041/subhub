@@ -370,11 +370,6 @@ export async function notifyAllSubs(
     return true
   })
 
-  console.log(`[BLAST] absenceId=${teacherTimeOffId} schoolId=${absence.schoolId} orgId=${absence.organizationId}`)
-  console.log(`[BLAST] schoolSubIds=${JSON.stringify([...schoolSubIds])}`)
-  console.log(`[BLAST] allSubs count=${allSubs.length}`)
-  console.log(`[BLAST] eligibleSubs count=${eligibleSubs.length} ids=${JSON.stringify(eligibleSubs.map(s => s.id))}`)
-
   // Sort: ranked subs first (by priority rank), then unranked subs
   const rankedSubs = priorityRows
     .map(r => eligibleSubs.find(s => s.id === r.substituteId))
@@ -382,7 +377,6 @@ export async function notifyAllSubs(
 
   const unrankedSubs = eligibleSubs.filter(s => !rankedSubIds.has(s.id))
   const orderedSubs = [...rankedSubs, ...unrankedSubs]
-  console.log(`[BLAST] orderedSubs count=${orderedSubs.length}`)
 
   const isSpecificallyRequested = (sub: typeof orderedSubs[0]) =>
     absence.requestedSubId === sub.id
@@ -412,14 +406,10 @@ export async function notifyAllSubs(
     : []
   const bookedIds = new Set(bookedRows.map(r => r.substituteId))
 
-  console.log(`[BLAST] unavailableIds=${JSON.stringify([...unavailableIds])}`)
-  console.log(`[BLAST] bookedIds=${JSON.stringify([...bookedIds])}`)
-
   const skipSubIds = options.skipSubIds ?? new Set<string>()
   const availableSubs = orderedSubs.filter(s =>
     !unavailableIds.has(s.id) && !bookedIds.has(s.id) && !skipSubIds.has(s.id)
   )
-  console.log(`[BLAST] availableSubs count=${availableSubs.length}`)
 
   const errors: string[] = []
   let sent = 0
@@ -430,11 +420,8 @@ export async function notifyAllSubs(
       continue
     }
 
-    console.log(`[BLAST] Processing sub ${sub.user.email} sendEmail=${org.notifyByEmail} sendSms=${org.notifyBySms} makeCall=${org.notifyByPhone}`)
-
     try {
       const token = await generateNotificationToken(teacherTimeOffId, sub.id)
-      console.log(`[BLAST] Token generated: ${token}`)
       const acceptUrl = `${appUrl}/sub/jobs/${token}?action=accept`
       const declineUrl = `${appUrl}/sub/jobs/${token}?action=decline`
 
@@ -476,7 +463,7 @@ export async function notifyAllSubs(
 
       sent++
     } catch (err) {
-      console.error(`[BLAST ERROR] Failed for ${sub.user.email}:`, err)
+      console.error(`[BLAST] Failed for ${sub.user.email}:`, err)
       errors.push(`Failed for ${sub.user.email}: ${err}`)
     }
   }

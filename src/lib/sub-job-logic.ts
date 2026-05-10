@@ -4,9 +4,25 @@ import {
   subAssignments,
   assignmentTimeOff,
   teacherTimeOff,
+  substitutes,
+  users,
 } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { countWeekdays } from '@/lib/date-utils'
+import { sendSubEmail } from '@/lib/notifications'
+
+function formatTime(t: string): string {
+  const [hourStr, min] = t.split(':')
+  const hour = parseInt(hourStr, 10)
+  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const h12 = hour % 12 || 12
+  return `${h12}:${min} ${ampm}`
+}
+
+function formatDate(d: string): string {
+  const date = new Date(d + 'T12:00:00')
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
 
 export type AcceptResult =
   | { success: true; schoolName: string; startDate: string; endDate: string | null; startTime: string; endTime: string }
@@ -68,6 +84,38 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
     .update(subNotificationTokens)
     .set({ usedAt: new Date(), action: 'accepted' })
     .where(eq(subNotificationTokens.token, token))
+
+  // Send confirmation email to the sub
+  const subUser = await db
+    .select({ email: users.email, firstName: users.firstName })
+    .from(substitutes)
+    .innerJoin(users, eq(substitutes.userId, users.id))
+    .where(eq(substitutes.id, tokenRow.substituteId))
+    .limit(1)
+    .then(rows => rows[0])
+
+  if (subUser?.email) {
+    const schoolName = tokenRow.teacherTimeOff.school.name
+    const dateStr = absence.endDate && absence.endDate !== absence.startDate
+      ? `${formatDate(absence.startDate)} – ${formatDate(absence.endDate)}`
+      : formatDate(absence.startDate)
+    const timeStr = `${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`
+    await sendSubEmail({
+      to: subUser.email,
+      subject: `Confirmed: Sub position at ${schoolName} on ${formatDate(absence.startDate)}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+          <h2 style="color: #16a34a;">You're confirmed!</h2>
+          <p>Hi ${subUser.firstName}, you've accepted the following substitute teaching position:</p>
+          <p><strong>School:</strong> ${schoolName}</p>
+          <p><strong>Date:</strong> ${dateStr}</p>
+          <p><strong>Time:</strong> ${timeStr}</p>
+          <p style="color: #6b7280; font-size: 13px;">Please arrive a few minutes early and check in at the front office.</p>
+        </div>
+      `,
+      text: `You're confirmed!\n\nSchool: ${schoolName}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.`,
+    }).catch(() => {})
+  }
 
   return {
     success: true,

@@ -56,9 +56,6 @@ export default async function DashboardPage() {
   // Today's date in Pacific time — server runs UTC so toISOString() would give tomorrow after 5 PM PT
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
-  // Current Pacific time as HH:MM — used to filter out absences whose end time has already passed
-  const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
-
   // Greeting based on Pacific time hour (getHours() returns UTC — use toLocaleString instead)
   const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
   const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
@@ -108,12 +105,10 @@ export default async function DashboardPage() {
         .where(eq(teacherTimeOff.organizationId, orgId))
     : []
 
-  // "Today" = absence spans today and hasn't ended yet. On the last day, hide once end time passes.
+  // "Today" = absence spans today (started on or before today, ends on or after today)
   const todayAbsences = allAbsences.filter(a => {
     const effectiveEnd = a.endDate ?? a.startDate
-    if (a.startDate > today || effectiveEnd < today) return false
-    if (effectiveEnd === today) return a.endTime.slice(0, 5) >= nowTime
-    return true
+    return a.startDate <= today && effectiveEnd >= today
   })
   // "Upcoming" = absence hasn't started yet
   const upcomingAbsences = allAbsences.filter(a => a.startDate > today)
