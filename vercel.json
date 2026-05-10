@@ -2,18 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/evening-blast",
-      "schedule": "0 6 * * *",
-      "comment": "10pm Pacific (06:00 UTC) — notify subs the night before"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/morning-blast",
-      "schedule": "0 14 * * *",
-      "comment": "6am Pacific (14:00 UTC) — notify subs morning-of for same-day absences"
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/cron/unfilled-alert",
-      "schedule": "30 14 * * *",
-      "comment": "6:30am Pacific (14:30 UTC) — re-blast non-decliners + alert admins if still unfilled"
+      "schedule": "30 14 * * *"
     }
   ]
 }
