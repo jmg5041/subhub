@@ -22,6 +22,8 @@ export default async function AdminProfilePage() {
         phone={profile.phone}
         role={profile.role}
         avatarUrl={profile.avatarUrl}
+        alertOnTeacherSubmit={profile.alertOnTeacherSubmit ?? true}
+        alertOnUnfilled={profile.alertOnUnfilled ?? true}
       />
     </div>
   )

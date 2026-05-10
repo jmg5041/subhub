@@ -13,9 +13,11 @@ type Props = {
   phone: string | null
   role: string
   avatarUrl: string | null
+  alertOnTeacherSubmit: boolean
+  alertOnUnfilled: boolean
 }
 
-export default function AdminProfileForm({ firstName, lastName, email, phone, role, avatarUrl: initialAvatarUrl }: Props) {
+export default function AdminProfileForm({ firstName, lastName, email, phone, role, avatarUrl: initialAvatarUrl, alertOnTeacherSubmit: initTeacher, alertOnUnfilled: initUnfilled }: Props) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialAvatarUrl)
   const [uploading, setUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -23,6 +25,8 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
   const [first, setFirst] = useState(firstName)
   const [last, setLast] = useState(lastName)
   const [phoneVal, setPhoneVal] = useState(phone ?? '')
+  const [alertTeacher, setAlertTeacher] = useState(initTeacher)
+  const [alertUnfilled, setAlertUnfilled] = useState(initUnfilled)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -55,7 +59,7 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
   function handleSave() {
     setSaveError(null)
     startTransition(async () => {
-      const result = await saveAdminProfile({ firstName: first, lastName: last, phone: phoneVal })
+      const result = await saveAdminProfile({ firstName: first, lastName: last, phone: phoneVal, alertOnTeacherSubmit: alertTeacher, alertOnUnfilled: alertUnfilled })
       if ('error' in result) {
         setSaveError(result.error as string)
       } else {
@@ -135,6 +139,41 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+      </div>
+
+      {/* Notification preferences */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Notification Preferences</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Choose which email alerts you receive.</p>
+        </div>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={alertTeacher}
+            onChange={e => setAlertTeacher(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-800">Teacher submits an absence</div>
+            <div className="text-xs text-gray-400 mt-0.5">Receive an email when any teacher submits a sub request.</div>
+          </div>
+        </label>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={alertUnfilled}
+            onChange={e => setAlertUnfilled(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-800">No sub picked up by 6:30 AM</div>
+            <div className="text-xs text-gray-400 mt-0.5">Receive an alert when an absence is still unfilled after the morning blast.</div>
+          </div>
+        </label>
 
         {saveError && <p className="text-sm text-red-500">{saveError}</p>}
 

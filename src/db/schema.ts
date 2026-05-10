@@ -57,6 +57,8 @@ export const users = pgTable('users', {
   schoolId: uuid('school_id').references(() => schools.id),
   status: statusEnum('status').default('active'),
   avatarUrl: text('avatar_url'),
+  alertOnTeacherSubmit: boolean('alert_on_teacher_submit').default(true),
+  alertOnUnfilled: boolean('alert_on_unfilled').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

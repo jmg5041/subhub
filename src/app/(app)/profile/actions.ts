@@ -19,12 +19,20 @@ export async function getAdminProfile() {
   return getMe()
 }
 
-export async function saveAdminProfile(data: { firstName: string; lastName: string; phone: string }) {
+export async function saveAdminProfile(data: {
+  firstName: string
+  lastName: string
+  phone: string
+  alertOnTeacherSubmit: boolean
+  alertOnUnfilled: boolean
+}) {
   const me = await getMe()
   await db.update(users).set({
     firstName: data.firstName.trim(),
     lastName: data.lastName.trim(),
     phone: data.phone.trim() || null,
+    alertOnTeacherSubmit: data.alertOnTeacherSubmit,
+    alertOnUnfilled: data.alertOnUnfilled,
   }).where(eq(users.id, me.id))
   revalidatePath('/profile')
   revalidatePath('/dashboard')
