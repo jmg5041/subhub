@@ -126,6 +126,13 @@ export default async function ConfirmedPage({
         </div>
 
         <a
+          href="/sub/dashboard"
+          className="block w-full text-center bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          Go to My Dashboard
+        </a>
+
+        <a
           href={icsDataUrl}
           download={`subhub-${absence.startDate}.ics`}
           className="block w-full text-center border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"

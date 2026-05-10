@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { getMyAssignments, getMyPendingTokens } from '../../actions'
 import { Calendar, Clock, MapPin, ChevronRight } from 'lucide-react'
 import { formatDateRange } from '@/lib/date-utils'
+import AutoRefresh from './AutoRefresh'
 
 function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -128,6 +129,9 @@ export default async function SubDashboard() {
           <div className="text-xs text-gray-500 mt-0.5">Jobs completed</div>
         </div>
       </div>
+
+      {/* Auto-refreshes every 30s so filled jobs disappear without a manual reload */}
+      {pendingTokens.length > 0 && <AutoRefresh />}
 
       {/* Open requests — jobs awaiting response */}
       {pendingTokens.length > 0 && (
