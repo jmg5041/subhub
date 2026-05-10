@@ -4,7 +4,8 @@ import { useRef, useState, useTransition } from 'react'
 import Image from 'next/image'
 import { Camera } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
-import { saveAdminProfile, saveAdminAvatar } from './actions'
+import { saveAdminProfile, saveAdminAvatar, saveNotificationPrefs } from './actions'
+import type { SchoolPref } from './actions'
 
 type Props = {
   firstName: string
@@ -13,11 +14,10 @@ type Props = {
   phone: string | null
   role: string
   avatarUrl: string | null
-  alertOnTeacherSubmit: boolean
-  alertOnUnfilled: boolean
+  schoolPrefs: SchoolPref[]
 }
 
-export default function AdminProfileForm({ firstName, lastName, email, phone, role, avatarUrl: initialAvatarUrl, alertOnTeacherSubmit: initTeacher, alertOnUnfilled: initUnfilled }: Props) {
+export default function AdminProfileForm({ firstName, lastName, email, phone, role, avatarUrl: initialAvatarUrl, schoolPrefs: initialSchoolPrefs }: Props) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialAvatarUrl)
   const [uploading, setUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -25,11 +25,13 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
   const [first, setFirst] = useState(firstName)
   const [last, setLast] = useState(lastName)
   const [phoneVal, setPhoneVal] = useState(phone ?? '')
-  const [alertTeacher, setAlertTeacher] = useState(initTeacher)
-  const [alertUnfilled, setAlertUnfilled] = useState(initUnfilled)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  const [prefs, setPrefs] = useState<SchoolPref[]>(initialSchoolPrefs)
+  const [prefsPending, startPrefsTransition] = useTransition()
+  const [prefsSaved, setPrefsSaved] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const initials = `${first[0] ?? ''}${last[0] ?? ''}`
@@ -59,13 +61,29 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
   function handleSave() {
     setSaveError(null)
     startTransition(async () => {
-      const result = await saveAdminProfile({ firstName: first, lastName: last, phone: phoneVal, alertOnTeacherSubmit: alertTeacher, alertOnUnfilled: alertUnfilled })
+      const result = await saveAdminProfile({ firstName: first, lastName: last, phone: phoneVal })
       if ('error' in result) {
         setSaveError(result.error as string)
       } else {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       }
+    })
+  }
+
+  function togglePref(schoolId: string, field: 'alertOnTeacherSubmit' | 'alertOnUnfilled') {
+    setPrefs(p => p.map(row => row.schoolId === schoolId ? { ...row, [field]: !row[field] } : row))
+  }
+
+  function handleSavePrefs() {
+    startPrefsTransition(async () => {
+      await saveNotificationPrefs(prefs.map(p => ({
+        schoolId: p.schoolId,
+        alertOnTeacherSubmit: p.alertOnTeacherSubmit,
+        alertOnUnfilled: p.alertOnUnfilled,
+      })))
+      setPrefsSaved(true)
+      setTimeout(() => setPrefsSaved(false), 3000)
     })
   }
 
@@ -140,41 +158,6 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
           />
         </div>
 
-      </div>
-
-      {/* Notification preferences */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
-        <div>
-          <h2 className="font-semibold text-gray-900">Notification Preferences</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Choose which email alerts you receive.</p>
-        </div>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={alertTeacher}
-            onChange={e => setAlertTeacher(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          <div>
-            <div className="text-sm font-medium text-gray-800">Teacher submits an absence</div>
-            <div className="text-xs text-gray-400 mt-0.5">Receive an email when any teacher submits a sub request.</div>
-          </div>
-        </label>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={alertUnfilled}
-            onChange={e => setAlertUnfilled(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          <div>
-            <div className="text-sm font-medium text-gray-800">No sub picked up by 6:30 AM</div>
-            <div className="text-xs text-gray-400 mt-0.5">Receive an alert when an absence is still unfilled after the morning blast.</div>
-          </div>
-        </label>
-
         {saveError && <p className="text-sm text-red-500">{saveError}</p>}
 
         <div className="flex items-center gap-4 pt-1">
@@ -186,6 +169,64 @@ export default function AdminProfileForm({ firstName, lastName, email, phone, ro
             {isPending ? 'Saving…' : 'Save Changes'}
           </button>
           {saved && <span className="text-sm text-green-600">Saved!</span>}
+        </div>
+      </div>
+
+      {/* Notification preferences — per school */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Notification Preferences</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Choose which email alerts you receive for each school.</p>
+        </div>
+
+        {prefs.length === 0 ? (
+          <p className="text-sm text-gray-400">No schools found for your organization.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pr-4">School</th>
+                  <th className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 px-3 whitespace-nowrap">Teacher submits absence</th>
+                  <th className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pl-3 whitespace-nowrap">No sub by 6:30 AM</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {prefs.map(row => (
+                  <tr key={row.schoolId}>
+                    <td className="py-3 pr-4 font-medium text-gray-800">{row.schoolName}</td>
+                    <td className="py-3 px-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.alertOnTeacherSubmit}
+                        onChange={() => togglePref(row.schoolId, 'alertOnTeacherSubmit')}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                    <td className="py-3 pl-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.alertOnUnfilled}
+                        onChange={() => togglePref(row.schoolId, 'alertOnUnfilled')}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 pt-1">
+          <button
+            onClick={handleSavePrefs}
+            disabled={prefsPending}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {prefsPending ? 'Saving…' : 'Save Preferences'}
+          </button>
+          {prefsSaved && <span className="text-sm text-green-600">Saved!</span>}
         </div>
       </div>
     </div>

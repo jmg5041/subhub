@@ -152,44 +152,74 @@ export async function sendSubEmail(params: {
 
 export async function notifyAdminsOfAbsenceRequest(params: {
   orgId: string
+  schoolId: string
   teacherName: string
   schoolName: string
   startDate: string
   endDate: string | null
   absenceId: string
 }): Promise<void> {
-  const { orgId, teacherName, schoolName, startDate, endDate, absenceId } = params
+  const { orgId, schoolId, teacherName, schoolName, startDate, endDate, absenceId } = params
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
-  // Find all admin and principal users for this org
-  const admins = await db
-    .select({ email: schema.users.email, firstName: schema.users.firstName })
+  // All admin/principal/staff users in this org
+  const allAdmins = await db
+    .select({ email: schema.users.email, firstName: schema.users.firstName, id: schema.users.id })
     .from(schema.users)
     .where(and(
       eq(schema.users.organizationId, orgId),
-      inArray(schema.users.role, ['admin', 'principal'])
+      inArray(schema.users.role, ['admin', 'principal', 'staff'])
     ))
+
+  if (allAdmins.length === 0) return
+
+  // Opt-out model: find who has explicitly disabled teacher-submit alerts for this school
+  const optedOut = await db
+    .select({ userId: schema.userSchoolNotificationPrefs.userId })
+    .from(schema.userSchoolNotificationPrefs)
+    .where(and(
+      eq(schema.userSchoolNotificationPrefs.schoolId, schoolId),
+      eq(schema.userSchoolNotificationPrefs.alertOnTeacherSubmit, false)
+    ))
+  const optedOutIds = new Set(optedOut.map(r => r.userId))
+
+  const admins = allAdmins.filter(u => !optedOutIds.has(u.id))
 
   if (admins.length === 0) return
 
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   const dateStr = endDate && endDate !== startDate
     ? `${formatDate(startDate)} – ${formatDate(endDate)}`
     : formatDate(startDate)
 
-  const subject = `Sub request submitted — ${teacherName} at ${schoolName}`
+  const subject = `Sub request — ${teacherName} out ${dateStr}`
+  const dashboardUrl = `${appUrl}/dashboard`
   const fillUrl = `${appUrl}/absences/find-sub`
+
   const html = `
-    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
-      <h2 style="color: #2563eb;">Sub Request Submitted</h2>
-      <p><strong>${teacherName}</strong> has submitted an absence request for <strong>${dateStr}</strong> at ${schoolName}.</p>
-      <p>A sub notification blast will automatically go out at 6:00 AM on the morning of the absence unless you cancel it first.</p>
-      <div style="margin: 24px 0;">
-        <a href="${fillUrl}" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View &amp; Manage Absence</a>
+    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+      <div style="background: #2563eb; padding: 20px 24px;">
+        <h1 style="color: white; margin: 0; font-size: 20px;">SubHub</h1>
+        <p style="color: #bfdbfe; margin: 4px 0 0; font-size: 13px;">substitutes.us</p>
       </div>
-      <p style="color: #6b7280; font-size: 13px;">To cancel: open the absence in SubHub and mark it as denied before 6:00 AM.</p>
+      <div style="padding: 24px;">
+        <h2 style="color: #111; margin-top: 0;">Absence Request Submitted</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 140px;">Teacher</td><td style="padding: 8px 0; font-size: 14px; font-weight: 600;">${teacherName}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">School</td><td style="padding: 8px 0; font-size: 14px;">${schoolName}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Absence date</td><td style="padding: 8px 0; font-size: 14px;">${dateStr}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Submitted</td><td style="padding: 8px 0; font-size: 14px;">${today}</td></tr>
+        </table>
+        <p style="font-size: 14px; color: #374151;">Subs will be automatically notified the evening before or morning of the absence. You can also assign a sub manually or cancel this request from your dashboard.</p>
+        <div style="margin: 24px 0; display: flex; gap: 12px;">
+          <a href="${dashboardUrl}" style="background: #2563eb; color: white; padding: 12px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; margin-right: 12px;">View Dashboard</a>
+          <a href="${fillUrl}" style="background: #f3f4f6; color: #374151; padding: 12px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Find a Sub</a>
+        </div>
+        <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">You're receiving this because you're listed as an admin at ${schoolName}. Manage your notification preferences in your SubHub profile.</p>
+      </div>
     </div>
   `
-  const text = `Sub request submitted by ${teacherName} for ${dateStr} at ${schoolName}.\n\nA sub blast goes out at 6 AM unless cancelled.\n\nView: ${fillUrl}`
+  const text = `Absence request submitted\n\nTeacher: ${teacherName}\nSchool: ${schoolName}\nAbsence date: ${dateStr}\nSubmitted: ${today}\n\nSubs will be automatically notified before the absence.\n\nDashboard: ${dashboardUrl}\nFind a sub: ${fillUrl}`
 
   for (const admin of admins) {
     if (!admin.email) continue
@@ -207,6 +237,7 @@ export async function notifyAdminsUnfilled(teacherTimeOffId: string): Promise<vo
   const [row] = await db
     .select({
       organizationId: schema.teacherTimeOff.organizationId,
+      schoolId: schema.teacherTimeOff.schoolId,
       startDate: schema.teacherTimeOff.startDate,
       schoolName: schema.schools.name,
       teacherFirst: schema.users.firstName,
@@ -220,13 +251,26 @@ export async function notifyAdminsUnfilled(teacherTimeOffId: string): Promise<vo
 
   if (!row) return
 
-  const admins = await db
-    .select({ email: schema.users.email })
+  // All admin/principal/staff in the org
+  const allAdmins = await db
+    .select({ email: schema.users.email, id: schema.users.id })
     .from(schema.users)
     .where(and(
       eq(schema.users.organizationId, row.organizationId),
-      inArray(schema.users.role, ['admin', 'principal'])
+      inArray(schema.users.role, ['admin', 'principal', 'staff'])
     ))
+
+  // Opt-out model: find who disabled unfilled alerts for this specific school
+  const optedOut = await db
+    .select({ userId: schema.userSchoolNotificationPrefs.userId })
+    .from(schema.userSchoolNotificationPrefs)
+    .where(and(
+      eq(schema.userSchoolNotificationPrefs.schoolId, row.schoolId),
+      eq(schema.userSchoolNotificationPrefs.alertOnUnfilled, false)
+    ))
+  const optedOutIds = new Set(optedOut.map(r => r.userId))
+
+  const admins = allAdmins.filter(u => !optedOutIds.has(u.id))
 
   const teacherName = `${row.teacherFirst} ${row.teacherLast}`
   const dateStr = formatDate(row.startDate)

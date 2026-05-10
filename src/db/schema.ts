@@ -57,8 +57,6 @@ export const users = pgTable('users', {
   schoolId: uuid('school_id').references(() => schools.id),
   status: statusEnum('status').default('active'),
   avatarUrl: text('avatar_url'),
-  alertOnTeacherSubmit: boolean('alert_on_teacher_submit').default(true),
-  alertOnUnfilled: boolean('alert_on_unfilled').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -171,6 +169,17 @@ export const subSchoolAssignments = pgTable('sub_school_assignments', {
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   reviewedBy: uuid('reviewed_by').references(() => users.id),
 });
+
+// Per-user, per-school notification preferences (opt-out model: no row = receive alerts)
+export const userSchoolNotificationPrefs = pgTable('user_school_notification_prefs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  schoolId: uuid('school_id').references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  alertOnTeacherSubmit: boolean('alert_on_teacher_submit').notNull().default(true),
+  alertOnUnfilled: boolean('alert_on_unfilled').notNull().default(true),
+}, (t) => [
+  unique().on(t.userId, t.schoolId),
+]);
 
 // Sub priority order — admin ranks which subs to contact first
 export const subPriorityOrders = pgTable('sub_priority_orders', {
@@ -446,4 +455,9 @@ export const schoolDirectoryRelations = relations(schoolDirectory, ({ one }) => 
     fields: [schoolDirectory.claimedByOrgId],
     references: [organizations.id],
   }),
+}));
+
+export const userSchoolNotificationPrefsRelations = relations(userSchoolNotificationPrefs, ({ one }) => ({
+  user: one(users, { fields: [userSchoolNotificationPrefs.userId], references: [users.id] }),
+  school: one(schools, { fields: [userSchoolNotificationPrefs.schoolId], references: [schools.id] }),
 }));

@@ -1,9 +1,12 @@
 import { UserCircle } from 'lucide-react'
-import { getAdminProfile } from './actions'
+import { getAdminProfile, getSchoolPrefs } from './actions'
 import AdminProfileForm from './AdminProfileForm'
 
 export default async function AdminProfilePage() {
-  const profile = await getAdminProfile()
+  const [profile, schoolPrefs] = await Promise.all([
+    getAdminProfile(),
+    getSchoolPrefs(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -22,8 +25,7 @@ export default async function AdminProfilePage() {
         phone={profile.phone}
         role={profile.role}
         avatarUrl={profile.avatarUrl}
-        alertOnTeacherSubmit={profile.alertOnTeacherSubmit ?? true}
-        alertOnUnfilled={profile.alertOnUnfilled ?? true}
+        schoolPrefs={schoolPrefs}
       />
     </div>
   )

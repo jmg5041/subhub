@@ -133,6 +133,7 @@ export async function submitAbsenceRequest(data: {
     const school = await db.query.schools.findFirst({ where: eq(schools.id, employee.schoolId) })
     await notifyAdminsOfAbsenceRequest({
       orgId,
+      schoolId: employee.schoolId,
       teacherName,
       schoolName: school?.name ?? 'your school',
       startDate: data.startDate,
