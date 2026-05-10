@@ -112,36 +112,28 @@ export default function SettingsClient({ initialAutoNotify, initialEmail, initia
               <div className="text-xs text-gray-500">Subs receive an email with accept/decline links.</div>
             </div>
           </label>
-          <label className="flex items-center gap-3 cursor-not-allowed opacity-60">
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={smsOn}
               onChange={e => setSmsOn(e.target.checked)}
-              disabled
-              className="w-4 h-4 text-blue-600 rounded border-gray-300"
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
             />
             <div>
-              <div className="text-sm font-medium text-gray-900">
-                SMS Text Message
-                <span className="ml-2 text-xs font-normal bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Coming soon</span>
-              </div>
-              <div className="text-xs text-gray-500">Awaiting carrier registration (Twilio A2P 10DLC).</div>
+              <div className="text-sm font-medium text-gray-900">SMS Text Message</div>
+              <div className="text-xs text-gray-500">Subs receive a text message with accept/decline links.</div>
             </div>
           </label>
-          <label className="flex items-center gap-3 cursor-not-allowed opacity-60">
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={phoneOn}
               onChange={e => setPhoneOn(e.target.checked)}
-              disabled
-              className="w-4 h-4 text-blue-600 rounded border-gray-300"
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
             />
             <div>
-              <div className="text-sm font-medium text-gray-900">
-                Phone Call
-                <span className="ml-2 text-xs font-normal bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Phase 4</span>
-              </div>
-              <div className="text-xs text-gray-500">Automated voice call — coming in a future release.</div>
+              <div className="text-sm font-medium text-gray-900">Phone Call</div>
+              <div className="text-xs text-gray-500">Automated voice call — press 1 to accept, press 2 to decline.</div>
             </div>
           </label>
         </div>
