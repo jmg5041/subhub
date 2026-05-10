@@ -249,15 +249,7 @@ export default async function DashboardPage() {
             {todayAbsences.map((absence) => (
               <Link key={absence.id} href={`/absences/find-sub/${absence.id}`} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
                 {/* Status dot */}
-                <div
-                  className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                    absence.approvalStatus === 'approved'
-                      ? 'bg-green-500'
-                      : absence.approvalStatus === 'denied'
-                      ? 'bg-red-500'
-                      : 'bg-yellow-500'
-                  }`}
-                />
+                <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500" />
 
                 {/* Teacher name */}
                 <p className="w-40 flex-shrink-0 font-medium text-gray-900">
@@ -280,32 +272,21 @@ export default async function DashboardPage() {
                   </span>
                 )}
 
-                {/* Right-side badges — always grouped together */}
-                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                {/* Right-side badge — sub outreach status only */}
+                <div className="ml-auto flex-shrink-0">
                   {absence.subOutreachStatus === 'filled' && absence.substituteRequired ? (
                     <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
                       Filled by Sub
                     </span>
-                  ) : absence.approvalStatus === 'approved' && !absence.substituteRequired ? (
+                  ) : !absence.substituteRequired ? (
                     <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                       Filled by Staff
                     </span>
-                  ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
+                  ) : (
                     <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
                       Find Sub →
                     </span>
-                  ) : null}
-
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    absence.approvalStatus === 'approved'
-                      ? 'bg-green-100 text-green-700'
-                      : absence.approvalStatus === 'denied'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
-                     (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
-                  </span>
+                  )}
                 </div>
               </Link>
             ))}
@@ -326,15 +307,7 @@ export default async function DashboardPage() {
             {upcomingAbsences.map((absence) => (
               <Link key={absence.id} href={`/absences/find-sub/${absence.id}`} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
                 {/* Status dot */}
-                <div
-                  className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                    absence.approvalStatus === 'approved'
-                      ? 'bg-green-500'
-                      : absence.approvalStatus === 'denied'
-                      ? 'bg-red-500'
-                      : 'bg-yellow-500'
-                  }`}
-                />
+                <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-green-500" />
 
                 {/* Teacher name */}
                 <p className="w-40 flex-shrink-0 font-medium text-gray-900">
@@ -360,32 +333,21 @@ export default async function DashboardPage() {
                 {/* Date — shown in upcoming but not today */}
                 <span className="text-sm text-gray-500">{formatDateRangeShort(absence.startDate, absence.endDate)}</span>
 
-                {/* Right-side badges */}
-                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                {/* Right-side badge — sub outreach status only */}
+                <div className="ml-auto flex-shrink-0">
                   {absence.subOutreachStatus === 'filled' && absence.substituteRequired ? (
                     <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
                       Filled by Sub
                     </span>
-                  ) : absence.approvalStatus === 'approved' && !absence.substituteRequired ? (
+                  ) : !absence.substituteRequired ? (
                     <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                       Filled by Staff
                     </span>
-                  ) : absence.approvalStatus === 'approved' && absence.substituteRequired ? (
+                  ) : (
                     <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
                       Find Sub →
                     </span>
-                  ) : null}
-
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    absence.approvalStatus === 'approved'
-                      ? 'bg-green-100 text-green-700'
-                      : absence.approvalStatus === 'denied'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {(absence.approvalStatus ?? 'unapproved') === 'unapproved' ? 'Pending' :
-                     (absence.approvalStatus ?? '').charAt(0).toUpperCase() + (absence.approvalStatus ?? '').slice(1)}
-                  </span>
+                  )}
                 </div>
               </Link>
             ))}
