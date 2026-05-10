@@ -57,6 +57,13 @@ export async function acceptSubJob(token: string) {
     redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
   }
 
+  // Reject acceptance of past-date positions
+  const TZ = 'America/Los_Angeles'
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+  if (tokenRow.teacherTimeOff.startDate < todayStr) {
+    throw new Error('This position is in the past')
+  }
+
   const absence = tokenRow.teacherTimeOff
 
   // Compute total hours (daily hours × school days)
@@ -93,11 +100,14 @@ export async function acceptSubJob(token: string) {
     .set({ subOutreachStatus: 'filled' })
     .where(eq(teacherTimeOff.id, absence.id))
 
-  // Mark token used
-  await db
+  // Atomic claim — only succeeds if not already used (prevents race condition double-booking)
+  const [claimed] = await db
     .update(subNotificationTokens)
     .set({ usedAt: new Date(), action: 'accepted' })
-    .where(eq(subNotificationTokens.token, token))
+    .where(and(eq(subNotificationTokens.token, token), isNull(subNotificationTokens.usedAt)))
+    .returning({ token: subNotificationTokens.token })
+
+  if (!claimed) redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
 
   // Auto-decline all other same-date unused tokens for this sub
   const remainingTokens = await db.query.subNotificationTokens.findMany({

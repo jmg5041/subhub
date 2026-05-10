@@ -116,9 +116,13 @@ export async function getMyPendingTokens() {
     .where(and(eq(subAssignments.substituteId, sub.id), eq(subAssignments.status, 'assigned')))
   const bookedDates = new Set(bookedRows.map(r => r.date))
 
+  const TZ = 'America/Los_Angeles'
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+
   return rows.filter(r =>
     r.teacherTimeOff.subOutreachStatus !== 'filled' &&
-    !bookedDates.has(r.teacherTimeOff.startDate)
+    !bookedDates.has(r.teacherTimeOff.startDate) &&
+    r.teacherTimeOff.startDate >= todayStr  // never show past-date tokens
   )
 }
 

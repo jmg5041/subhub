@@ -25,7 +25,7 @@ function formatDate(d: string): string {
 }
 
 export type AcceptResult =
-  | { success: true; schoolName: string; startDate: string; endDate: string | null; startTime: string; endTime: string }
+  | { success: true; schoolName: string; teacherName: string | null; startDate: string; endDate: string | null; startTime: string; endTime: string }
   | { error: string; alreadyFilled?: boolean; expired?: boolean; alreadyUsed?: boolean }
 
 export type DeclineResult =
@@ -37,7 +37,7 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
   const tokenRow = await db.query.subNotificationTokens.findFirst({
     where: eq(subNotificationTokens.token, token),
     with: {
-      teacherTimeOff: { with: { school: true } },
+      teacherTimeOff: { with: { school: true, employee: { with: { user: true } } } },
     },
   })
 
@@ -80,10 +80,14 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
     .set({ subOutreachStatus: 'filled' })
     .where(eq(teacherTimeOff.id, absence.id))
 
-  await db
+  // Atomic claim — only succeeds if not already used (prevents race condition double-booking)
+  const [claimed] = await db
     .update(subNotificationTokens)
     .set({ usedAt: new Date(), action: 'accepted' })
-    .where(eq(subNotificationTokens.token, token))
+    .where(and(eq(subNotificationTokens.token, token), isNull(subNotificationTokens.usedAt)))
+    .returning({ token: subNotificationTokens.token })
+
+  if (!claimed) return { error: 'Token already used', alreadyUsed: true }
 
   // Auto-decline all other same-date unused tokens for this sub
   const remainingTokens = await db.query.subNotificationTokens.findMany({
@@ -145,9 +149,13 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
     }).catch(() => {})
   }
 
+  const teacherUser = tokenRow.teacherTimeOff.employee?.user
+  const teacherName = teacherUser ? `${teacherUser.firstName} ${teacherUser.lastName}` : null
+
   return {
     success: true,
     schoolName: tokenRow.teacherTimeOff.school.name,
+    teacherName,
     startDate: absence.startDate,
     endDate: absence.endDate,
     startTime: absence.startTime,

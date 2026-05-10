@@ -123,6 +123,7 @@ export function buildSubSmsBody(params: {
 
 type PositionEmailParams = {
   schoolName: string
+  teacherName: string | null
   startDate: string
   endDate: string | null
   startTime: string
@@ -159,10 +160,12 @@ export function buildBundledEmailBody(params: {
       ? `<p style="font-size:13px;color:#374151;margin:8px 0 0;"><strong>Notes:</strong> ${p.notesToSub}</p>`
       : ''
     const posLabel = positions.length > 1 ? `<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Position ${i + 1}</div>` : ''
+    const teacherLine = p.teacherName ? `<div style="font-size:13px;color:#374151;margin:1px 0;">Sub for: ${p.teacherName}</div>` : ''
     return `
       <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0;">
         ${posLabel}
         <div style="font-weight:600;font-size:15px;color:#111;">${p.schoolName}</div>
+        ${teacherLine}
         <div style="font-size:13px;color:#6b7280;margin:2px 0 8px;">${pDateStr} · ${timeStr}</div>
         ${notesHtml}
         <div style="margin-top:12px;">
@@ -191,7 +194,8 @@ export function buildBundledEmailBody(params: {
       ? `${formatDate(p.startDate)} – ${formatDate(p.endDate)}`
       : formatDate(p.startDate)
     const label = positions.length > 1 ? `Position ${i + 1}: ` : ''
-    return `${label}${p.schoolName} — ${pDateStr}, ${formatTime(p.startTime)}–${formatTime(p.endTime)}\nAccept: ${p.acceptUrl}\nDecline: ${p.declineUrl}${p.notesToSub ? `\nNotes: ${p.notesToSub}` : ''}`
+    const teacherPart = p.teacherName ? ` (sub for ${p.teacherName})` : ''
+    return `${label}${p.schoolName}${teacherPart} — ${pDateStr}, ${formatTime(p.startTime)}–${formatTime(p.endTime)}\nAccept: ${p.acceptUrl}\nDecline: ${p.declineUrl}${p.notesToSub ? `\nNotes: ${p.notesToSub}` : ''}`
   }).join('\n\n')
 
   const text = `${subject}\n\n${textPositions}\n\nThese links are unique to you. First to accept gets the position.`
@@ -203,6 +207,7 @@ export function buildBundledEmailBody(params: {
 
 type PositionSmsParams = {
   schoolName: string
+  teacherName: string | null
   startDate: string
   startTime: string
   endTime: string
@@ -219,12 +224,14 @@ export function buildBundledSmsBody(params: {
     const p = positions[0]
     const dateStr = formatDate(p.startDate)
     const timeStr = `${formatTime(p.startTime)}–${formatTime(p.endTime)}`
-    return `Sub needed at ${p.schoolName} on ${dateStr}, ${timeStr}.\n\nAccept: ${p.acceptUrl}\nDecline: ${p.declineUrl}`
+    const forTeacher = p.teacherName ? ` for ${p.teacherName}` : ''
+    return `Sub needed${forTeacher} at ${p.schoolName} on ${dateStr}, ${timeStr}.\n\nAccept: ${p.acceptUrl}\nDecline: ${p.declineUrl}`
   }
   const dateStr = formatDate(positions[0].startDate)
-  const list = positions.map((p, i) =>
-    `${i + 1}. ${p.schoolName} — ${formatTime(p.startTime)}–${formatTime(p.endTime)}`
-  ).join('\n')
+  const list = positions.map((p, i) => {
+    const forTeacher = p.teacherName ? ` (${p.teacherName})` : ''
+    return `${i + 1}. ${p.schoolName}${forTeacher} — ${formatTime(p.startTime)}–${formatTime(p.endTime)}`
+  }).join('\n')
   return `SubHub: ${positions.length} positions available ${dateStr}.\n\n${list}\n\nRespond: ${dashboardUrl}`
 }
 
@@ -432,10 +439,10 @@ export async function notifyAllSubs(
     teacherTimeOffIds.map(id =>
       db.query.teacherTimeOff.findFirst({
         where: eq(schema.teacherTimeOff.id, id),
-        with: { school: true, requestedSub: { with: { user: true } } },
+        with: { school: true, requestedSub: { with: { user: true } }, employee: { with: { user: true } } },
       })
     )
-  )).filter(Boolean) as NonNullable<Awaited<ReturnType<typeof db.query.teacherTimeOff.findFirst>> & { school: { name: string; id: string }; requestedSub: { id: string } | null }>[]
+  )).filter(Boolean) as NonNullable<Awaited<ReturnType<typeof db.query.teacherTimeOff.findFirst>> & { school: { name: string; id: string }; requestedSub: { id: string } | null; employee: { user: { firstName: string; lastName: string } } | null }>[]
 
   if (absences.length === 0) return { sent: 0, errors: [], positionCount: 0 }
 
@@ -550,16 +557,20 @@ export async function notifyAllSubs(
 
       if (sendEmail) {
         const { subject, html, text } = buildBundledEmailBody({
-          positions: positions.map(({ absence, token }) => ({
-            schoolName: absence.school.name,
-            startDate: absence.startDate,
-            endDate: absence.endDate,
-            startTime: absence.startTime,
-            endTime: absence.endTime,
-            notesToSub: absence.notesToSub,
-            acceptUrl: `${appUrl}/sub/jobs/${token}?action=accept`,
-            declineUrl: `${appUrl}/sub/jobs/${token}?action=decline`,
-          })),
+          positions: positions.map(({ absence, token }) => {
+            const tu = absence.employee?.user
+            return {
+              schoolName: absence.school.name,
+              teacherName: tu ? `${tu.firstName} ${tu.lastName}` : null,
+              startDate: absence.startDate,
+              endDate: absence.endDate,
+              startTime: absence.startTime,
+              endTime: absence.endTime,
+              notesToSub: absence.notesToSub,
+              acceptUrl: `${appUrl}/sub/jobs/${token}?action=accept`,
+              declineUrl: `${appUrl}/sub/jobs/${token}?action=decline`,
+            }
+          }),
           isSpecificallyRequested,
         })
         await sendSubEmail({ to: sub.user.email, subject, html, text })
@@ -567,14 +578,18 @@ export async function notifyAllSubs(
 
       if (sendSmsTxt && sub.user.phone) {
         const smsBody = buildBundledSmsBody({
-          positions: positions.map(({ absence, token }) => ({
-            schoolName: absence.school.name,
-            startDate: absence.startDate,
-            startTime: absence.startTime,
-            endTime: absence.endTime,
-            acceptUrl: `${appUrl}/sub/jobs/${token}?action=accept`,
-            declineUrl: `${appUrl}/sub/jobs/${token}?action=decline`,
-          })),
+          positions: positions.map(({ absence, token }) => {
+            const tu = absence.employee?.user
+            return {
+              schoolName: absence.school.name,
+              teacherName: tu ? `${tu.firstName} ${tu.lastName}` : null,
+              startDate: absence.startDate,
+              startTime: absence.startTime,
+              endTime: absence.endTime,
+              acceptUrl: `${appUrl}/sub/jobs/${token}?action=accept`,
+              declineUrl: `${appUrl}/sub/jobs/${token}?action=decline`,
+            }
+          }),
           dashboardUrl: `${appUrl}/sub/dashboard`,
         })
         await sendSms(sub.user.phone, smsBody)

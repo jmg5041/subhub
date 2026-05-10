@@ -34,7 +34,7 @@ export async function POST(
   // Load the primary token to identify sub and date
   const primary = await db.query.subNotificationTokens.findFirst({
     where: eq(subNotificationTokens.token, token),
-    with: { teacherTimeOff: { with: { school: true } } },
+    with: { teacherTimeOff: { with: { school: true, employee: { with: { user: true } } } } },
   })
 
   if (!primary || new Date() > primary.expiresAt || primary.usedAt) {
@@ -50,7 +50,7 @@ export async function POST(
       eq(subNotificationTokens.substituteId, substituteId),
       isNull(subNotificationTokens.usedAt),
     ),
-    with: { teacherTimeOff: { with: { school: true } } },
+    with: { teacherTimeOff: { with: { school: true, employee: { with: { user: true } } } } },
   })
 
   const positions = allTokens
@@ -70,11 +70,15 @@ export async function POST(
   let positionSpeech = ''
   if (positions.length === 1) {
     const p = positions[0]
-    positionSpeech = `You have a substitute teaching request at ${p.teacherTimeOff.school.name} on ${formatDate(p.teacherTimeOff.startDate)}, from ${formatTime(p.teacherTimeOff.startTime)} to ${formatTime(p.teacherTimeOff.endTime)}.`
+    const u = p.teacherTimeOff.employee?.user
+    const forTeacher = u ? `for ${u.firstName} ${u.lastName} ` : ''
+    positionSpeech = `You have a substitute teaching request ${forTeacher}at ${p.teacherTimeOff.school.name} on ${formatDate(p.teacherTimeOff.startDate)}, from ${formatTime(p.teacherTimeOff.startTime)} to ${formatTime(p.teacherTimeOff.endTime)}.`
   } else {
-    const lines = positions.map((p, i) =>
-      `Press ${i + 1} for ${p.teacherTimeOff.school.name}, ${formatTime(p.teacherTimeOff.startTime)} to ${formatTime(p.teacherTimeOff.endTime)}.`
-    ).join(' ')
+    const lines = positions.map((p, i) => {
+      const u = p.teacherTimeOff.employee?.user
+      const teacherPart = u ? `, ${u.firstName} ${u.lastName}'s class` : ''
+      return `Press ${i + 1} for ${p.teacherTimeOff.school.name}${teacherPart}, ${formatTime(p.teacherTimeOff.startTime)} to ${formatTime(p.teacherTimeOff.endTime)}.`
+    }).join(' ')
     positionSpeech = `You have ${positions.length} substitute teaching positions available on ${formatDate(absenceDate)}. ${lines}`
   }
 

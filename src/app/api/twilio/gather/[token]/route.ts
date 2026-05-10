@@ -88,7 +88,8 @@ export async function POST(
   if (!isNaN(idx) && idx >= 0 && idx < positions.length) {
     const result = await performAcceptJob(positions[idx].token)
     if ('success' in result) {
-      return twiml(`Thank you! You are confirmed for the position at ${result.schoolName}. You should receive a confirmation email shortly. Goodbye!`)
+      const forTeacher = result.teacherName ? ` for ${result.teacherName}` : ''
+      return twiml(`Thank you! You are confirmed for the position${forTeacher} at ${result.schoolName}. You should receive a confirmation email shortly. Goodbye!`)
     }
     if (result.alreadyFilled) {
       return twiml('Sorry, this position has already been filled by another substitute. Thank you for your interest. Goodbye.')
