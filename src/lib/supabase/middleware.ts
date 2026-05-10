@@ -53,6 +53,9 @@ export async function updateSession(request: NextRequest) {
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/auth') &&
+    !request.nextUrl.pathname.startsWith('/api/twilio/') &&
+    !request.nextUrl.pathname.startsWith('/api/cron/') &&
+    !request.nextUrl.pathname.startsWith('/sub/jobs/') &&
     request.nextUrl.pathname !== '/'
   ) {
     const url = request.nextUrl.clone();
