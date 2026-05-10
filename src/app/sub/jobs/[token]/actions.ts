@@ -16,7 +16,7 @@ import {
   assignmentTimeOff,
   teacherTimeOff,
 } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { countWeekdays } from '@/lib/date-utils'
 import { sendSubEmail } from '@/lib/notifications'
@@ -98,6 +98,24 @@ export async function acceptSubJob(token: string) {
     .update(subNotificationTokens)
     .set({ usedAt: new Date(), action: 'accepted' })
     .where(eq(subNotificationTokens.token, token))
+
+  // Auto-decline all other same-date unused tokens for this sub
+  const remainingTokens = await db.query.subNotificationTokens.findMany({
+    where: and(
+      eq(subNotificationTokens.substituteId, tokenRow.substituteId),
+      isNull(subNotificationTokens.usedAt),
+    ),
+    with: { teacherTimeOff: true },
+  })
+  const toDecline = remainingTokens
+    .filter(t => t.teacherTimeOff.startDate === absence.startDate && t.token !== token)
+    .map(t => t.token)
+  if (toDecline.length > 0) {
+    await db
+      .update(subNotificationTokens)
+      .set({ usedAt: new Date(), action: 'declined' })
+      .where(inArray(subNotificationTokens.token, toDecline))
+  }
 
   // Send confirmation email to the sub
   const sub = tokenRow.substitute

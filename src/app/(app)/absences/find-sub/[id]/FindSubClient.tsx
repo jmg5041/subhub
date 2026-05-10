@@ -40,6 +40,7 @@ type Props = {
   halfDayHours: number
   fullDayHours: number
   combinableAbsences: CombinableAbsence[]
+  sameDayPositionCount: number
 }
 
 function toMin(t: string) {
@@ -56,7 +57,7 @@ function fmt(t: string) {
 export default function FindSubClient({
   timeOffId, subs, isAlreadyFilled, filledByName, outreachStatus, substituteRequired,
   absenceStartTime, absenceEndTime, schoolDayStart, schoolDayEnd,
-  payModel, halfDayHours, fullDayHours, combinableAbsences,
+  payModel, halfDayHours, fullDayHours, combinableAbsences, sameDayPositionCount,
 }: Props) {
   const router = useRouter()
   const [selectedSubId, setSelectedSubId] = useState('')
@@ -136,12 +137,16 @@ export default function FindSubClient({
   }
 
   function handleNotifyAll() {
-    if (!confirm('Send a notification to all available substitutes? The first to accept will be assigned.')) return
+    const bundleNote = sameDayPositionCount > 1
+      ? `\n\n${sameDayPositionCount} open positions on this date will be bundled — each sub receives one notification listing all positions.`
+      : ''
+    if (!confirm(`Send a notification to all available substitutes? The first to accept will be assigned.${bundleNote}`)) return
     startNotifyTransition(async () => {
       const res = await notifyAllSubsAction(timeOffId)
       if ('sent' in res) {
+        const posNote = res.positionCount > 1 ? ` covering ${res.positionCount} open positions` : ''
         setResult({
-          message: `Notifications sent to ${res.sent} substitute${res.sent !== 1 ? 's' : ''}. They will receive a message with accept/decline links.`,
+          message: `Notifications sent to ${res.sent} substitute${res.sent !== 1 ? 's' : ''}${posNote}. The first to accept will be assigned.`,
           type: 'success',
         })
       } else {

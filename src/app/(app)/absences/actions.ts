@@ -837,8 +837,21 @@ export async function notifyAllSubsAction(timeOffId: string) {
   })
   if (!absence) throw new Error('Absence not found')
 
+  // Bundle all same-day unfilled positions so each sub gets one notification
+  const sameDayAbsences = await db
+    .select({ id: teacherTimeOff.id })
+    .from(teacherTimeOff)
+    .where(and(
+      eq(teacherTimeOff.organizationId, orgId),
+      eq(teacherTimeOff.startDate, absence.startDate),
+      eq(teacherTimeOff.substituteRequired, true),
+      eq(teacherTimeOff.subOutreachStatus, 'not_started'),
+      ne(teacherTimeOff.approvalStatus, 'denied'),
+    ))
+  const bundleIds = [...new Set([timeOffId, ...sameDayAbsences.map(a => a.id)])]
+
   const { notifyAllSubs } = await import('@/lib/notifications')
-  const result = await notifyAllSubs(timeOffId)
+  const result = await notifyAllSubs(bundleIds)
 
   revalidatePath('/dashboard')
   revalidatePath(`/absences/find-sub/${timeOffId}`)

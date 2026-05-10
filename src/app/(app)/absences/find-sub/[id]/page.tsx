@@ -17,8 +17,8 @@ import AbsenceDetailsCard from './AbsenceDetailsCard'
 import FindSubClient from './FindSubClient'
 import { formatDateRange, countWeekdays } from '@/lib/date-utils'
 import { db } from '@/db'
-import { organizations, schools } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { organizations, schools, teacherTimeOff } from '@/db/schema'
+import { and, eq, ne } from 'drizzle-orm'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -45,6 +45,22 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
       ? db.query.schools.findFirst({ where: eq(schools.id, absence.schoolId) })
       : Promise.resolve(null),
   ])
+
+  // Count same-day positions that would be bundled into one notification blast
+  const sameDayPositions = await db
+    .select({ id: teacherTimeOff.id })
+    .from(teacherTimeOff)
+    .where(and(
+      eq(teacherTimeOff.organizationId, orgId),
+      eq(teacherTimeOff.startDate, absence.startDate),
+      eq(teacherTimeOff.substituteRequired, true),
+      eq(teacherTimeOff.subOutreachStatus, 'not_started'),
+      ne(teacherTimeOff.approvalStatus, 'denied'),
+    ))
+  // Ensure the current absence is counted even if its status differs
+  const sameDayIds = new Set(sameDayPositions.map(p => p.id))
+  sameDayIds.add(id)
+  const sameDayPositionCount = sameDayIds.size
 
   // Only look for combinable absences on single-day requests
   const isSingleDay = !absence.endDate || absence.endDate === absence.startDate
@@ -123,6 +139,7 @@ export default async function FindSubPage({ params }: { params: Promise<{ id: st
         halfDayHours={parseFloat(org?.halfDayHours ?? '4.0')}
         fullDayHours={parseFloat(org?.fullDayHours ?? '8.0')}
         combinableAbsences={combinableAbsences}
+        sameDayPositionCount={sameDayPositionCount}
       />
     </div>
   )
