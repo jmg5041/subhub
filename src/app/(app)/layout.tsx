@@ -35,7 +35,7 @@ export default async function AppLayout({
   // schools is a foreign key join — Supabase returns it as an array
   const { data: profile } = await supabase
     .from('users')
-    .select('first_name, last_name, role, school_id, schools(name)')
+    .select('first_name, last_name, role, school_id, avatar_url, schools(name)')
     .eq('id', user.id)
     .single();
 
@@ -65,6 +65,7 @@ export default async function AppLayout({
       lastName={profile?.last_name ?? null}
       email={user?.email ?? null}
       role={profile?.role ?? null}
+      avatarUrl={profile?.avatar_url ?? null}
       pendingSubCount={pendingSubCount}
     >
       {children}

@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
+import Link from 'next/link'
+import Image from 'next/image'
 import { AppSidebar } from './app-sidebar'
 
 export function AppShell({
@@ -11,6 +13,7 @@ export function AppShell({
   lastName,
   email,
   role,
+  avatarUrl,
   pendingSubCount,
 }: {
   children: React.ReactNode
@@ -19,11 +22,18 @@ export function AppShell({
   lastName: string | null
   email: string | null
   role: string | null
+  avatarUrl?: string | null
   pendingSubCount?: number
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? email?.[0]?.toUpperCase() ?? ''}`
+
+  // Only admin/principal/staff have a /profile page; teachers and subs have their own
+  const profileHref =
+    role === 'teacher' ? '/teacher/profile' :
+    role === 'substitute' ? '/sub/profile' :
+    '/profile'
 
   return (
     <div className="flex h-[100dvh] bg-gray-50">
@@ -55,12 +65,16 @@ export function AppShell({
               <span className="text-sm text-gray-500 truncate">{schoolName}</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <Link href={profileHref} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <span className="text-sm text-gray-500 hidden sm:block">{firstName || email}</span>
-            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {initials}
+            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
+              {avatarUrl ? (
+                <Image src={avatarUrl} alt="" width={32} height={32} className="object-cover w-full h-full" />
+              ) : (
+                initials
+              )}
             </div>
-          </div>
+          </Link>
         </header>
 
         {/* Page content */}
