@@ -19,6 +19,20 @@ import {
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { countWeekdays } from '@/lib/date-utils'
+import { sendSubEmail } from '@/lib/notifications'
+
+function formatTime(t: string): string {
+  const [hourStr, min] = t.split(':')
+  const hour = parseInt(hourStr, 10)
+  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const h12 = hour % 12 || 12
+  return `${h12}:${min} ${ampm}`
+}
+
+function formatDate(d: string): string {
+  const date = new Date(d + 'T12:00:00')
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
 
 /**
  * Sub accepts the job.
@@ -84,6 +98,32 @@ export async function acceptSubJob(token: string) {
     .update(subNotificationTokens)
     .set({ usedAt: new Date(), action: 'accepted' })
     .where(eq(subNotificationTokens.token, token))
+
+  // Send confirmation email to the sub
+  const sub = tokenRow.substitute
+  if (sub?.user?.email) {
+    const school = await db.query.schools.findFirst({ where: (s, { eq }) => eq(s.id, absence.schoolId) })
+    const schoolName = school?.name ?? 'your school'
+    const dateStr = absence.endDate && absence.endDate !== absence.startDate
+      ? `${formatDate(absence.startDate)} – ${formatDate(absence.endDate)}`
+      : formatDate(absence.startDate)
+    const timeStr = `${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`
+    await sendSubEmail({
+      to: sub.user.email,
+      subject: `Confirmed: Sub position at ${schoolName} on ${formatDate(absence.startDate)}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+          <h2 style="color: #16a34a;">You're confirmed!</h2>
+          <p>Hi ${sub.user.firstName}, you've accepted the following substitute teaching position:</p>
+          <p><strong>School:</strong> ${schoolName}</p>
+          <p><strong>Date:</strong> ${dateStr}</p>
+          <p><strong>Time:</strong> ${timeStr}</p>
+          <p style="color: #6b7280; font-size: 13px;">Please arrive a few minutes early and check in at the front office.</p>
+        </div>
+      `,
+      text: `You're confirmed!\n\nSchool: ${schoolName}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.`,
+    }).catch(() => {})
+  }
 
   redirect(`/sub/jobs/${token}/confirmed`)
 }
