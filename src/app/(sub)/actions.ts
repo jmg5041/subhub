@@ -109,8 +109,17 @@ export async function getMyPendingTokens() {
     orderBy: (t, { asc }) => [asc(t.createdAt)],
   })
 
-  // Filter out jobs already filled by someone else
-  return rows.filter(r => r.teacherTimeOff.subOutreachStatus !== 'filled')
+  // Filter out jobs already filled, and dates where this sub is already booked
+  const bookedRows = await db
+    .select({ date: subAssignments.date })
+    .from(subAssignments)
+    .where(and(eq(subAssignments.substituteId, sub.id), eq(subAssignments.status, 'assigned')))
+  const bookedDates = new Set(bookedRows.map(r => r.date))
+
+  return rows.filter(r =>
+    r.teacherTimeOff.subOutreachStatus !== 'filled' &&
+    !bookedDates.has(r.teacherTimeOff.startDate)
+  )
 }
 
 export async function getMyUnavailableDates(year: number, month: number) {
