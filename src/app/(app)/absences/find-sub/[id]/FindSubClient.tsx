@@ -203,7 +203,7 @@ export default function FindSubClient({
       <div className={`rounded-lg border bg-white p-6 ${notifyDisabled ? 'opacity-60' : 'border-gray-200'}`}>
         <h3 className="font-semibold text-gray-900 mb-1">Notify All Available Substitutes</h3>
         <p className="text-sm text-gray-500 mb-1">
-          Send a notification to all substitutes in your pool. The first one to accept gets the position.
+          Sends a notification to the sub pool for this school immediately. If nobody picks it up and the job is still open, the system will re-alert subs at the standard PM/AM alert times.
         </p>
         {isStaffCovered && <p className="text-xs text-blue-600 mb-3">Disabled — this absence is covered by staff.</p>}
         {selectedSubId && !isStaffCovered && <p className="text-xs text-gray-400 mb-3">Disabled — deselect the substitute below to enable.</p>}
@@ -213,7 +213,7 @@ export default function FindSubClient({
           disabled={notifyDisabled}
           className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isNotifying ? 'Sending...' : 'Send Notification to All Subs'}
+          {isNotifying ? 'Sending...' : 'Notify Subs Immediately'}
         </button>
       </div>
 
