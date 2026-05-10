@@ -222,15 +222,26 @@ export async function updateUser(formData: FormData) {
   const lastName = formData.get('lastName') as string
   const email = formData.get('email') as string
   const phone = (formData.get('phone') as string) || null
+  const schoolId = (formData.get('schoolId') as string) || null
 
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!existing || existing.organizationId !== orgId) return { error: 'User not found' }
 
-  await db.update(users).set({ firstName, lastName, email, phone }).where(eq(users.id, userId))
+  await db.update(users).set({ firstName, lastName, email, phone, schoolId }).where(eq(users.id, userId))
 
   // Keep Supabase auth email in sync if it changed
   if (email !== existing.email) {
     await supabaseAdmin.auth.admin.updateUserById(userId, { email })
+  }
+
+  // Update employee school assignment for teachers/staff
+  if (schoolId && ['teacher', 'staff'].includes(existing.role)) {
+    const emp = await db.query.employees.findFirst({ where: eq(employees.userId, userId) })
+    if (emp) {
+      await db.update(employees).set({ schoolId }).where(eq(employees.id, emp.id))
+    } else {
+      await db.insert(employees).values({ userId, schoolId })
+    }
   }
 
   revalidatePath('/admin/users')

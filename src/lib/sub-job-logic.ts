@@ -100,20 +100,30 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
       ? `${formatDate(absence.startDate)} – ${formatDate(absence.endDate)}`
       : formatDate(absence.startDate)
     const timeStr = `${formatTime(absence.startTime)} – ${formatTime(absence.endTime)}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
     await sendSubEmail({
       to: subUser.email,
       subject: `Confirmed: Sub position at ${schoolName} on ${formatDate(absence.startDate)}`,
       html: `
-        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
-          <h2 style="color: #16a34a;">You're confirmed!</h2>
-          <p>Hi ${subUser.firstName}, you've accepted the following substitute teaching position:</p>
-          <p><strong>School:</strong> ${schoolName}</p>
-          <p><strong>Date:</strong> ${dateStr}</p>
-          <p><strong>Time:</strong> ${timeStr}</p>
-          <p style="color: #6b7280; font-size: 13px;">Please arrive a few minutes early and check in at the front office.</p>
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+          <div style="background: #2563eb; padding: 20px 24px;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">SubHub</h1>
+            <p style="color: #bfdbfe; margin: 4px 0 0; font-size: 13px;">substitutes.us</p>
+          </div>
+          <div style="padding: 24px;">
+            <h2 style="color: #16a34a; margin-top: 0;">You're confirmed!</h2>
+            <p>Hi ${subUser.firstName}, you've accepted the following substitute teaching position:</p>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px; width: 60px;">School</td><td style="padding: 6px 0; font-size: 14px; font-weight: 600;">${schoolName}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Date</td><td style="padding: 6px 0; font-size: 14px;">${dateStr}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Time</td><td style="padding: 6px 0; font-size: 14px;">${timeStr}</td></tr>
+            </table>
+            <p style="color: #374151; font-size: 14px;">Please arrive a few minutes early and check in at the front office.</p>
+            <a href="${appUrl}/sub/dashboard" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; margin-top: 8px;">View My Dashboard</a>
+          </div>
         </div>
       `,
-      text: `You're confirmed!\n\nSchool: ${schoolName}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.`,
+      text: `You're confirmed!\n\nSchool: ${schoolName}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.\n\nView your dashboard: ${appUrl}/sub/dashboard`,
     }).catch(() => {})
   }
 

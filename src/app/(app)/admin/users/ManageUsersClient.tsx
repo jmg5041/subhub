@@ -68,7 +68,7 @@ export default function ManageUsersClient({
   const [bulkResults, setBulkResults] = useState<{ sent: number; errors: string[] } | null>(null)
   const [bulkSendInvites, setBulkSendInvites] = useState(true)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '' })
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: '', schoolId: '' })
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -87,6 +87,7 @@ export default function ManageUsersClient({
       email: u.email,
       phone: u.phone ?? '',
       role: u.role,
+      schoolId: u.schoolId ?? '',
     })
   }
 
@@ -133,6 +134,7 @@ export default function ManageUsersClient({
       fd.set('lastName', editForm.lastName)
       fd.set('email', editForm.email)
       fd.set('phone', editForm.phone)
+      fd.set('schoolId', editForm.schoolId)
       const res = await updateUser(fd)
       if ('error' in res) showMessage(res.error ?? 'Unknown error', 'error')
       else {
@@ -348,6 +350,19 @@ export default function ManageUsersClient({
                   <option value="principal">School Admin</option>
                 </select>
               </div>
+              {['teacher', 'staff'].includes(editForm.role) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
+                  <select
+                    value={editForm.schoolId}
+                    onChange={e => setEditForm(f => ({ ...f, schoolId: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Select a school —</option>
+                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
               <button

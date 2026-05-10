@@ -10,8 +10,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools } from '@/db/schema'
-import { eq, and, asc, desc } from 'drizzle-orm'
+import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools, subSchoolAssignments } from '@/db/schema'
+import { eq, and, asc, desc, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyAdminsOfAbsenceRequest } from '@/lib/notifications'
 
@@ -48,6 +48,18 @@ export async function saveAvatar(url: string) {
 export async function getMyTeacherContext() {
   const { profile, employee, orgId } = await getTeacherContext()
 
+  // Get sub IDs assigned to this teacher's school
+  const schoolSubRows = employee?.schoolId
+    ? await db
+        .select({ substituteId: subSchoolAssignments.substituteId })
+        .from(subSchoolAssignments)
+        .where(and(
+          eq(subSchoolAssignments.schoolId, employee.schoolId),
+          eq(subSchoolAssignments.status, 'active')
+        ))
+    : []
+  const schoolSubIds = schoolSubRows.map(r => r.substituteId)
+
   const [reasons, subs, allSchools] = await Promise.all([
     db
       .select()
@@ -55,16 +67,21 @@ export async function getMyTeacherContext() {
       .where(eq(absenceReasons.organizationId, orgId))
       .orderBy(asc(absenceReasons.sortOrder)),
 
-    db
-      .select({
-        id: substitutes.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-      })
-      .from(substitutes)
-      .innerJoin(users, eq(substitutes.userId, users.id))
-      .where(and(eq(users.organizationId, orgId), eq(substitutes.status, 'active')))
-      .orderBy(asc(users.lastName)),
+    schoolSubIds.length > 0
+      ? db
+          .select({
+            id: substitutes.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          })
+          .from(substitutes)
+          .innerJoin(users, eq(substitutes.userId, users.id))
+          .where(and(
+            inArray(substitutes.id, schoolSubIds),
+            eq(substitutes.status, 'active')
+          ))
+          .orderBy(asc(users.lastName))
+      : Promise.resolve([]),
 
     db
       .select({ id: schools.id, dayStartTime: schools.dayStartTime, dayEndTime: schools.dayEndTime })

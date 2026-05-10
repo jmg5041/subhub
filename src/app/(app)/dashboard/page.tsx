@@ -17,7 +17,6 @@ import { eq, and } from 'drizzle-orm'
 import Link from 'next/link'
 import {
   CalendarPlus,
-  ClipboardCheck,
   ClipboardList,
   AlertCircle,
   CalendarDays,
@@ -122,14 +121,11 @@ export default async function DashboardPage() {
 
   const stats = {
     total:        statPair(() => true),
-    pending:      statPair(a => a.approvalStatus === 'unapproved'),
     waitingOnSub: statPair(a => a.approvalStatus === 'approved' && !!a.substituteRequired && a.subOutreachStatus !== 'filled'),
     subFound:     statPair(a => a.subOutreachStatus === 'filled'),
     coveredByAdmin: statPair(a => a.approvalStatus === 'approved' && !a.substituteRequired && a.subOutreachStatus !== 'filled'),
   }
 
-  // Pending absences = those needing attention right now
-  const pendingAbsences = todayAbsences.filter((a) => a.approvalStatus === 'unapproved')
 
   return (
     <div className="space-y-6">
@@ -179,9 +175,8 @@ export default async function DashboardPage() {
       )}
 
       {/* Stat cards — live counts from the database */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard title="Total Absences" todayValue={stats.total.today} upcomingValue={stats.total.upcoming} color="blue" />
-        <StatCard title="Pending Approval" todayValue={stats.pending.today} upcomingValue={stats.pending.upcoming} color="yellow" />
         <StatCard title="Waiting on Sub" todayValue={stats.waitingOnSub.today} upcomingValue={stats.waitingOnSub.upcoming} color="orange" />
         <StatCard title="Sub Found" todayValue={stats.subFound.today} upcomingValue={stats.subFound.upcoming} color="green" />
         <StatCard title="Covered by Admin/Staff" todayValue={stats.coveredByAdmin.today} upcomingValue={stats.coveredByAdmin.upcoming} color="gray" />
@@ -198,22 +193,6 @@ export default async function DashboardPage() {
             <p className="font-semibold text-gray-900">Create Absence</p>
             <p className="text-sm text-gray-500">Report a teacher absence</p>
           </div>
-        </Link>
-
-        <Link
-          href="/absences/approve"
-          className="relative flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-green-300 hover:bg-green-50"
-        >
-          <ClipboardCheck className="h-8 w-8 text-green-600" />
-          <div>
-            <p className="font-semibold text-gray-900">Approve Absences</p>
-            <p className="text-sm text-gray-500">Review pending requests</p>
-          </div>
-          {(stats.pending.today + stats.pending.upcoming) > 0 && (
-            <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white">
-              {stats.pending.today + stats.pending.upcoming}
-            </span>
-          )}
         </Link>
 
         <Link
@@ -251,11 +230,6 @@ export default async function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Absences</h2>
             <p className="text-sm text-gray-500">All reported absences for today</p>
           </div>
-          {pendingAbsences.length > 0 && (
-            <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-              {pendingAbsences.length} need approval
-            </span>
-          )}
         </div>
 
         {todayAbsences.length === 0 ? (

@@ -296,6 +296,9 @@ export async function createAbsence(data: {
       adminOnlyNotes: data.adminOnlyNotes || null,
       substituteRequired: data.substituteRequired,
       holdUntil: data.holdUntil || 'no_hold',
+      approvalStatus: 'approved',
+      approvedBy: userId,
+      approvedAt: new Date(),
     }).returning({ id: teacherTimeOff.id })
 
     if (data.attachments?.length && newAbsence) {
@@ -312,9 +315,8 @@ export async function createAbsence(data: {
       )
     }
 
-    // Tell Next.js to refresh the dashboard and approve page caches
     revalidatePath('/dashboard')
-    revalidatePath('/absences/approve')
+    revalidatePath('/absences/find-sub')
 
     return { success: true }
   } catch (error) {

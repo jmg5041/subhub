@@ -32,12 +32,10 @@ function getStatusBadge(absence: Absence) {
   const approval = absence.approvalStatus ?? 'unapproved'
   const outreach = absence.subOutreachStatus ?? 'not_started'
 
-  if (approval === 'denied') return { label: 'Denied', color: 'bg-red-100 text-red-700' }
-  if (approval === 'unapproved') return { label: 'Pending approval', color: 'bg-yellow-100 text-yellow-700' }
+  if (approval === 'denied') return { label: 'Cancelled', color: 'bg-red-100 text-red-700' }
   if (!absence.substituteRequired) return { label: 'No sub needed', color: 'bg-gray-100 text-gray-600' }
-  if (outreach === 'filled') return { label: 'Sub assigned', color: 'bg-green-100 text-green-700' }
-  if (outreach === 'sent') return { label: 'Subs notified', color: 'bg-blue-100 text-blue-700' }
-  return { label: 'Approved', color: 'bg-green-100 text-green-700' }
+  if (outreach === 'filled') return { label: 'Sub Confirmed', color: 'bg-green-100 text-green-700' }
+  return { label: 'Waiting on Sub', color: 'bg-yellow-100 text-yellow-700' }
 }
 
 export default function MyAbsencesClient({ absences }: { absences: Absence[] }) {
