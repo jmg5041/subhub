@@ -412,10 +412,14 @@ export async function notifyAllSubs(
     : []
   const bookedIds = new Set(bookedRows.map(r => r.substituteId))
 
+  console.log(`[BLAST] unavailableIds=${JSON.stringify([...unavailableIds])}`)
+  console.log(`[BLAST] bookedIds=${JSON.stringify([...bookedIds])}`)
+
   const skipSubIds = options.skipSubIds ?? new Set<string>()
   const availableSubs = orderedSubs.filter(s =>
     !unavailableIds.has(s.id) && !bookedIds.has(s.id) && !skipSubIds.has(s.id)
   )
+  console.log(`[BLAST] availableSubs count=${availableSubs.length}`)
 
   const errors: string[] = []
   let sent = 0
@@ -426,8 +430,11 @@ export async function notifyAllSubs(
       continue
     }
 
+    console.log(`[BLAST] Processing sub ${sub.user.email} sendEmail=${org.notifyByEmail} sendSms=${org.notifyBySms} makeCall=${org.notifyByPhone}`)
+
     try {
       const token = await generateNotificationToken(teacherTimeOffId, sub.id)
+      console.log(`[BLAST] Token generated: ${token}`)
       const acceptUrl = `${appUrl}/sub/jobs/${token}?action=accept`
       const declineUrl = `${appUrl}/sub/jobs/${token}?action=decline`
 
