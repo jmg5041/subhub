@@ -370,6 +370,11 @@ export async function notifyAllSubs(
     return true
   })
 
+  console.log(`[BLAST] absenceId=${teacherTimeOffId} schoolId=${absence.schoolId} orgId=${absence.organizationId}`)
+  console.log(`[BLAST] schoolSubIds=${JSON.stringify([...schoolSubIds])}`)
+  console.log(`[BLAST] allSubs count=${allSubs.length}`)
+  console.log(`[BLAST] eligibleSubs count=${eligibleSubs.length} ids=${JSON.stringify(eligibleSubs.map(s => s.id))}`)
+
   // Sort: ranked subs first (by priority rank), then unranked subs
   const rankedSubs = priorityRows
     .map(r => eligibleSubs.find(s => s.id === r.substituteId))
@@ -377,6 +382,7 @@ export async function notifyAllSubs(
 
   const unrankedSubs = eligibleSubs.filter(s => !rankedSubIds.has(s.id))
   const orderedSubs = [...rankedSubs, ...unrankedSubs]
+  console.log(`[BLAST] orderedSubs count=${orderedSubs.length}`)
 
   const isSpecificallyRequested = (sub: typeof orderedSubs[0]) =>
     absence.requestedSubId === sub.id
@@ -463,6 +469,7 @@ export async function notifyAllSubs(
 
       sent++
     } catch (err) {
+      console.error(`[BLAST ERROR] Failed for ${sub.user.email}:`, err)
       errors.push(`Failed for ${sub.user.email}: ${err}`)
     }
   }
