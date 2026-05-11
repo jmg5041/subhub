@@ -476,25 +476,10 @@ export async function notifyAllSubs(
   })
   if (!org) return { sent: 0, errors: ['Org not found'], positionCount: 0 }
 
-  // For each absence, get its school's sub pool (schoolId → Set<subId>)
-  const absenceSubPools = new Map<string, Set<string>>()
-  for (const absence of absences) {
-    const rows = await db
-      .select({ substituteId: schema.subSchoolAssignments.substituteId })
-      .from(schema.subSchoolAssignments)
-      .where(and(
-        eq(schema.subSchoolAssignments.schoolId, absence.schoolId),
-        eq(schema.subSchoolAssignments.organizationId, orgId),
-        eq(schema.subSchoolAssignments.status, 'active')
-      ))
-    absenceSubPools.set(absence.id, new Set(rows.map(r => r.substituteId)))
-  }
-
-  // All unique sub IDs across every school's pool
-  const allSubIds = [...new Set([...absenceSubPools.values()].flatMap(s => [...s]))]
-  if (allSubIds.length === 0) return { sent: 0, errors: [], positionCount: absences.length }
-
-  // Priority orders across all schools in the bundle — best rank per sub
+  // Build the sub pool from priority orders — this is what the admin configures in
+  // Settings → Sub Notification Order. A sub ranked for a school IS in that school's pool.
+  // (sub_school_assignments is for a future "sub applies to join a school" feature,
+  // not for blast eligibility. Do not use it here.)
   const schoolIds = [...new Set(absences.map(a => a.schoolId))]
   const priorityRows = await db
     .select()
@@ -505,6 +490,24 @@ export async function notifyAllSubs(
     ))
     .orderBy(asc(schema.subPriorityOrders.priorityRank))
 
+  if (priorityRows.length === 0) {
+    return { sent: 0, errors: ['No subs in priority order for this school. Go to Settings → Sub Notification Order.'], positionCount: absences.length }
+  }
+
+  // Per-absence pool: subs ranked for that absence's school
+  const absenceSubPools = new Map<string, Set<string>>()
+  for (const absence of absences) {
+    const subIds = new Set(
+      priorityRows.filter(r => r.schoolId === absence.schoolId).map(r => r.substituteId)
+    )
+    absenceSubPools.set(absence.id, subIds)
+  }
+
+  // All unique sub IDs across every school's pool
+  const allSubIds = [...new Set([...absenceSubPools.values()].flatMap(s => [...s]))]
+  if (allSubIds.length === 0) return { sent: 0, errors: [], positionCount: absences.length }
+
+  // Best priority rank per sub across all schools in the bundle
   const bestRank = new Map<string, number>()
   for (const row of priorityRows) {
     const cur = bestRank.get(row.substituteId)
