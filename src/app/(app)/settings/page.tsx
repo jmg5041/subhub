@@ -28,6 +28,7 @@ export default async function SettingsPage() {
         initialEmail={org?.notifyByEmail ?? true}
         initialSms={org?.notifyBySms ?? true}
         initialPhone={org?.notifyByPhone ?? false}
+        initialTimezone={org?.timezone ?? 'America/Los_Angeles'}
       />
     </div>
   )

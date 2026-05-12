@@ -1,59 +1,60 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { teacherTimeOff } from '@/db/schema'
+import { organizations, teacherTimeOff } from '@/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { notifyAllSubs } from '@/lib/notifications'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// Runs at 6am in each org's local timezone. Catches same-day positions submitted overnight.
+//
+// Scheduled at UTC hours 10–14 to cover all US timezones in both DST and standard time:
+//   10:00 UTC = 6am EDT  |  11:00 UTC = 6am CDT / EST
+//   12:00 UTC = 6am CST / MDT  |  13:00 UTC = 6am MST / PDT  |  14:00 UTC = 6am PST
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Guard: scheduled at both 13:00 and 14:00 UTC so it fires at 6am Pacific regardless
-  // of PDT (UTC-7) or PST (UTC-8). Only the trigger that lands on hour 6 does work.
-  const TZ = 'America/Los_Angeles'
-  const pacificHour = parseInt(
-    new Date().toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).split(':')[0]
-  )
-  if (pacificHour !== 6) {
-    return NextResponse.json({ skipped: true, reason: `Pacific hour is ${pacificHour}, expected 6` })
-  }
-
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
-
-  const pending = await db
-    .select({ id: teacherTimeOff.id, organizationId: teacherTimeOff.organizationId })
-    .from(teacherTimeOff)
-    .where(and(
-      eq(teacherTimeOff.startDate, today),
-      eq(teacherTimeOff.approvalStatus, 'approved'),
-      eq(teacherTimeOff.substituteRequired, true),
-      eq(teacherTimeOff.subOutreachStatus, 'not_started'),
-      ne(teacherTimeOff.approvalStatus, 'denied'),
-    ))
-
-  // Group by org so each org gets one bundled blast (one notification per sub)
-  const byOrg = new Map<string, string[]>()
-  for (const a of pending) {
-    const ids = byOrg.get(a.organizationId) ?? []
-    ids.push(a.id)
-    byOrg.set(a.organizationId, ids)
-  }
+  const allOrgs = await db.select({ id: organizations.id, timezone: organizations.timezone }).from(organizations)
 
   const results = []
-  for (const [orgId, ids] of byOrg) {
+  let totalPositions = 0
+
+  for (const org of allOrgs) {
+    const tz = org.timezone ?? 'America/Los_Angeles'
+    const localHour = parseInt(
+      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
+    )
+    if (localHour !== 6) continue
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+
+    const pending = await db
+      .select({ id: teacherTimeOff.id })
+      .from(teacherTimeOff)
+      .where(and(
+        eq(teacherTimeOff.organizationId, org.id),
+        eq(teacherTimeOff.startDate, today),
+        eq(teacherTimeOff.approvalStatus, 'approved'),
+        eq(teacherTimeOff.substituteRequired, true),
+        eq(teacherTimeOff.subOutreachStatus, 'not_started'),
+        ne(teacherTimeOff.approvalStatus, 'denied'),
+      ))
+
+    if (pending.length === 0) continue
+    totalPositions += pending.length
+
     try {
-      const result = await notifyAllSubs(ids)
-      results.push({ orgId, positions: ids.length, sent: result.sent, errors: result.errors })
+      const result = await notifyAllSubs(pending.map(p => p.id))
+      results.push({ orgId: org.id, tz, today, positions: pending.length, sent: result.sent, errors: result.errors })
     } catch (err) {
-      results.push({ orgId, positions: ids.length, error: String(err) })
+      results.push({ orgId: org.id, tz, error: String(err) })
     }
   }
 
-  console.log(`[MORNING BLAST] ${today}: ${pending.length} positions across ${byOrg.size} orgs`)
-  return NextResponse.json({ date: today, orgs: byOrg.size, positions: pending.length, results })
+  console.log(`[MORNING BLAST] ${totalPositions} positions across ${results.length} orgs`)
+  return NextResponse.json({ positions: totalPositions, orgs: results.length, results })
 }

@@ -21,6 +21,7 @@ export const organizations = pgTable('organizations', {
   subPayModel: text('sub_pay_model').default('block'), // 'block' | 'hourly'
   halfDayHours: numeric('half_day_hours', { precision: 3, scale: 1 }).default('4.0'),
   fullDayHours: numeric('full_day_hours', { precision: 3, scale: 1 }).default('8.0'),
+  timezone: text('timezone').default('America/Los_Angeles'), // IANA timezone name
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

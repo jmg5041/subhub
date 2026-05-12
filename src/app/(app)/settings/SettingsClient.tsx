@@ -12,18 +12,30 @@
 import { useState, useTransition } from 'react'
 import { saveOrgSettings } from './actions'
 
+const US_TIMEZONES = [
+  { value: 'America/New_York',   label: 'Eastern Time (New York)'        },
+  { value: 'America/Chicago',    label: 'Central Time (Chicago)'         },
+  { value: 'America/Denver',     label: 'Mountain Time (Denver)'         },
+  { value: 'America/Phoenix',    label: 'Mountain Time — No DST (Arizona)' },
+  { value: 'America/Los_Angeles',label: 'Pacific Time (Los Angeles)'     },
+  { value: 'America/Anchorage',  label: 'Alaska Time (Anchorage)'        },
+  { value: 'Pacific/Honolulu',   label: 'Hawaii Time (Honolulu)'         },
+]
+
 type Props = {
   initialAutoNotify: boolean
   initialEmail: boolean
   initialSms: boolean
   initialPhone: boolean
+  initialTimezone: string
 }
 
-export default function SettingsClient({ initialAutoNotify, initialEmail, initialSms, initialPhone }: Props) {
+export default function SettingsClient({ initialAutoNotify, initialEmail, initialSms, initialPhone, initialTimezone }: Props) {
   const [autoNotify, setAutoNotify] = useState(initialAutoNotify)
   const [emailOn, setEmailOn] = useState(initialEmail)
   const [smsOn, setSmsOn] = useState(initialSms)
   const [phoneOn, setPhoneOn] = useState(initialPhone)
+  const [timezone, setTimezone] = useState(initialTimezone)
   const [saved, setSaved] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -34,6 +46,7 @@ export default function SettingsClient({ initialAutoNotify, initialEmail, initia
       formData.set('notifyByEmail', String(emailOn))
       formData.set('notifyBySms', String(smsOn))
       formData.set('notifyByPhone', String(phoneOn))
+      formData.set('timezone', timezone)
 
       await saveOrgSettings(formData)
       setSaved('Settings saved.')
@@ -137,6 +150,23 @@ export default function SettingsClient({ initialAutoNotify, initialEmail, initia
             </div>
           </label>
         </div>
+      </div>
+
+      {/* Section 3 — Timezone */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="font-semibold text-gray-900 mb-1">School Timezone</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Used to schedule morning and evening notification blasts at the right local time.
+        </p>
+        <select
+          value={timezone}
+          onChange={e => setTimezone(e.target.value)}
+          className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {US_TIMEZONES.map(tz => (
+            <option key={tz.value} value={tz.value}>{tz.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* Save button */}

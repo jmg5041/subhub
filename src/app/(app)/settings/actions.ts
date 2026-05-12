@@ -88,6 +88,7 @@ export async function saveOrgSettings(formData: FormData) {
       subPayModel: (formData.get('subPayModel') as string) || 'block',
       halfDayHours: isNaN(halfDay) ? '4.0' : halfDay.toFixed(1),
       fullDayHours: isNaN(fullDay) ? '8.0' : fullDay.toFixed(1),
+      timezone: (formData.get('timezone') as string) || 'America/Los_Angeles',
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, orgId))

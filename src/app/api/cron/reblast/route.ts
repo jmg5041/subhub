@@ -1,52 +1,61 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { teacherTimeOff } from '@/db/schema'
+import { organizations, teacherTimeOff } from '@/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { reBlastNonDecliners } from '@/lib/notifications'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs at 6:20am Pacific. Scheduled at both 13:20 and 14:20 UTC to cover PDT and PST.
-// Re-notifies subs who haven't declined for positions still unfilled 20 min after the blast.
+// Runs at 6:20am in each org's local timezone. Re-notifies subs who haven't declined
+// for any position still unfilled 20 minutes after the morning blast.
+//
+// Scheduled at UTC hours 10:20–14:20 to cover all US timezones in both DST and standard time.
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const TZ = 'America/Los_Angeles'
-  const pacificHour = parseInt(
-    new Date().toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).split(':')[0]
-  )
-  if (pacificHour !== 6) {
-    return NextResponse.json({ skipped: true, reason: `Pacific hour is ${pacificHour}, expected 6` })
-  }
-
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
-
-  // Find today's positions that were blasted but still have no sub assigned
-  const stillUnfilled = await db
-    .select({ id: teacherTimeOff.id, organizationId: teacherTimeOff.organizationId })
-    .from(teacherTimeOff)
-    .where(and(
-      eq(teacherTimeOff.startDate, today),
-      eq(teacherTimeOff.approvalStatus, 'approved'),
-      eq(teacherTimeOff.substituteRequired, true),
-      eq(teacherTimeOff.subOutreachStatus, 'sent'),
-      ne(teacherTimeOff.approvalStatus, 'denied'),
-    ))
+  const allOrgs = await db.select({ id: organizations.id, timezone: organizations.timezone }).from(organizations)
 
   const results = []
-  for (const row of stillUnfilled) {
-    try {
-      const result = await reBlastNonDecliners(row.id)
-      results.push({ id: row.id, orgId: row.organizationId, sent: result.sent, errors: result.errors })
-    } catch (err) {
-      results.push({ id: row.id, orgId: row.organizationId, error: String(err) })
+  let totalPositions = 0
+
+  for (const org of allOrgs) {
+    const tz = org.timezone ?? 'America/Los_Angeles'
+    const localHour = parseInt(
+      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
+    )
+    if (localHour !== 6) continue
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+
+    const stillUnfilled = await db
+      .select({ id: teacherTimeOff.id })
+      .from(teacherTimeOff)
+      .where(and(
+        eq(teacherTimeOff.organizationId, org.id),
+        eq(teacherTimeOff.startDate, today),
+        eq(teacherTimeOff.approvalStatus, 'approved'),
+        eq(teacherTimeOff.substituteRequired, true),
+        eq(teacherTimeOff.subOutreachStatus, 'sent'),
+        ne(teacherTimeOff.approvalStatus, 'denied'),
+      ))
+
+    if (stillUnfilled.length === 0) continue
+    totalPositions += stillUnfilled.length
+
+    for (const row of stillUnfilled) {
+      try {
+        const result = await reBlastNonDecliners(row.id)
+        results.push({ orgId: org.id, tz, id: row.id, sent: result.sent, errors: result.errors })
+      } catch (err) {
+        results.push({ orgId: org.id, tz, id: row.id, error: String(err) })
+      }
     }
   }
 
-  console.log(`[REBLAST] ${today}: re-blasted ${stillUnfilled.length} unfilled positions`)
-  return NextResponse.json({ date: today, positions: stillUnfilled.length, results })
+  console.log(`[REBLAST] ${totalPositions} unfilled positions across orgs`)
+  return NextResponse.json({ positions: totalPositions, results })
 }
