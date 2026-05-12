@@ -276,19 +276,23 @@ are immediately marked as declined. This prevents a sub from being double-booked
 server action also rejects acceptance of past-date positions as a second line of defense.
 
 ### Cron schedule (`vercel.json`)
-All times are UTC. Southlands is in Pacific time:
-- PDT (summer, Mar–Nov): UTC−7 → evening blast = 11pm, morning blast = 7am
-- PST (winter, Nov–Mar): UTC−8 → evening blast = 10pm, morning blast = 6am
+All times are UTC. Vercel crons do NOT auto-adjust for daylight saving — times shift by
+1 hour in winter. Southlands is in Pacific time:
+- PDT (summer, Mar–Nov): UTC−7 → evening blast = 11pm, morning blast = 6am
+- PST (winter, Nov–Mar): UTC−8 → evening blast = 10pm, morning blast = 5am
 
 | Cron | UTC schedule | Pacific (PDT) | What it does |
 |------|-------------|----------------|-------------|
-| Evening blast | `0 6 * * *` | ~11pm | Notifies subs for tomorrow's `not_started` positions |
-| Morning blast | `0 14 * * *` | ~7am | Catches same-day positions submitted overnight |
-| Unfilled alert | `30 14 * * *` | ~7:30am | Emails admin if any position is still unfilled |
+| Evening blast | `0 6 * * *` | 11:00 PM | Notifies subs for tomorrow's `not_started` positions |
+| Morning blast | `0 13 * * *` | 6:00 AM | Catches same-day positions submitted overnight |
+| Re-blast | `20 13 * * *` | 6:20 AM | Re-notifies non-decliners if positions still unfilled |
+| Unfilled alert | `30 13 * * *` | 6:30 AM | Emails admin if any position is still unfilled |
 
 Crons only process positions with `subOutreachStatus = 'not_started'`. Once a blast runs,
-status becomes `'sent'` and the crons won't touch it again. Re-blasts go through
-`reBlastNonDecliners()` in `notifications.ts`.
+status becomes `'sent'` and the morning/evening crons won't touch it again. The re-blast
+cron specifically targets `sent` positions that are still unfilled, calling
+`reBlastNonDecliners()` for each — which skips subs who explicitly declined and
+re-notifies everyone else.
 
 ### Manual blast
 Admin can click "Notify Subs Immediately" on any Find Sub page. This bundles all
@@ -355,9 +359,10 @@ directly (for the web link path).
 All cron routes check a `Bearer {CRON_SECRET}` authorization header to prevent
 unauthorized calls. Vercel sends this automatically from the cron config in `vercel.json`.
 
-- `src/app/api/cron/evening-blast/route.ts` — finds tomorrow's `not_started` positions, groups by org, calls `notifyAllSubs` once per org
-- `src/app/api/cron/morning-blast/route.ts` — same pattern but for today's positions
-- `src/app/api/cron/unfilled-alert/route.ts` — emails admin if any position is still unfilled by morning
+- `src/app/api/cron/evening-blast/route.ts` — finds tomorrow's `not_started` positions, groups by org, calls `notifyAllSubs` once per org. Uses Pacific date math (not UTC) so "tomorrow" is correct at 11pm PDT.
+- `src/app/api/cron/morning-blast/route.ts` — same pattern but for today's `not_started` positions (6am PDT)
+- `src/app/api/cron/reblast/route.ts` — re-notifies non-decliners for any `sent` positions still unfilled at 6:20am PDT
+- `src/app/api/cron/unfilled-alert/route.ts` — emails admin if any position is still unfilled at 6:30am PDT
 
 ---
 
