@@ -123,6 +123,7 @@ export const teacherTimeOff = pgTable('teacher_time_off', {
   subOutreachStatus: text('sub_outreach_status').default('not_started'),
   // 'not_started' | 'not_needed' | 'sent' | 'filled'
   requestedSubId: uuid('requested_sub_id').references(() => substitutes.id),
+  completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

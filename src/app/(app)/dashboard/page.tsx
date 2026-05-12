@@ -12,8 +12,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { employees, users, schools, absenceReasons, teacherTimeOff } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { employees, users, schools, absenceReasons, teacherTimeOff, organizations } from '@/db/schema'
+import { eq, and, isNull } from 'drizzle-orm'
 import Link from 'next/link'
 import {
   CalendarPlus,
@@ -50,14 +50,15 @@ export default async function DashboardPage() {
   const schoolName = profile?.school?.name || ''
   const orgId = profile?.organizationId
 
-  const TZ = 'America/Los_Angeles'
+  // Use org's configured timezone — falls back to Pacific if not set
+  const orgRecord = orgId
+    ? await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+    : null
+  const TZ = orgRecord?.timezone ?? 'America/Los_Angeles'
 
-  // Today's date in Pacific time — server runs UTC so toISOString() would give tomorrow after 5 PM PT
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
-
-  // Greeting based on Pacific time hour (getHours() returns UTC — use toLocaleString instead)
-  const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
-  const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
+  const localHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening'
 
   // Setup checklist — shown to admin/principal until all steps are complete
   let setupChecklist: { schoolReady: boolean; hasTeachers: boolean; hasSubs: boolean } | null = null
@@ -101,7 +102,10 @@ export default async function DashboardPage() {
         .innerJoin(users, eq(employees.userId, users.id))
         .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
         .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
-        .where(eq(teacherTimeOff.organizationId, orgId))
+        .where(and(
+          eq(teacherTimeOff.organizationId, orgId),
+          isNull(teacherTimeOff.completedAt),
+        ))
     : []
 
   // "Today" = absence spans today (started on or before today, ends on or after today)
