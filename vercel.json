@@ -9,6 +9,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/reblast",
+      "schedule": "20 13 * * *"
+    },
+    {
       "path": "/api/cron/unfilled-alert",
       "schedule": "30 13 * * *"
     }
