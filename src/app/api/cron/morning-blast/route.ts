@@ -13,8 +13,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Today's date in YYYY-MM-DD (cron runs at 6am Pacific = 14:00 UTC)
-  const today = new Date().toISOString().split('T')[0]
+  // Guard: scheduled at both 13:00 and 14:00 UTC so it fires at 6am Pacific regardless
+  // of PDT (UTC-7) or PST (UTC-8). Only the trigger that lands on hour 6 does work.
+  const TZ = 'America/Los_Angeles'
+  const pacificHour = parseInt(
+    new Date().toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).split(':')[0]
+  )
+  if (pacificHour !== 6) {
+    return NextResponse.json({ skipped: true, reason: `Pacific hour is ${pacificHour}, expected 6` })
+  }
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
   const pending = await db
     .select({ id: teacherTimeOff.id, organizationId: teacherTimeOff.organizationId })

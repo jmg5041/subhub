@@ -13,11 +13,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Tomorrow's date in Pacific time — the PM blast runs at 6am UTC (11pm PDT / 10pm PST).
-  // At that hour, new Date() is already the next UTC calendar day, so UTC date arithmetic
-  // gives a date that is one day too far ahead from Pacific perspective. We must derive
-  // "today" in Pacific time first, then add one day.
+  // Guard: this route is scheduled at both 05:00 and 06:00 UTC so it fires at 10pm
+  // regardless of whether Pacific is on PDT (UTC-7) or PST (UTC-8). Only one of the
+  // two daily triggers will match — the other returns immediately.
   const TZ = 'America/Los_Angeles'
+  const pacificHour = parseInt(
+    new Date().toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).split(':')[0]
+  )
+  if (pacificHour !== 22) {
+    return NextResponse.json({ skipped: true, reason: `Pacific hour is ${pacificHour}, expected 22` })
+  }
+
+  // At 10pm Pacific, new Date() may already be the next UTC calendar day, so derive
+  // "today" in Pacific time first and then add one day.
   const todayPacific = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   const [py, pm, pd] = todayPacific.split('-').map(Number)
   const tomorrowStr = new Date(Date.UTC(py, pm - 1, pd + 1)).toISOString().split('T')[0]
