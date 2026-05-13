@@ -17,11 +17,13 @@ export default function TeacherAbsenceForm({
   subs,
   schoolDayStart,
   schoolDayEnd,
+  timezone,
 }: {
   reasons: Reason[]
   subs: Sub[]
   schoolDayStart: string
   schoolDayEnd: string
+  timezone: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -83,7 +85,7 @@ export default function TeacherAbsenceForm({
             required
             value={startDate}
             onChange={e => handleStartDateChange(e.target.value)}
-            min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
+            min={new Date().toLocaleDateString('en-CA', { timeZone: timezone })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -95,7 +97,7 @@ export default function TeacherAbsenceForm({
             type="date"
             value={endDate}
             onChange={e => setEndDate(e.target.value)}
-            min={startDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}
+            min={startDate || new Date().toLocaleDateString('en-CA', { timeZone: timezone })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

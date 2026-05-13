@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, subAssignments } from '@/db/schema'
+import { users, subAssignments, organizations } from '@/db/schema'
 import { eq, and, gte, lte, ne } from 'drizzle-orm'
 
 function formatTime(t: string) {
@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const orgId = profile.organizationId
 
-  // Date range from query params — default to current month
-  const TZ = 'America/Los_Angeles'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
   const nowStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   const [y, m] = nowStr.split('-').map(Number)
   const monthFrom = `${y}-${String(m).padStart(2, '0')}-01`

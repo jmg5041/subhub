@@ -5,9 +5,14 @@
  * Safe to import anywhere in the app.
  */
 
-/** Today's date as 'YYYY-MM-DD' in Pacific time (avoids UTC off-by-one after 5 PM PT). */
+/** Today's date as 'YYYY-MM-DD' in the given IANA timezone. */
+export function todayLocal(tz: string): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: tz })
+}
+
+/** Today's date as 'YYYY-MM-DD' in Pacific time. Use todayLocal(tz) when org timezone is available. */
 export function todayPT(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+  return todayLocal('America/Los_Angeles')
 }
 
 /**

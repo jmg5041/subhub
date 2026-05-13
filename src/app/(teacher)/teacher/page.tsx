@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, organizations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -39,12 +39,13 @@ export default async function TeacherDashboard() {
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  const TZ = 'America/Los_Angeles'
-  const ptHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
-  const greeting = ptHour < 12 ? 'Good morning' : ptHour < 17 ? 'Good afternoon' : 'Good evening'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
+  const localHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening'
 
   const absences = await getMyAbsences()
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   const upcoming = absences.filter(a => a.startDate >= today).slice(0, 5)
   const pending = absences.filter(a => a.approvalStatus === 'unapproved').length
 

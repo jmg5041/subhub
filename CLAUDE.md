@@ -156,11 +156,11 @@ This lets an admin share a recovery link from their own logged-in browser.
 
 | Table | Purpose |
 |-------|---------|
-| `organizations` | Top-level org (school district). Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms`, `notifyByPhone` |
+| `organizations` | Top-level org (school district). Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms`, `notifyByPhone`, `timezone` (IANA tz name, default `'America/Los_Angeles'`) |
 | `schools` | Campus within an org. Has `dayStartTime` / `dayEndTime` (HH:MM:SS) |
 | `users` | Everyone. `role` enum: admin/principal/staff/teacher/substitute |
 | `employees` | Teacher/staff as payroll employee. Links `user → school`. One user can have multiple rows (one per school — e.g. a PE teacher at ES and MS). Never delete a row that has `teacherTimeOff` references. |
-| `teacher_time_off` | An absence gap. Has `approvalStatus`, `subOutreachStatus`, `substituteRequired` |
+| `teacher_time_off` | An absence gap. Has `approvalStatus`, `subOutreachStatus`, `substituteRequired`, `completedAt` (timestamp — set by cron when absence's last day ends) |
 | `sub_assignments` | A sub covering a gap. Separate from time-off (decoupled model) |
 | `assignment_time_off` | Junction: links assignments ↔ time-off records (many-to-many) |
 | `substitutes` | Sub profile. Has `excludedFromSchools` (JSON array of schoolIds) |
@@ -276,17 +276,29 @@ are immediately marked as declined. This prevents a sub from being double-booked
 server action also rejects acceptance of past-date positions as a second line of defense.
 
 ### Cron schedule (`vercel.json`)
-All times are UTC. Vercel crons do NOT auto-adjust for daylight saving — times shift by
-1 hour in winter. Southlands is in Pacific time:
-- PDT (summer, Mar–Nov): UTC−7 → evening blast = 11pm, morning blast = 6am
-- PST (winter, Nov–Mar): UTC−8 → evening blast = 10pm, morning blast = 5am
+All times are UTC. Vercel crons fire at fixed UTC times — they do NOT auto-adjust for
+DST. To cover every US timezone (EDT UTC−4 through HST UTC−10) in both DST and standard
+time, each cron has **7 entries** spanning 7 consecutive UTC hours. The route handler
+checks `localHour` per org and only processes orgs where the local time matches the
+target hour — all others are skipped. This means each org gets exactly one blast per day
+regardless of how many crons fire.
 
-| Cron | UTC schedule | Pacific (PDT) | What it does |
-|------|-------------|----------------|-------------|
-| Evening blast | `0 6 * * *` | 11:00 PM | Notifies subs for tomorrow's `not_started` positions |
-| Morning blast | `0 13 * * *` | 6:00 AM | Catches same-day positions submitted overnight |
-| Re-blast | `20 13 * * *` | 6:20 AM | Re-notifies non-decliners if positions still unfilled |
-| Unfilled alert | `30 13 * * *` | 6:30 AM | Emails admin if any position is still unfilled |
+| Cron | Target local time | UTC hours | What it does |
+|------|-------------------|-----------|-------------|
+| Evening blast | 10:00 PM | `0 2–8 * * *` | Notifies subs for tomorrow's `not_started` positions |
+| Morning blast | 6:00 AM | `0 10–16 * * *` | Catches same-day positions submitted overnight |
+| Re-blast | 6:20 AM | `20 10–16 * * *` | Re-notifies non-decliners if positions still unfilled |
+| Unfilled alert | 6:30 AM | `30 10–16 * * *` | Emails admin if any position is still unfilled |
+| Complete absences | 5:30 PM | `30 21–3 * * *` (next day UTC) | Stamps `completedAt`, removes from dashboard, credits subs |
+
+**Total: 35 cron entries** in `vercel.json` (well under Vercel Pro's 64-entry limit).
+
+Each cron route reads `organizations.timezone` for every org and uses
+`toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false })`
+to compute the local hour. Orgs without a timezone fall back to `'America/Los_Angeles'`.
+
+The timezone is configurable per org in **Settings → Timezone**. It must be set correctly
+at onboarding — all blast timing depends on it.
 
 Crons only process positions with `subOutreachStatus = 'not_started'`. Once a blast runs,
 status becomes `'sent'` and the morning/evening crons won't touch it again. The re-blast
@@ -359,21 +371,24 @@ directly (for the web link path).
 All cron routes check a `Bearer {CRON_SECRET}` authorization header to prevent
 unauthorized calls. Vercel sends this automatically from the cron config in `vercel.json`.
 
-- `src/app/api/cron/evening-blast/route.ts` — finds tomorrow's `not_started` positions, groups by org, calls `notifyAllSubs` once per org. Uses Pacific date math (not UTC) so "tomorrow" is correct at 11pm PDT.
-- `src/app/api/cron/morning-blast/route.ts` — same pattern but for today's `not_started` positions (6am PDT)
-- `src/app/api/cron/reblast/route.ts` — re-notifies non-decliners for any `sent` positions still unfilled at 6:20am PDT
-- `src/app/api/cron/unfilled-alert/route.ts` — emails admin if any position is still unfilled at 6:30am PDT
+- `src/app/api/cron/evening-blast/route.ts` — loops all orgs, fires at 10pm local, finds tomorrow's `not_started` positions per org, calls `notifyAllSubs`. "Tomorrow" is computed in the org's local timezone (not UTC) to avoid off-by-one at night.
+- `src/app/api/cron/morning-blast/route.ts` — same pattern, fires at 6am local, finds today's `not_started` positions
+- `src/app/api/cron/reblast/route.ts` — fires at 6:20am local, finds today's `sent`+unfilled positions, calls `reBlastNonDecliners()` per position
+- `src/app/api/cron/unfilled-alert/route.ts` — fires at 6:30am local, emails org admin if any position is still unfilled
+- `src/app/api/cron/complete-absences/route.ts` — fires at 5:30pm local, stamps `completedAt` on absences whose last day is today (`COALESCE(endDate, startDate) = today`), marks linked `subAssignments` as `'completed'`
 
 ---
 
 ## Known Pending Work
 
 **Operational (needed for daily use):**
-- Completed-absences cron: 4pm Pacific daily, marks absences whose endTime has passed, moves them off dashboard, gives sub credit
-- Payroll report: exportable CSV of sub hours per pay period — the main output for whoever writes paychecks
+- ~~Completed-absences cron~~ — DONE: fires at 5:30pm local, uses `COALESCE(endDate, startDate) = today`
+- ~~Payroll report~~ — DONE: `/reports/sub-pay` printable page + CSV download at `/api/reports/sub-pay`
+- ~~Multi-timezone cron support~~ — DONE: 35 vercel.json entries, per-org timezone, `localHour` guard in every cron route
+- ~~All pages hardcoding Pacific timezone~~ — DONE: all 12 files updated to use org timezone dynamically
 
 **Mid-term (before second school):**
-- Admin onboarding wizard: multi-step school setup (org, schools, pay model, users, subs)
+- Admin onboarding wizard: multi-step school setup (org, schools, pay model, users, subs). **Timezone must be step 1** — all blast timing depends on it.
 - Teacher onboarding: simple first-login walkthrough
 - Sub onboarding: profile, availability, schools
 
@@ -399,14 +414,22 @@ Always append `T12:00:00` when constructing a `Date` from a `YYYY-MM-DD` string:
 `new Date(dateStr + 'T12:00:00')`. Without this, timezone offsets can shift the date
 by one day.
 
-**3. Timezone: always use Pacific explicitly**
-The server runs in UTC. Never use `new Date().toISOString()` to get today's date for
-display or query purposes — it will be wrong for Pacific users after 4pm.
-Always use:
+**3. Timezone: always use the org's timezone, never hardcode Pacific**
+The server runs in UTC. Every page and server action that needs "today's date" must fetch
+the org's timezone from `organizations.timezone` and use it explicitly.
+
 ```ts
-const TZ = 'America/Los_Angeles'
-const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
+const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+const TZ = org?.timezone ?? 'America/Los_Angeles'
+const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
 ```
+
+Use `todayLocal(tz)` from `src/lib/date-utils.ts` as a shorthand. `todayPT()` still
+exists for backward compat but should not be used in new code.
+
+**Client components** cannot fetch the org themselves — the parent server component must
+fetch the timezone and pass it as a prop. See `past-jobs/page.tsx` → `PastJobsClient.tsx`
+as the reference pattern.
 
 **4. `revalidatePath` after mutations**
 After any database write, call `revalidatePath()` for all pages that display that data.
@@ -441,3 +464,23 @@ change it in the other — otherwise "Press 2" accepts the wrong position.
 **10. Token race condition is handled at the database level**
 The token accept update uses `WHERE usedAt IS NULL` so only one concurrent accept wins.
 Do NOT add application-level locking or retries — the DB constraint is sufficient.
+
+**11. Multi-day absences: use COALESCE for "last day" queries**
+`endDate` is null for single-day absences. Whenever you need "the last day of this absence",
+always use `COALESCE(endDate, startDate)` — not just `startDate` or `endDate` alone.
+
+```ts
+// Correct: "absences fully in the past"
+sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) < ${today}`
+
+// Correct: "absences whose last day is today" (used by complete-absences cron)
+sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) = ${today}`
+```
+
+Using `startDate = today` for completion would mark a Mon–Fri absence complete on Monday.
+
+**12. Drizzle migrations must be applied manually**
+`npx drizzle-kit push` requires an interactive TTY — it won't work inside Claude Code.
+After generating a migration with `npx drizzle-kit generate`, copy the SQL and run it
+directly in the Supabase SQL editor. Applied migrations so far: `0012_org_timezone.sql`,
+`0013_completed_at.sql`.

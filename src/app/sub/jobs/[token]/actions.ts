@@ -15,6 +15,7 @@ import {
   subAssignments,
   assignmentTimeOff,
   teacherTimeOff,
+  organizations,
 } from '@/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
@@ -58,7 +59,8 @@ export async function acceptSubJob(token: string) {
   }
 
   // Reject acceptance of past-date positions
-  const TZ = 'America/Los_Angeles'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, tokenRow.teacherTimeOff.organizationId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   if (tokenRow.teacherTimeOff.startDate < todayStr) {
     throw new Error('This position is in the past')

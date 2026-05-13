@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { organizations, teacherTimeOff, subAssignments, assignmentTimeOff } from '@/db/schema'
-import { eq, and, isNull, inArray, ne } from 'drizzle-orm'
+import { eq, and, isNull, inArray, ne, sql } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs at 4pm in each org's local timezone. Marks today's absences as completed,
-// which removes them from the Today's Absences dashboard and marks linked sub
+// Runs at 5:30pm in each org's local timezone. Marks absences whose last day is
+// today as completed, which removes them from the dashboard and marks linked sub
 // assignments as 'completed' so subs get credit.
 //
 // Assumes no night school — all absences for today are done by 5:30pm.
@@ -41,7 +41,8 @@ export async function GET(req: Request) {
       .from(teacherTimeOff)
       .where(and(
         eq(teacherTimeOff.organizationId, org.id),
-        eq(teacherTimeOff.startDate, today),
+        // Match absences whose last day is today: endDate if set, else startDate
+        sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) = ${today}`,
         isNull(teacherTimeOff.completedAt),
         ne(teacherTimeOff.approvalStatus, 'denied'),
       ))

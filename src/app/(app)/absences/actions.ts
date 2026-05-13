@@ -186,7 +186,9 @@ export async function getApprovedUnfilledAbsences() {
 
 export async function getAbsencesForReconcile() {
   const { orgId } = await getOrgAndUserId()
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) // 'YYYY-MM-DD'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
 
   return db
     .select({
@@ -225,7 +227,9 @@ export async function getAbsencesForReconcile() {
  */
 export async function getDashboardStats() {
   const { orgId } = await getOrgAndUserId()
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
   const todayAbsences = await db
     .select({

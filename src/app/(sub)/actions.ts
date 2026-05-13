@@ -7,7 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory, subSchoolAssignments } from '@/db/schema'
+import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory, subSchoolAssignments, organizations } from '@/db/schema'
 import { eq, and, isNull, gt, asc, sql, ilike, or, isNotNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -94,7 +94,10 @@ export async function getSchoolProfile(schoolId: string) {
 }
 
 export async function getMyPendingTokens() {
-  const { sub } = await getSubContext()
+  const { profile, sub } = await getSubContext()
+
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
 
   const now = new Date()
   const rows = await db.query.subNotificationTokens.findMany({
@@ -116,7 +119,6 @@ export async function getMyPendingTokens() {
     .where(and(eq(subAssignments.substituteId, sub.id), eq(subAssignments.status, 'assigned')))
   const bookedDates = new Set(bookedRows.map(r => r.date))
 
-  const TZ = 'America/Los_Angeles'
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
   return rows.filter(r =>

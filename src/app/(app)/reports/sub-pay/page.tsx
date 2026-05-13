@@ -13,7 +13,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, subAssignments } from '@/db/schema'
+import { users, subAssignments, organizations } from '@/db/schema'
 import { eq, and, gte, lte, ne } from 'drizzle-orm'
 import PrintButton from './PrintButton'
 
@@ -53,8 +53,8 @@ export default async function SubPayReportPage({
   if (!profile) redirect('/auth/login')
   const orgId = profile.organizationId
 
-  // Default date range: current calendar month in Pacific time
-  const TZ = 'America/Los_Angeles'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
   const nowStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   const [y, m] = nowStr.split('-').map(Number)
   const monthFrom = `${y}-${String(m).padStart(2, '0')}-01`

@@ -34,9 +34,9 @@ import { and, eq, isNull } from 'drizzle-orm'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
-function twiml(body: string): NextResponse {
+function twiml(message: string): NextResponse {
   return new NextResponse(
-    `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`,
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${message}</Say></Response>`,
     { headers: { 'Content-Type': 'text/xml' } }
   )
 }

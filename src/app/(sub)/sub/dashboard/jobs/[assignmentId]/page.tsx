@@ -14,6 +14,9 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin, Clock, FileText, Image as ImageIcon, CalendarDays, ExternalLink } from 'lucide-react'
 import { getMyAssignmentById } from '../../../../actions'
 import { formatDateRange, countWeekdays } from '@/lib/date-utils'
+import { db } from '@/db'
+import { organizations } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 function formatTime(t: string): string {
   const [hourStr, min] = t.split(':')
@@ -27,8 +30,8 @@ function mapsUrl(school: { address?: string | null; city?: string | null; state?
   return `https://maps.google.com/?q=${encodeURIComponent(query)}`
 }
 
-function getJobStatus(date: string, status: string): { label: string; color: string } {
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+function getJobStatus(date: string, status: string, tz: string): { label: string; color: string } {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
   if (status === 'cancelled') return { label: 'Cancelled', color: 'bg-red-100 text-red-700' }
   if (date < today) return { label: 'Completed', color: 'bg-gray-100 text-gray-600' }
   if (date === today) return { label: 'Today', color: 'bg-green-100 text-green-700' }
@@ -44,8 +47,11 @@ export default async function SubJobDetailPage({
   const assignment = await getMyAssignmentById(assignmentId)
   if (!assignment) notFound()
 
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, assignment.organizationId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
+
   const school = assignment.school
-  const { label: statusLabel, color: statusColor } = getJobStatus(assignment.date, assignment.status ?? '')
+  const { label: statusLabel, color: statusColor } = getJobStatus(assignment.date, assignment.status ?? '', TZ)
 
   // Collect all time-off records linked to this assignment
   const timeOffRecords = assignment.timeOffLinks

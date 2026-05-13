@@ -11,7 +11,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, organizations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -39,8 +39,8 @@ export default async function SubDashboard() {
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  // All time comparisons use Pacific time — server runs UTC
-  const TZ = 'America/Los_Angeles'
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
   const today   = new Date().toLocaleDateString('en-CA', { timeZone: TZ })  // 'YYYY-MM-DD'
   const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) // 'HH:MM'
   const hourPT  = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
@@ -191,6 +191,8 @@ export default async function SubDashboard() {
               const primaryTimeOff = timeOffLinks[0]?.timeOff
               const startDate = primaryTimeOff?.startDate ?? a.date
               const endDate = primaryTimeOff?.endDate ?? null
+              const teacher = primaryTimeOff?.employee?.user
+              const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : null
               return (
                 <Link
                   key={a.id}
@@ -207,6 +209,9 @@ export default async function SubDashboard() {
                           </span>
                         )}
                       </div>
+                      {teacherName && (
+                        <div className="text-sm text-gray-600 mt-0.5">Covering for {teacherName}</div>
+                      )}
                       <div className="text-sm text-gray-500 mt-0.5">
                         {formatDateRange(startDate, endDate)}
                       </div>

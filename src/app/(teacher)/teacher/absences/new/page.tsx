@@ -5,9 +5,14 @@
 
 import { getMyTeacherContext } from '../../../actions'
 import TeacherAbsenceForm from './TeacherAbsenceForm'
+import { db } from '@/db'
+import { organizations } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export default async function NewAbsencePage() {
-  const { employee, reasons, subs, allSchools } = await getMyTeacherContext()
+  const { employee, reasons, subs, allSchools, profile } = await getMyTeacherContext()
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
+  const timezone = org?.timezone ?? 'America/Los_Angeles'
 
   const schoolDayStart = allSchools.find(s => s.id === employee?.schoolId)?.dayStartTime ?? '07:30'
   const schoolDayEnd = allSchools.find(s => s.id === employee?.schoolId)?.dayEndTime ?? '15:30'
@@ -29,6 +34,7 @@ export default async function NewAbsencePage() {
           subs={subs}
           schoolDayStart={schoolDayStart ?? '07:30'}
           schoolDayEnd={schoolDayEnd ?? '15:30'}
+          timezone={timezone}
         />
       )}
     </div>

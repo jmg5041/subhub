@@ -3,7 +3,7 @@
  */
 
 import { db } from '@/db'
-import { subNotificationTokens } from '@/db/schema'
+import { subNotificationTokens, organizations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { formatDateRange } from '@/lib/date-utils'
 
@@ -15,7 +15,7 @@ function formatTime(t: string): string {
   return `${h12}:${min} ${ampm}`
 }
 
-function makeIcsContent(summary: string, date: string, start: string, end: string, location: string): string {
+function makeIcsContent(summary: string, date: string, start: string, end: string, location: string, tz: string): string {
   const datePart = date.replace(/-/g, '')
   const startTime = start.replace(/:/g, '').slice(0, 4) + '00'
   const endTime = end.replace(/:/g, '').slice(0, 4) + '00'
@@ -24,8 +24,8 @@ function makeIcsContent(summary: string, date: string, start: string, end: strin
     'VERSION:2.0',
     'PRODID:-//SubHub//SubHub//EN',
     'BEGIN:VEVENT',
-    `DTSTART;TZID=America/Los_Angeles:${datePart}T${startTime}`,
-    `DTEND;TZID=America/Los_Angeles:${datePart}T${endTime}`,
+    `DTSTART;TZID=${tz}:${datePart}T${startTime}`,
+    `DTEND;TZID=${tz}:${datePart}T${endTime}`,
     `SUMMARY:${summary}`,
     `LOCATION:${location}`,
     'END:VEVENT',
@@ -79,12 +79,14 @@ export default async function ConfirmedPage({
 
   const absence = tokenRow.teacherTimeOff
   const sub = tokenRow.substitute.user
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, absence.organizationId) })
   const icsContent = makeIcsContent(
     `Substitute at ${absence.school.name}`,
     absence.startDate,
     absence.startTime,
     absence.endTime,
-    absence.school.address ?? absence.school.name
+    absence.school.address ?? absence.school.name,
+    org?.timezone ?? 'America/Los_Angeles',
   )
   const icsDataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`
 

@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { organizations, teacherTimeOff } from '@/db/schema'
-import { eq, and, ne } from 'drizzle-orm'
+import { eq, and, ne, inArray } from 'drizzle-orm'
 import { notifyAllSubs } from '@/lib/notifications'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs at 6am in each org's local timezone. Catches same-day positions submitted overnight.
+// Runs at 6am in each org's local timezone. Blasts ALL unfilled positions for today —
+// both positions that were never blasted (not_started) AND positions blasted at 10pm
+// that still have no sub (sent). This ensures every unfilled position gets a 6am push.
+// The 6:20am re-blast then handles anything still unfilled after this run.
 //
 // Scheduled at UTC hours 10–14 to cover all US timezones in both DST and standard time:
 //   10:00 UTC = 6am EDT  |  11:00 UTC = 6am CDT / EST
@@ -40,7 +43,8 @@ export async function GET(req: Request) {
         eq(teacherTimeOff.startDate, today),
         eq(teacherTimeOff.approvalStatus, 'approved'),
         eq(teacherTimeOff.substituteRequired, true),
-        eq(teacherTimeOff.subOutreachStatus, 'not_started'),
+        // Include both never-blasted AND previously-blasted-but-unfilled positions
+        inArray(teacherTimeOff.subOutreachStatus, ['not_started', 'sent']),
         ne(teacherTimeOff.approvalStatus, 'denied'),
       ))
 
