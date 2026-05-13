@@ -36,7 +36,7 @@ export default async function SubJobPage({
     where: eq(subNotificationTokens.token, token),
     with: {
       teacherTimeOff: {
-        with: { school: true },
+        with: { school: true, employee: { with: { user: true } } },
       },
       substitute: {
         with: { user: true },
@@ -97,6 +97,14 @@ export default async function SubJobPage({
               <div className="text-sm text-gray-500 mt-0.5">{absence.school.address}, {absence.school.city}</div>
             )}
           </div>
+          {absence.employee?.user && (
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Covering for</div>
+              <div className="text-sm font-medium text-gray-800">
+                {absence.employee.user.firstName} {absence.employee.user.lastName}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">

@@ -146,6 +146,11 @@ export default async function SubDashboard() {
               <div key={t.id} className="px-5 py-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="font-medium text-gray-900">{t.teacherTimeOff.school.name}</div>
+                  {t.teacherTimeOff.employee?.user && (
+                    <div className="text-sm text-gray-600 mt-0.5">
+                      Covering for {t.teacherTimeOff.employee.user.firstName} {t.teacherTimeOff.employee.user.lastName}
+                    </div>
+                  )}
                   <div className="text-sm text-gray-500 mt-0.5">
                     {formatDateLong(t.teacherTimeOff.startDate)}
                     {' · '}

@@ -107,7 +107,7 @@ export async function getMyPendingTokens() {
       gt(subNotificationTokens.expiresAt, now)
     ),
     with: {
-      teacherTimeOff: { with: { school: true } },
+      teacherTimeOff: { with: { school: true, employee: { with: { user: true } } } },
     },
     orderBy: (t, { asc }) => [asc(t.createdAt)],
   })
