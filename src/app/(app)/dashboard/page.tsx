@@ -57,6 +57,7 @@ export default async function DashboardPage() {
   const TZ = orgRecord?.timezone ?? 'America/Los_Angeles'
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+  const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) // 'HH:MM'
   const localHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
   const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening'
 
@@ -110,9 +111,12 @@ export default async function DashboardPage() {
 
   // "Today" = absence spans today (started on or before today, ends on or after today)
   // Cancelled (denied) absences are excluded from all views
+  // Filled absences are hidden once their end time has passed — no need to see them after the fact
   const todayAbsences = allAbsences.filter(a => {
     const effectiveEnd = a.endDate ?? a.startDate
-    return a.startDate <= today && effectiveEnd >= today && a.approvalStatus !== 'denied'
+    if (a.startDate > today || effectiveEnd < today || a.approvalStatus === 'denied') return false
+    if (a.subOutreachStatus === 'filled' && a.endTime.slice(0, 5) <= nowTime) return false
+    return true
   })
   // "Upcoming" = absence hasn't started yet
   const upcomingAbsences = allAbsences.filter(a => a.startDate > today && a.approvalStatus !== 'denied')
