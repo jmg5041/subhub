@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic'
 //   20 13 * * * = 6:20am PDT  |  20 14 * * * = 6:20am PST
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
