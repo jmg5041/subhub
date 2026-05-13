@@ -6,15 +6,9 @@ import { eq, and, isNull, inArray, ne, sql } from 'drizzle-orm'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs at 5:30pm in each org's local timezone. Marks absences whose last day is
-// today as completed, which removes them from the dashboard and marks linked sub
-// assignments as 'completed' so subs get credit.
-//
-// Assumes no night school — all absences for today are done by 5:30pm.
-//
-// Scheduled at UTC :30 marks to cover all US timezones:
-//   21:30 UTC = 5:30pm EDT  |  22:30 UTC = 5:30pm CDT / EST
-//   23:30 UTC = 5:30pm CST / MDT  |  00:30 UTC = 5:30pm MST / PDT  |  01:30 UTC = 5:30pm PST
+// Runs at 5:30pm Pacific (00:30 UTC next day). Marks absences whose last day is today
+// as completed, which removes them from the dashboard and marks linked sub assignments
+// as 'completed' so subs get credit. Fires once per day.
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -28,10 +22,6 @@ export async function GET(req: Request) {
 
   for (const org of allOrgs) {
     const tz = org.timezone ?? 'America/Los_Angeles'
-    const localHour = parseInt(
-      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
-    )
-    if (localHour !== 17) continue
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 

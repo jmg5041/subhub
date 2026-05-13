@@ -7,14 +7,10 @@ import { notifyAllSubs } from '@/lib/notifications'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs at 6am in each org's local timezone. Blasts ALL unfilled positions for today —
-// both positions that were never blasted (not_started) AND positions blasted at 10pm
-// that still have no sub (sent). This ensures every unfilled position gets a 6am push.
-// The 6:20am re-blast then handles anything still unfilled after this run.
-//
-// Scheduled at UTC hours 10–14 to cover all US timezones in both DST and standard time:
-//   10:00 UTC = 6am EDT  |  11:00 UTC = 6am CDT / EST
-//   12:00 UTC = 6am CST / MDT  |  13:00 UTC = 6am MST / PDT  |  14:00 UTC = 6am PST
+// Runs each morning at 6am Pacific (14:00 UTC). Blasts ALL unfilled positions for today —
+// both positions never blasted (not_started) AND positions blasted last night that still
+// have no sub (sent). The 6:20am re-blast handles anything still unfilled after this.
+// Fires once per day — no localHour check needed.
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -28,10 +24,6 @@ export async function GET(req: Request) {
 
   for (const org of allOrgs) {
     const tz = org.timezone ?? 'America/Los_Angeles'
-    const localHour = parseInt(
-      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
-    )
-    if (localHour !== 6) continue
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
