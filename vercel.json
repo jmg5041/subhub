@@ -1,8 +1,12 @@
 {
   "crons": [
     { "path": "/api/cron/evening-blast",     "schedule": "0 5 * * *"  },
+    { "path": "/api/cron/evening-blast",     "schedule": "0 6 * * *"  },
+    { "path": "/api/cron/morning-blast",     "schedule": "0 13 * * *" },
     { "path": "/api/cron/morning-blast",     "schedule": "0 14 * * *" },
+    { "path": "/api/cron/reblast",           "schedule": "20 13 * * *"},
     { "path": "/api/cron/reblast",           "schedule": "20 14 * * *"},
+    { "path": "/api/cron/unfilled-alert",    "schedule": "30 13 * * *"},
     { "path": "/api/cron/unfilled-alert",    "schedule": "30 14 * * *"},
     { "path": "/api/cron/complete-absences", "schedule": "30 0 * * *" }
   ]

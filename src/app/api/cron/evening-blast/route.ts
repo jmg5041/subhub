@@ -7,8 +7,9 @@ import { notifyAllSubs } from '@/lib/notifications'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs nightly at 10pm Pacific (5:00 UTC). Notifies subs about tomorrow's open positions.
-// Fires once per day — no localHour check needed.
+// Runs at 10pm Pacific. Two UTC entries cover both PDT (UTC-7) and PST (UTC-8):
+//   0 5 * * * = 10pm PDT  |  0 6 * * * = 10pm PST
+// The localHour check ensures each org is only processed when it is actually 10pm there.
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -22,6 +23,10 @@ export async function GET(req: Request) {
 
   for (const org of allOrgs) {
     const tz = org.timezone ?? 'America/Los_Angeles'
+    const localHour = parseInt(
+      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
+    )
+    if (localHour !== 22) continue
 
     // Compute tomorrow in this org's local timezone — can't use UTC arithmetic here
     // because at 10pm the UTC date may already be the next day.

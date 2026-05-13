@@ -7,10 +7,11 @@ import { notifyAllSubs } from '@/lib/notifications'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Runs each morning at 6am Pacific (14:00 UTC). Blasts ALL unfilled positions for today —
-// both positions never blasted (not_started) AND positions blasted last night that still
-// have no sub (sent). The 6:20am re-blast handles anything still unfilled after this.
-// Fires once per day — no localHour check needed.
+// Runs at 6am Pacific. Two UTC entries cover both PDT (UTC-7) and PST (UTC-8):
+//   0 13 * * * = 6am PDT  |  0 14 * * * = 6am PST
+// Blasts ALL unfilled positions for today — both never-blasted (not_started) and
+// blasted last night but still unfilled (sent). The 6:20am re-blast handles anything
+// still unfilled after this run.
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -24,6 +25,10 @@ export async function GET(req: Request) {
 
   for (const org of allOrgs) {
     const tz = org.timezone ?? 'America/Los_Angeles'
+    const localHour = parseInt(
+      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
+    )
+    if (localHour !== 6) continue
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
