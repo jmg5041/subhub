@@ -276,35 +276,32 @@ are immediately marked as declined. This prevents a sub from being double-booked
 server action also rejects acceptance of past-date positions as a second line of defense.
 
 ### Cron schedule (`vercel.json`)
-All times are UTC. Vercel crons fire at fixed UTC times — they do NOT auto-adjust for
-DST. To cover every US timezone (EDT UTC−4 through HST UTC−10) in both DST and standard
-time, each cron has **7 entries** spanning 7 consecutive UTC hours. The route handler
-checks `localHour` per org and only processes orgs where the local time matches the
-target hour — all others are skipped. This means each org gets exactly one blast per day
-regardless of how many crons fire.
+All times are UTC. Vercel crons fire at fixed UTC times and do NOT auto-adjust for DST.
+Vercel also deduplicates same-path entries in some cases, so the previous 7-entries-per-route
+approach was unreliable. The current design uses **2 entries per time-sensitive route** to
+cover both PDT (UTC−7) and PST (UTC−8). A `localHour` guard in each handler ensures the
+org is only processed once, at the correct local time.
 
-| Cron | Target local time | UTC hours | What it does |
-|------|-------------------|-----------|-------------|
-| Evening blast | 10:00 PM | `0 2–8 * * *` | Notifies subs for tomorrow's `not_started` positions |
-| Morning blast | 6:00 AM | `0 10–16 * * *` | Catches same-day positions submitted overnight |
-| Re-blast | 6:20 AM | `20 10–16 * * *` | Re-notifies non-decliners if positions still unfilled |
-| Unfilled alert | 6:30 AM | `30 10–16 * * *` | Emails admin if any position is still unfilled |
-| Complete absences | 5:30 PM | `30 21–3 * * *` (next day UTC) | Stamps `completedAt`, removes from dashboard, credits subs |
+| Cron | Target local time | UTC entries | What it does |
+|------|-------------------|-------------|-------------|
+| Evening blast | 10:00 PM | `0 5`, `0 6` | Notifies subs for tomorrow's unfilled positions |
+| Morning blast | 6:00 AM | `0 13`, `0 14` | Blasts all unfilled positions for today (`not_started` + `sent`) |
+| Re-blast | 6:20 AM | `20 13`, `20 14` | Re-notifies non-decliners if positions still unfilled |
+| Unfilled alert | 6:30 AM | `30 13`, `30 14` | Emails admin if any position is still unfilled |
+| Complete absences | ~5:30 PM | `30 0` (next day UTC) | Stamps `completedAt`, credits subs |
 
-**Total: 35 cron entries** in `vercel.json` (well under Vercel Pro's 64-entry limit).
+**Total: 9 cron entries** in `vercel.json`.
 
-Each cron route reads `organizations.timezone` for every org and uses
-`toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false })`
-to compute the local hour. Orgs without a timezone fall back to `'America/Los_Angeles'`.
+How the two-entry DST pattern works: `0 13 * * *` fires at 6am PDT; `0 14 * * *` fires at
+6am PST. The `localHour === 6` check passes for exactly one of them each day depending on
+the season. The other firing is ignored.
 
 The timezone is configurable per org in **Settings → Timezone**. It must be set correctly
 at onboarding — all blast timing depends on it.
 
-Crons only process positions with `subOutreachStatus = 'not_started'`. Once a blast runs,
-status becomes `'sent'` and the morning/evening crons won't touch it again. The re-blast
-cron specifically targets `sent` positions that are still unfilled, calling
-`reBlastNonDecliners()` for each — which skips subs who explicitly declined and
-re-notifies everyone else.
+**Morning blast processes both `not_started` and `sent` positions.** If the 10pm evening
+blast went out but no sub was found, the 6am blast re-notifies everyone. The 6:20am
+re-blast is a final attempt for anything still unfilled after 6am.
 
 ### Manual blast
 Admin can click "Notify Subs Immediately" on any Find Sub page. This bundles all
@@ -372,7 +369,7 @@ All cron routes check a `Bearer {CRON_SECRET}` authorization header to prevent
 unauthorized calls. Vercel sends this automatically from the cron config in `vercel.json`.
 
 - `src/app/api/cron/evening-blast/route.ts` — loops all orgs, fires at 10pm local, finds tomorrow's `not_started` positions per org, calls `notifyAllSubs`. "Tomorrow" is computed in the org's local timezone (not UTC) to avoid off-by-one at night.
-- `src/app/api/cron/morning-blast/route.ts` — same pattern, fires at 6am local, finds today's `not_started` positions
+- `src/app/api/cron/morning-blast/route.ts` — fires at 6am local, finds today's `not_started` AND `sent`+unfilled positions (covers both new absences and ones blasted last night with no takers)
 - `src/app/api/cron/reblast/route.ts` — fires at 6:20am local, finds today's `sent`+unfilled positions, calls `reBlastNonDecliners()` per position
 - `src/app/api/cron/unfilled-alert/route.ts` — fires at 6:30am local, emails org admin if any position is still unfilled
 - `src/app/api/cron/complete-absences/route.ts` — fires at 5:30pm local, stamps `completedAt` on absences whose last day is today (`COALESCE(endDate, startDate) = today`), marks linked `subAssignments` as `'completed'`
@@ -384,8 +381,11 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 **Operational (needed for daily use):**
 - ~~Completed-absences cron~~ — DONE: fires at 5:30pm local, uses `COALESCE(endDate, startDate) = today`
 - ~~Payroll report~~ — DONE: `/reports/sub-pay` printable page + CSV download at `/api/reports/sub-pay`
-- ~~Multi-timezone cron support~~ — DONE: 35 vercel.json entries, per-org timezone, `localHour` guard in every cron route
+- ~~Multi-timezone cron support~~ — DONE: 9 vercel.json entries (2 per route for PDT/PST), per-org timezone, `localHour` guard in time-sensitive cron routes
 - ~~All pages hardcoding Pacific timezone~~ — DONE: all 12 files updated to use org timezone dynamically
+- ~~IVR gather route silent on acceptance~~ — DONE: `twiml()` helper was missing `<Say>` tags; Twilio silently ignored plain text in `<Response>`
+- ~~Filled absences staying on admin dashboard all day~~ — DONE: dashboard now hides filled absences once their end time has passed (real-time, no cron dependency)
+- ~~Sub dashboard not showing teacher name~~ — DONE: upcoming jobs card shows "Covering for [Teacher Name]"
 
 **Mid-term (before second school):**
 - Admin onboarding wizard: multi-step school setup (org, schools, pay model, users, subs). **Timezone must be step 1** — all blast timing depends on it.
