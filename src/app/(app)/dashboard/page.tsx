@@ -115,7 +115,8 @@ export default async function DashboardPage() {
   const todayAbsences = allAbsences.filter(a => {
     const effectiveEnd = a.endDate ?? a.startDate
     if (a.startDate > today || effectiveEnd < today || a.approvalStatus === 'denied') return false
-    if (a.subOutreachStatus === 'filled' && a.endTime.slice(0, 5) <= nowTime) return false
+    const isCovered = a.subOutreachStatus === 'filled' || !a.substituteRequired
+    if (isCovered && a.endTime.slice(0, 5) <= nowTime) return false
     return true
   })
   // "Upcoming" = absence hasn't started yet
