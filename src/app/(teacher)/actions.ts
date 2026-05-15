@@ -10,7 +10,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools, subSchoolAssignments } from '@/db/schema'
+import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools, subSchoolAssignments, subNotificationTokens, assignmentTimeOff } from '@/db/schema'
 import { eq, and, asc, desc, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyAdminsOfAbsenceRequest } from '@/lib/notifications'
@@ -185,6 +185,9 @@ export async function deleteAbsenceRequest(id: string) {
     return { error: 'This request cannot be deleted — substitutes have already been notified or a sub has accepted.' }
   }
 
+  // Clean up child records first to avoid FK constraint violations
+  await db.delete(subNotificationTokens).where(eq(subNotificationTokens.teacherTimeOffId, id))
+  await db.delete(assignmentTimeOff).where(eq(assignmentTimeOff.timeOffId, id))
   await db.delete(teacherTimeOff).where(eq(teacherTimeOff.id, id))
 
   revalidatePath('/teacher/absences')
