@@ -143,6 +143,9 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
     .limit(1)
     .then(rows => rows[0])
 
+  const teacherUser = tokenRow.teacherTimeOff.employee?.user
+  const teacherName = teacherUser ? `${teacherUser.firstName} ${teacherUser.lastName}` : null
+
   if (subUser?.email) {
     const schoolName = tokenRow.teacherTimeOff.school.name
     const dateStr = absence.endDate && absence.endDate !== absence.startDate
@@ -163,7 +166,8 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
             <h2 style="color: #16a34a; margin-top: 0;">You're confirmed!</h2>
             <p>Hi ${subUser.firstName}, you've accepted the following substitute teaching position:</p>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px; width: 60px;">School</td><td style="padding: 6px 0; font-size: 14px; font-weight: 600;">${schoolName}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px; width: 80px;">School</td><td style="padding: 6px 0; font-size: 14px; font-weight: 600;">${schoolName}</td></tr>
+              ${teacherName ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Teacher</td><td style="padding: 6px 0; font-size: 14px;">${teacherName}</td></tr>` : ''}
               <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Date</td><td style="padding: 6px 0; font-size: 14px;">${dateStr}</td></tr>
               <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Time</td><td style="padding: 6px 0; font-size: 14px;">${timeStr}</td></tr>
             </table>
@@ -172,12 +176,9 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
           </div>
         </div>
       `,
-      text: `You're confirmed!\n\nSchool: ${schoolName}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.\n\nView your dashboard: ${appUrl}/sub/dashboard`,
+      text: `You're confirmed!\n\nSchool: ${schoolName}${teacherName ? `\nTeacher: ${teacherName}` : ''}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.\n\nView your dashboard: ${appUrl}/sub/dashboard`,
     }).catch(() => {})
   }
-
-  const teacherUser = tokenRow.teacherTimeOff.employee?.user
-  const teacherName = teacherUser ? `${teacherUser.firstName} ${teacherUser.lastName}` : null
 
   return {
     success: true,
