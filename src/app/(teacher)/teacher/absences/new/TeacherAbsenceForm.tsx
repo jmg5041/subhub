@@ -8,6 +8,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { submitAbsenceRequest } from '../../../actions'
+import { FileUploadInput, type UploadedFile } from '@/components/FileUploadInput'
 
 type Reason = { id: string; name: string }
 type Sub = { id: string; firstName: string; lastName: string }
@@ -18,12 +19,16 @@ export default function TeacherAbsenceForm({
   schoolDayStart,
   schoolDayEnd,
   timezone,
+  orgId,
+  userId,
 }: {
   reasons: Reason[]
   subs: Sub[]
   schoolDayStart: string
   schoolDayEnd: string
   timezone: string
+  orgId: string
+  userId: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -37,7 +42,9 @@ export default function TeacherAbsenceForm({
   const [reasonId, setReasonId] = useState('')
   const [subRequired, setSubRequired] = useState(true)
   const [notesToSub, setNotesToSub] = useState('')
+  const [notesToAdmin, setNotesToAdmin] = useState('')
   const [requestedSubId, setRequestedSubId] = useState('')
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
 
   function handleStartDateChange(val: string) {
     setStartDate(val)
@@ -59,7 +66,9 @@ export default function TeacherAbsenceForm({
         reasonId: reasonId || null,
         substituteRequired: subRequired,
         notesToSub,
+        notesToAdmin,
         requestedSubId: requestedSubId || null,
+        attachments: uploadedFiles,
       })
 
       if ('error' in res) {
@@ -181,6 +190,30 @@ export default function TeacherAbsenceForm({
           />
         </div>
       )}
+
+      {/* Notes to admin */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Notes to Admin <span className="text-gray-400 font-normal">(optional)</span></label>
+        <textarea
+          value={notesToAdmin}
+          onChange={e => setNotesToAdmin(e.target.value)}
+          rows={2}
+          placeholder="Anything your admin should know..."
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        />
+      </div>
+
+      {/* File attachments */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Attachments <span className="text-gray-400 font-normal">(optional)</span></label>
+        <FileUploadInput
+          orgId={orgId}
+          userId={userId}
+          value={uploadedFiles}
+          onChange={setUploadedFiles}
+        />
+        <p className="text-xs text-gray-400 mt-1">Lesson plans, seating charts, or any files the sub may need.</p>
+      </div>
 
       {/* Request specific sub */}
       {subRequired && subs.length > 0 && (

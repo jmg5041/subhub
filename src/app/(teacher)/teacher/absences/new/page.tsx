@@ -35,6 +35,8 @@ export default async function NewAbsencePage() {
           schoolDayStart={schoolDayStart ?? '07:30'}
           schoolDayEnd={schoolDayEnd ?? '15:30'}
           timezone={timezone}
+          orgId={profile.organizationId}
+          userId={profile.id}
         />
       )}
     </div>

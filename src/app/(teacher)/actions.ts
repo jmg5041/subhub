@@ -10,7 +10,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools, subSchoolAssignments, subNotificationTokens, assignmentTimeOff } from '@/db/schema'
+import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools, subSchoolAssignments, subNotificationTokens, assignmentTimeOff, attachments } from '@/db/schema'
 import { eq, and, asc, desc, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyAdminsOfAbsenceRequest } from '@/lib/notifications'
@@ -117,18 +117,20 @@ export async function getMyAbsences() {
 
 export async function submitAbsenceRequest(data: {
   startDate: string
-  endDate: string | null   // null = single day
+  endDate: string | null
   startTime: string
   endTime: string
   reasonId: string | null
   substituteRequired: boolean
   notesToSub: string
+  notesToAdmin: string
   requestedSubId: string | null
+  attachments?: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[]
 }) {
   const { profile, employee, orgId } = await getTeacherContext()
   if (!employee) return { error: 'No employee record found — contact your admin.' }
 
-  await db.insert(teacherTimeOff).values({
+  const [newAbsence] = await db.insert(teacherTimeOff).values({
     organizationId: orgId,
     schoolId: employee.schoolId,
     employeeId: employee.id,
@@ -139,10 +141,25 @@ export async function submitAbsenceRequest(data: {
     reasonId: data.reasonId || null,
     substituteRequired: data.substituteRequired,
     notesToSub: data.notesToSub || null,
+    notesToAdmin: data.notesToAdmin || null,
     requestedSubId: data.requestedSubId || null,
     approvalStatus: 'approved',
     subOutreachStatus: 'not_started',
-  })
+  }).returning({ id: teacherTimeOff.id })
+
+  if (data.attachments?.length && newAbsence) {
+    await db.insert(attachments).values(
+      data.attachments.map(a => ({
+        organizationId: orgId,
+        teacherTimeOffId: newAbsence.id,
+        uploadedBy: profile.id,
+        fileName: a.fileName,
+        fileUrl: a.fileUrl,
+        fileSize: a.fileSize,
+        fileType: a.fileType,
+      }))
+    )
+  }
 
   // Notify admins so they know a request came in and can cancel before 6am if needed
   if (data.substituteRequired) {
