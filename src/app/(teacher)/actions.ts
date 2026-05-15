@@ -126,7 +126,7 @@ export async function submitAbsenceRequest(data: {
   requestedSubId: string | null
 }) {
   const { profile, employee, orgId } = await getTeacherContext()
-  if (!employee) throw new Error('No employee record found — contact your admin.')
+  if (!employee) return { error: 'No employee record found — contact your admin.' }
 
   await db.insert(teacherTimeOff).values({
     organizationId: orgId,
@@ -170,7 +170,7 @@ export async function submitAbsenceRequest(data: {
  */
 export async function deleteAbsenceRequest(id: string) {
   const { employee } = await getTeacherContext()
-  if (!employee) throw new Error('No employee record found')
+  if (!employee) return { error: 'No employee record found' }
 
   // Load the record first to verify ownership and outreach status
   const record = await db.query.teacherTimeOff.findFirst({
