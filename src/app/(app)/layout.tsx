@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { subSchoolAssignments } from '@/db/schema';
+import { organizations, subSchoolAssignments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export default async function AppLayout({
@@ -35,7 +35,7 @@ export default async function AppLayout({
   // schools is a foreign key join — Supabase returns it as an array
   const { data: profile } = await supabase
     .from('users')
-    .select('first_name, last_name, role, school_id, avatar_url, schools(name)')
+    .select('first_name, last_name, role, school_id, avatar_url, organization_id, schools(name)')
     .eq('id', user.id)
     .single();
 
@@ -45,17 +45,26 @@ export default async function AppLayout({
     ? profile.schools[0]?.name
     : (profile?.schools as unknown as { name: string } | null)?.name;
 
-  // Pending sub join requests — only fetch for admin/principal roles
+  // Admin/principal/staff: check onboarding gate + pending sub count
   let pendingSubCount = 0
-  if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role)) {
-    const { data: orgData } = await supabase.from('users').select('organization_id').eq('id', user.id).single()
-    if (orgData?.organization_id) {
-      const rows = await db
-        .select({ id: subSchoolAssignments.id })
+  const orgId = (profile as unknown as { organization_id?: string })?.organization_id
+  if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role) && orgId) {
+    const [org, pendingRows] = await Promise.all([
+      db.query.organizations.findFirst({
+        where: eq(organizations.id, orgId),
+        columns: { onboardingCompletedAt: true },
+      }),
+      db.select({ id: subSchoolAssignments.id })
         .from(subSchoolAssignments)
-        .where(and(eq(subSchoolAssignments.organizationId, orgData.organization_id), eq(subSchoolAssignments.status, 'pending')))
-      pendingSubCount = rows.length
+        .where(and(eq(subSchoolAssignments.organizationId, orgId), eq(subSchoolAssignments.status, 'pending'))),
+    ])
+
+    // Redirect to onboarding wizard if the org hasn't finished setup
+    if (!org?.onboardingCompletedAt) {
+      redirect('/onboarding')
     }
+
+    pendingSubCount = pendingRows.length
   }
 
   return (

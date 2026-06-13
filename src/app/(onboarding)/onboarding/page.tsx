@@ -1,11 +1,62 @@
-// Onboarding wizard placeholder — Chunk 2 will build the full multi-step wizard here
-export default function OnboardingPage() {
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { db } from '@/db'
+import { users, organizations, schools } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import OnboardingWizard from './OnboardingWizard'
+
+export default async function OnboardingPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
+
+  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
+  if (!profile) redirect('/auth/login')
+
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, profile.organizationId),
+  })
+
+  // If onboarding is already complete, send them to the dashboard
+  if (org?.onboardingCompletedAt) redirect('/dashboard')
+
+  const existingSchools = await db.query.schools.findMany({
+    where: eq(schools.organizationId, profile.organizationId),
+  })
+
+  // Resume at step 2 if they already added schools
+  const startStep = existingSchools.length > 0 ? 2 : 1
+
   return (
-    <div className="rounded-lg bg-white p-8 shadow-sm text-center space-y-3">
-      <h1 className="text-2xl font-bold text-gray-900">Welcome to SubHub!</h1>
-      <p className="text-gray-600">
-        Your 120-day free trial is active. The setup wizard is coming soon.
+    <div className="space-y-2">
+      <h1 className="text-2xl font-bold text-gray-900">Set up your school</h1>
+      <p className="text-sm text-gray-500">
+        Complete these steps to start managing substitutes. You can always change these settings later.
       </p>
+      <div className="pt-4">
+        <OnboardingWizard
+          org={{
+            timezone:       org?.timezone       ?? null,
+            subPayModel:    org?.subPayModel     ?? null,
+            halfDayHours:   org?.halfDayHours    ?? null,
+            fullDayHours:   org?.fullDayHours    ?? null,
+            autoNotifySubs: org?.autoNotifySubs  ?? null,
+            notifyByEmail:  org?.notifyByEmail   ?? null,
+            notifyBySms:    org?.notifyBySms     ?? null,
+            notifyByPhone:  org?.notifyByPhone   ?? null,
+          }}
+          orgId={profile.organizationId}
+          initialSchools={existingSchools.map((s) => ({
+            id:           s.id,
+            name:         s.name,
+            city:         s.city,
+            county:       s.county,
+            dayStartTime: s.dayStartTime,
+            dayEndTime:   s.dayEndTime,
+          }))}
+          startStep={startStep}
+        />
+      </div>
     </div>
   )
 }
