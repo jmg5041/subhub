@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { invitations } from '@/db/schema'
+import { invitations, users } from '@/db/schema'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lt, eq } from 'drizzle-orm'
 
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     columns: { id: true, email: true, usedAt: true },
   })
 
-  // Only clean up invites that were never used
+  // Only clean up invites that were never used (usedAt = cancelled or accepted)
   const toClean = expired.filter(i => !i.usedAt)
 
   if (toClean.length === 0) {
@@ -38,10 +38,14 @@ export async function GET(request: Request) {
 
   let cleaned = 0
   for (const invite of toClean) {
-    // Delete unconfirmed Supabase auth user if one exists
-    const authUser = authByEmail.get(invite.email)
-    if (authUser && !authUser.email_confirmed_at) {
-      await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+    // Only delete the Supabase auth user if they have no users row in our DB —
+    // a broken invite link can confirm the email in Supabase without creating a users row
+    const existingUser = await db.query.users.findFirst({ where: eq(users.email, invite.email) })
+    if (!existingUser) {
+      const authUser = authByEmail.get(invite.email)
+      if (authUser) {
+        await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+      }
     }
 
     // Delete this invitation row

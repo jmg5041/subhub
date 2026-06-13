@@ -174,7 +174,10 @@ export async function resendInvite(formData: FormData) {
   return { success: true }
 }
 
-// Cancels a pending invite: removes the invitation row and the unconfirmed Supabase auth user
+// Cancels a pending invite: removes the invitation row and the dangling Supabase auth user.
+// We check our own users table (not Supabase's email_confirmed_at) to decide whether the
+// auth account is safe to delete — a clicked-but-broken invite link can mark the email as
+// confirmed in Supabase while leaving no users row in our DB.
 export async function cancelInvite(formData: FormData) {
   const { orgId } = await getAdminContext()
   const supabaseAdmin = createAdminClient()
@@ -186,14 +189,20 @@ export async function cancelInvite(formData: FormData) {
   })
   if (!invite) return { error: 'Invite not found' }
 
-  // Delete the invitation row
-  await db.delete(invitations).where(eq(invitations.email, email))
+  // Mark as cancelled (keep the row so the setup checklist stays satisfied)
+  await db.update(invitations)
+    .set({ usedAt: new Date() })
+    .where(and(eq(invitations.email, email), eq(invitations.organizationId, orgId)))
 
-  // Delete the unconfirmed Supabase auth user if they exist
-  const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  const authUser = authUsers.find(u => u.email === email)
-  if (authUser && !authUser.email_confirmed_at) {
-    await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+  // Delete the Supabase auth user only if they have no users row in our DB.
+  // A confirmed-but-broken invite leaves email_confirmed_at set but no users row.
+  const existingUser = await db.query.users.findFirst({ where: eq(users.email, email) })
+  if (!existingUser) {
+    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const authUser = authUsers.find(u => u.email === email)
+    if (authUser) {
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+    }
   }
 
   revalidatePath('/admin/users')
