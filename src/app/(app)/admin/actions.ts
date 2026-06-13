@@ -296,6 +296,20 @@ export async function deleteUser(formData: FormData) {
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!existing || existing.organizationId !== orgId) return { error: 'User not found' }
 
+  // Block deletion of admin/principal — must demote to another role first
+  if (existing.role === 'admin' || existing.role === 'principal') {
+    return { error: 'Admins and principals cannot be deleted directly. Change their role to Staff or Teacher first.' }
+  }
+
+  // Safety net: ensure the org still has at least one admin/principal after deletion
+  const adminUsers = await db.query.users.findMany({
+    where: and(eq(users.organizationId, orgId), or(eq(users.role, 'admin'), eq(users.role, 'principal'))),
+    columns: { id: true },
+  })
+  if (adminUsers.length === 0) {
+    return { error: 'Cannot delete the only administrator. Add another admin first.' }
+  }
+
   // Delete substitute-related rows in FK-safe order
   const sub = await db.query.substitutes.findFirst({ where: eq(substitutes.userId, userId) })
   if (sub) {

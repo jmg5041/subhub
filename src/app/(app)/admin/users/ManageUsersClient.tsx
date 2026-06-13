@@ -117,6 +117,17 @@ export default function ManageUsersClient({
 
   function handleSaveEdit() {
     if (!editingUser) return
+
+    const isAdminRole = (r: string) => r === 'admin' || r === 'principal'
+    const demotingAdmin = isAdminRole(editingUser.role) && !isAdminRole(editForm.role)
+
+    // Warn when demoting an admin — this makes them deletable
+    if (demotingAdmin) {
+      if (!confirm(
+        `Changing ${editingUser.firstName} ${editingUser.lastName}'s role from ${editingUser.role} to ${editForm.role} will make this account deletable.\n\nDo you want to proceed?`
+      )) return
+    }
+
     startTransition(async () => {
       // Handle role change first — it has the guard that blocks teacher→sub
       if (editForm.role !== editingUser.role) {
@@ -378,13 +389,17 @@ export default function ManageUsersClient({
               )}
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-              <button
-                onClick={() => handleDelete(editingUser)}
-                disabled={isPending}
-                className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
-              >
-                Delete user permanently
-              </button>
+              {(editingUser.role === 'admin' || editingUser.role === 'principal') ? (
+                <p className="text-xs text-gray-400">To remove an admin, change their role to Staff or Teacher first.</p>
+              ) : (
+                <button
+                  onClick={() => handleDelete(editingUser)}
+                  disabled={isPending}
+                  className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+                >
+                  Delete user permanently
+                </button>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setEditingUser(null)}
