@@ -721,6 +721,12 @@ export default function ManageUsersClient({
         </div>
       </div>
 
+      {/* Quick-reference tips */}
+      <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-1">
+        <p><span className="font-semibold">Resetting a password:</span> Open a user&apos;s Edit panel and use the &quot;Reset password&quot; option in the form.</p>
+        <p><span className="font-semibold">Removing an admin:</span> Admins cannot be deleted directly. First change their role to Staff or Teacher, then you can delete them.</p>
+      </div>
+
       {/* ── Pending Invites ── */}
       {pendingInvites.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white">
