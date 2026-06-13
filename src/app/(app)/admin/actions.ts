@@ -189,6 +189,21 @@ export async function updateUserRole(formData: FormData) {
     }
   }
 
+  // Block demoting the last admin/principal — org must always have at least one
+  const target = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { role: true, organizationId: true } })
+  if (target && (target.role === 'admin' || target.role === 'principal') && target.organizationId === orgId) {
+    const newRoleIsAdmin = role === 'admin' || role === 'principal'
+    if (!newRoleIsAdmin) {
+      const adminCount = await db.query.users.findMany({
+        where: and(eq(users.organizationId, orgId), or(eq(users.role, 'admin'), eq(users.role, 'principal'))),
+        columns: { id: true },
+      })
+      if (adminCount.length <= 1) {
+        return { error: 'Cannot demote the only administrator. Add another admin first.' }
+      }
+    }
+  }
+
   await db
     .update(users)
     .set({ role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute' })
