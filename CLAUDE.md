@@ -160,9 +160,10 @@ This lets an admin share a recovery link from their own logged-in browser.
 
 | Table | Purpose |
 |-------|---------|
-| `organizations` | Top-level org (school district). Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms`, `notifyByPhone`, `timezone` (IANA tz name, default `'America/Los_Angeles'`) |
+| `organizations` | Top-level org. Has `autoNotifySubs`, `notifyByEmail`, `notifyBySms`, `notifyByPhone`, `timezone`. Billing fields (migration 0014): `subscriptionStatus` ('trial'/'active'/'past_due'/'expired'), `paidThrough` (date), `paymentMethod` ('stripe'/'check'/'comp'), `stripeCustomerId`, `stripeSubscriptionId`, `onboardingCompletedAt` (null = wizard not done) |
+| `billing_events` | Audit log of check payments, Stripe payments, status changes, notes. Written by `/platform/[orgId]` manual form and (future) Stripe webhooks. `createdBy` null = webhook |
 | `schools` | Campus within an org. Has `dayStartTime` / `dayEndTime` (HH:MM:SS) |
-| `users` | Everyone. `role` enum: admin/principal/staff/teacher/substitute |
+| `users` | Everyone. `role` enum: admin/principal/staff/teacher/substitute. `isPlatformAdmin` boolean (migration 0014) gates `/platform` access |
 | `employees` | Teacher/staff as payroll employee. Links `user → school`. One user can have multiple rows (one per school — e.g. a PE teacher at ES and MS). Never delete a row that has `teacherTimeOff` references. |
 | `teacher_time_off` | An absence gap. Has `approvalStatus`, `subOutreachStatus`, `substituteRequired`, `completedAt` (timestamp — set by cron when absence's last day ends) |
 | `sub_assignments` | A sub covering a gap. Separate from time-off (decoupled model) |
@@ -294,7 +295,8 @@ org is only processed once, at the correct local time.
 | Unfilled alert | 6:30 AM | `30 13`, `30 14` | Emails admin if any position is still unfilled |
 | Complete absences | ~5:30 PM | `30 0` (next day UTC) | Stamps `completedAt`, credits subs |
 
-**Total: 9 cron entries** in `vercel.json`.
+**Total: 10 cron entries** in `vercel.json` (9 notification/completion + 1 cleanup).
+The 10th: `cleanup-invites` at `0 2 * * *` (2am UTC nightly) — deletes expired unused invitations and their dangling Supabase auth accounts.
 
 How the two-entry DST pattern works: `0 13 * * *` fires at 6am PDT; `0 14 * * *` fires at
 6am PST. The `localHour === 6` check passes for exactly one of them each day depending on
@@ -392,18 +394,24 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 - ~~Sub dashboard not showing teacher name~~ — DONE: upcoming jobs card shows "Covering for [Teacher Name]"
 
 **Mid-term (before second school):**
-- Admin onboarding wizard: multi-step school setup (org, schools, pay model, users, subs). **Timezone must be step 1** — all blast timing depends on it.
-- Teacher onboarding: simple first-login walkthrough
-- Sub onboarding: profile, availability, schools
+- ~~Admin onboarding wizard~~ — DONE: 3-step wizard (School Info → Campuses → Finish) at `/onboarding`; gate in `(app)` layout redirects unfinished orgs
+- ~~Marketing/signup self-registration~~ — DONE: `/auth/signup` with 120-day free trial provisioning; `provisionSelfSignupOrg()` in `src/lib/self-signup.ts`
+- ~~Billing enforcement~~ — DONE: `getBillingState()` in `src/lib/billing.ts`; expired orgs → `/billing`; amber `BillingBanner` for trial_ending/past_due
+- ~~Platform staff dashboard~~ — DONE: `/platform` (dark theme, isPlatformAdmin gate); org table; `/platform/[orgId]` with check payment form, billing timeline, user management (reset password, clear stuck auth)
+- ~~Reports~~ — DONE: Teacher Absence Summary, Fill Rate Report added; Sub Pay Report improved (sub filter, phone, multi-page print fix)
+- Teacher onboarding: simple first-login walkthrough (deferred — schools can invite directly)
+- Sub onboarding: profile, availability, schools (partially done via sub portal)
 
 **Longer-term:**
-- Marketing/signup site: school discovers SubHub and self-registers
-- Payment system: Stripe subscriptions, tier by school size, admin discount override
+- Stripe payments: subscriptions, tier by school size; `/billing` page has stub tier cards ready
+- Sub rating UI: DB columns exist (`subFeedbackRating`, `subFeedbackNotes` on `sub_assignments`), no UI yet
+- Sub post-assignment report/notes to teacher: no DB table or UI yet
 
 **Deferred:**
 - Sub job-board: subs browse open positions and apply
 - Rich text for notes-to-sub
 - Google OAuth consent screen: shows raw Supabase project ID — fix in Google Cloud Console
+- Microsoft SSO (relevant for school districts on Microsoft 365 — Supabase toggle when needed)
 
 ---
 
