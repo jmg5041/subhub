@@ -387,6 +387,31 @@ export default function ManageUsersClient({
                   </div>
                 </div>
               )}
+
+              {/* Reset Password — in body so it doesn't overflow the footer */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reset Password</label>
+                {tempPasswordUserId === editingUser.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="New password (min 8 chars)"
+                      value={tempPassValue}
+                      onChange={e => setTempPassValue(e.target.value)}
+                      className="text-sm border border-gray-300 rounded-md px-3 py-2 w-56 focus:outline-none focus:border-blue-500"
+                    />
+                    <button onClick={() => handleSetTempPassword(editingUser.id)} disabled={isPending}
+                      className="text-sm text-blue-600 hover:underline">Set</button>
+                    <button onClick={() => { setTempPasswordUserId(null); setTempPassValue('') }}
+                      className="text-sm text-gray-400 hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setTempPasswordUserId(editingUser.id); setTempPassValue('') }}
+                    className="text-sm text-gray-400 hover:text-gray-700 underline">
+                    Set a new password for this user
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
               {(editingUser.role === 'admin' || editingUser.role === 'principal') ? (
@@ -401,27 +426,6 @@ export default function ManageUsersClient({
                 </button>
               )}
               <div className="flex gap-3 items-center">
-                {/* Reset Password — inline inside edit modal */}
-                {tempPasswordUserId === editingUser.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      placeholder="New password"
-                      value={tempPassValue}
-                      onChange={e => setTempPassValue(e.target.value)}
-                      className="text-xs border border-gray-300 rounded px-2 py-1 w-32 focus:outline-none"
-                    />
-                    <button onClick={() => handleSetTempPassword(editingUser.id)} disabled={isPending}
-                      className="text-xs text-blue-600 hover:underline">Set</button>
-                    <button onClick={() => setTempPasswordUserId(null)}
-                      className="text-xs text-gray-400 hover:underline">Cancel</button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setTempPasswordUserId(editingUser.id); setTempPassValue('') }}
-                    className="text-sm text-gray-400 hover:text-gray-700">
-                    Reset password
-                  </button>
-                )}
                 <button
                   onClick={() => setEditingUser(null)}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
