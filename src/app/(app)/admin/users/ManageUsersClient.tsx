@@ -400,7 +400,28 @@ export default function ManageUsersClient({
                   Delete user permanently
                 </button>
               )}
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
+                {/* Reset Password — inline inside edit modal */}
+                {tempPasswordUserId === editingUser.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="New password"
+                      value={tempPassValue}
+                      onChange={e => setTempPassValue(e.target.value)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 w-32 focus:outline-none"
+                    />
+                    <button onClick={() => handleSetTempPassword(editingUser.id)} disabled={isPending}
+                      className="text-xs text-blue-600 hover:underline">Set</button>
+                    <button onClick={() => setTempPasswordUserId(null)}
+                      className="text-xs text-gray-400 hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setTempPasswordUserId(editingUser.id); setTempPassValue('') }}
+                    className="text-sm text-gray-400 hover:text-gray-700">
+                    Reset password
+                  </button>
+                )}
                 <button
                   onClick={() => setEditingUser(null)}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
@@ -665,23 +686,6 @@ export default function ManageUsersClient({
               </span>
               {u.status === 'inactive' && (
                 <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
-              )}
-              {tempPasswordUserId === u.id ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    placeholder="New temp password"
-                    value={tempPassValue}
-                    onChange={e => setTempPassValue(e.target.value)}
-                    className="text-xs border border-gray-300 rounded px-2 py-1 w-36 focus:outline-none"
-                  />
-                  <button onClick={() => handleSetTempPassword(u.id)} disabled={isPending} className="text-xs text-blue-600 hover:underline">Set</button>
-                  <button onClick={() => setTempPasswordUserId(null)} className="text-xs text-gray-400 hover:underline">Cancel</button>
-                </div>
-              ) : (
-                <button onClick={() => setTempPasswordUserId(u.id)} className="text-xs text-gray-400 hover:text-gray-700">
-                  Set password
-                </button>
               )}
               {(u.role !== 'admin' && u.role !== 'principal') && (
                 u.status === 'inactive' ? (
