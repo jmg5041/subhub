@@ -683,22 +683,24 @@ export default function ManageUsersClient({
                   Set password
                 </button>
               )}
-              {u.status === 'inactive' ? (
-                <button
-                  onClick={() => handleReactivate(u.id, `${u.firstName} ${u.lastName}`)}
-                  disabled={isPending}
-                  className="text-xs text-green-600 hover:text-green-800"
-                >
-                  Reactivate
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleDeactivate(u.id, `${u.firstName} ${u.lastName}`)}
-                  disabled={isPending}
-                  className="text-xs text-red-400 hover:text-red-600"
-                >
-                  Deactivate
-                </button>
+              {(u.role !== 'admin' && u.role !== 'principal') && (
+                u.status === 'inactive' ? (
+                  <button
+                    onClick={() => handleReactivate(u.id, `${u.firstName} ${u.lastName}`)}
+                    disabled={isPending}
+                    className="text-xs text-green-600 hover:text-green-800"
+                  >
+                    Reactivate
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleDeactivate(u.id, `${u.firstName} ${u.lastName}`)}
+                    disabled={isPending}
+                    className="text-xs text-red-400 hover:text-red-600"
+                  >
+                    Deactivate
+                  </button>
+                )
               )}
               <button
                 onClick={() => openEditModal(u)}
