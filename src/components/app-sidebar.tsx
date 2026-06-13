@@ -91,7 +91,7 @@ export function AppSidebar({
 
   return (
     <aside className={cn(
-      'flex h-[100dvh] w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white',
+      'flex h-[100dvh] w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-white print:hidden',
       'md:relative md:translate-x-0',
       'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out md:transition-none',
       isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',

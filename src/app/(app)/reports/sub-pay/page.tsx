@@ -13,8 +13,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, subAssignments, organizations } from '@/db/schema'
-import { eq, and, gte, lte, ne } from 'drizzle-orm'
+import { users, subAssignments, organizations, substitutes } from '@/db/schema'
+import { eq, and, gte, lte, ne, asc } from 'drizzle-orm'
 import PrintButton from './PrintButton'
 
 function formatTime(t: string) {
@@ -43,7 +43,7 @@ function fmt(n: string | null | undefined) {
 export default async function SubPayReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>
+  searchParams: Promise<{ from?: string; to?: string; sub?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -60,9 +60,17 @@ export default async function SubPayReportPage({
   const monthFrom = `${y}-${String(m).padStart(2, '0')}-01`
   const monthTo = `${y}-${String(m).padStart(2, '0')}-${new Date(y, m, 0).getDate()}`
 
-  const { from: fromParam, to: toParam } = await searchParams
+  const { from: fromParam, to: toParam, sub: subParam } = await searchParams
   const from = fromParam ?? monthFrom
   const to = toParam ?? monthTo
+
+  // All subs in this org for the filter dropdown
+  const allSubs = await db
+    .select({ id: substitutes.id, firstName: users.firstName, lastName: users.lastName })
+    .from(substitutes)
+    .innerJoin(users, eq(substitutes.userId, users.id))
+    .where(eq(users.organizationId, orgId))
+    .orderBy(asc(users.lastName), asc(users.firstName))
 
   const rawAssignments = await db.query.subAssignments.findMany({
     where: and(
@@ -70,6 +78,7 @@ export default async function SubPayReportPage({
       gte(subAssignments.date, from),
       lte(subAssignments.date, to),
       ne(subAssignments.status, 'cancelled'),
+      subParam ? eq(subAssignments.substituteId, subParam) : undefined,
     ),
     with: {
       substitute: { with: { user: true } },
@@ -92,6 +101,7 @@ export default async function SubPayReportPage({
   const subMap = new Map<string, {
     name: string
     email: string | null
+    phone: string | null
     assignments: typeof rawAssignments
   }>()
 
@@ -102,6 +112,7 @@ export default async function SubPayReportPage({
       subMap.set(subId, {
         name: `${u.lastName}, ${u.firstName}`,
         email: u.email,
+        phone: u.phone ?? null,
         assignments: [],
       })
     }
@@ -114,7 +125,7 @@ export default async function SubPayReportPage({
   const grandTotalPay = rawAssignments.reduce((sum, a) => sum + parseFloat(a.totalPay ?? '0'), 0)
   const anyPaySet = rawAssignments.some(a => a.totalPay)
 
-  const csvHref = `/api/reports/sub-pay?from=${from}&to=${to}`
+  const csvHref = `/api/reports/sub-pay?from=${from}&to=${to}${subParam ? `&sub=${subParam}` : ''}`
 
   return (
     <div className="space-y-6">
@@ -132,7 +143,7 @@ export default async function SubPayReportPage({
           </p>
         </div>
 
-        {/* Date filter form */}
+        {/* Date + sub filter form */}
         <form method="GET" className="flex flex-wrap items-center gap-2 print:hidden">
           <label className="text-sm text-gray-600">
             From
@@ -151,6 +162,19 @@ export default async function SubPayReportPage({
               defaultValue={to}
               className="ml-1.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </label>
+          <label className="text-sm text-gray-600">
+            Substitute
+            <select
+              name="sub"
+              defaultValue={subParam ?? ''}
+              className="ml-1.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All substitutes</option>
+              {allSubs.map(s => (
+                <option key={s.id} value={s.id}>{s.lastName}, {s.firstName}</option>
+              ))}
+            </select>
           </label>
           <button
             type="submit"
@@ -202,6 +226,9 @@ export default async function SubPayReportPage({
                     <span className="font-semibold text-blue-900">{sub.name}</span>
                     {sub.email && (
                       <span className="ml-2 text-sm text-blue-600">{sub.email}</span>
+                    )}
+                    {sub.phone && (
+                      <span className="ml-2 text-sm text-blue-500">{sub.phone}</span>
                     )}
                   </div>
                   <div className="flex gap-6 text-sm font-medium text-blue-800">

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, subAssignments, organizations } from '@/db/schema'
-import { eq, and, gte, lte, ne } from 'drizzle-orm'
+import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
 
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
 
   const from = req.nextUrl.searchParams.get('from') ?? monthFrom
   const to = req.nextUrl.searchParams.get('to') ?? monthTo
+  const subParam = req.nextUrl.searchParams.get('sub') || null
 
   const rawAssignments = await db.query.subAssignments.findMany({
     where: and(
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
       gte(subAssignments.date, from),
       lte(subAssignments.date, to),
       ne(subAssignments.status, 'cancelled'),
+      subParam ? eq(subAssignments.substituteId, subParam) : undefined,
     ),
     with: {
       substitute: { with: { user: true } },
