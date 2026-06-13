@@ -43,6 +43,19 @@ export async function saveAvatar(url: string) {
   revalidatePath('/teacher/profile')
 }
 
+export async function saveTeacherProfile(data: { firstName: string; lastName: string; phone: string }) {
+  const { profile } = await getTeacherContext()
+  await db.update(users)
+    .set({
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      phone: data.phone.trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, profile.id))
+  revalidatePath('/teacher/profile')
+}
+
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export async function getMyTeacherContext() {

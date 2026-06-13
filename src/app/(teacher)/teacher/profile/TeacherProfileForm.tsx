@@ -1,17 +1,17 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import Image from 'next/image'
 import { Camera } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
-import { saveAvatar } from '../../actions'
+import { saveAvatar, saveTeacherProfile } from '../../actions'
 
 export function TeacherProfileForm({
   userId,
-  firstName,
-  lastName,
+  firstName: initialFirstName,
+  lastName: initialLastName,
   email,
-  phone,
+  phone: initialPhone,
   avatarUrl: initialAvatarUrl,
 }: {
   userId: string
@@ -21,17 +21,25 @@ export function TeacherProfileForm({
   phone: string
   avatarUrl: string | null
 }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(initialAvatarUrl)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const initials = `${firstName[0]}${lastName[0]}`
+  const [photoUrl, setPhotoUrl]       = useState<string | null>(initialAvatarUrl)
+  const [uploading, setUploading]     = useState(false)
+  const [photoError, setPhotoError]   = useState<string | null>(null)
+  const inputRef                      = useRef<HTMLInputElement>(null)
+
+  const [firstName, setFirstName]     = useState(initialFirstName)
+  const [lastName, setLastName]       = useState(initialLastName)
+  const [phone, setPhone]             = useState(initialPhone)
+  const [saved, setSaved]             = useState(false)
+  const [saveError, setSaveError]     = useState<string | null>(null)
+  const [isPending, startTransition]  = useTransition()
+
+  const initials = `${firstName[0] ?? '?'}${lastName[0] ?? ''}`
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    setError(null)
+    setPhotoError(null)
     try {
       const resized = await resizeImage(file)
       const fd = new FormData()
@@ -42,11 +50,25 @@ export function TeacherProfileForm({
       await saveAvatar(url)
       setPhotoUrl(url)
     } catch {
-      setError('Upload failed. Please try again.')
+      setPhotoError('Upload failed. Please try again.')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
     }
+  }
+
+  const handleSave = () => {
+    if (!firstName.trim() || !lastName.trim()) return
+    setSaved(false)
+    setSaveError(null)
+    startTransition(async () => {
+      try {
+        await saveTeacherProfile({ firstName, lastName, phone })
+        setSaved(true)
+      } catch {
+        setSaveError('Save failed. Please try again.')
+      }
+    })
   }
 
   return (
@@ -77,26 +99,71 @@ export function TeacherProfileForm({
           <div className="text-xs text-gray-400 mt-0.5">
             {uploading ? 'Uploading…' : 'Tap the camera to change your photo'}
           </div>
-          {error && <div className="text-xs text-red-500 mt-0.5">{error}</div>}
+          {photoError && <div className="text-xs text-red-500 mt-0.5">{photoError}</div>}
         </div>
       </div>
 
-      {/* Name (read-only) */}
+      {/* First name */}
       <div className="px-5 py-4">
-        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Name</label>
-        <p className="text-sm text-gray-800">{firstName} {lastName}</p>
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          First Name
+        </label>
+        <input
+          type="text"
+          value={firstName}
+          onChange={(e) => { setFirstName(e.target.value); setSaved(false) }}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        />
       </div>
 
-      {/* Email (read-only) */}
+      {/* Last name */}
       <div className="px-5 py-4">
-        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Email</label>
-        <p className="text-sm text-gray-800">{email}</p>
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Last Name
+        </label>
+        <input
+          type="text"
+          value={lastName}
+          onChange={(e) => { setLastName(e.target.value); setSaved(false) }}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        />
       </div>
 
-      {/* Phone (read-only) */}
+      {/* Email — read-only, controlled by admin */}
       <div className="px-5 py-4">
-        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Phone</label>
-        <p className="text-sm text-gray-800">{phone || <span className="text-gray-400">Not set</span>}</p>
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Email
+        </label>
+        <p className="text-sm text-gray-500">{email}</p>
+        <p className="text-xs text-gray-400 mt-0.5">Contact your administrator to change your email.</p>
+      </div>
+
+      {/* Phone */}
+      <div className="px-5 py-4">
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Phone
+        </label>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => { setPhone(e.target.value); setSaved(false) }}
+          placeholder="(555) 555-5555"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        />
+      </div>
+
+      {/* Save button */}
+      <div className="px-5 py-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isPending || !firstName.trim() || !lastName.trim()}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        >
+          {isPending ? 'Saving…' : 'Save changes'}
+        </button>
+        {saved && <span className="text-sm text-green-600">Saved!</span>}
+        {saveError && <span className="text-sm text-red-600">{saveError}</span>}
       </div>
     </div>
   )

@@ -17,7 +17,7 @@ export default async function TeacherProfilePage() {
     <div className="max-w-lg mx-auto py-6 px-4 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-sm text-gray-500 mt-1">Upload a profile photo so admins can recognize you.</p>
+        <p className="text-sm text-gray-500 mt-1">Update your name, phone number, and profile photo.</p>
       </div>
 
       <TeacherProfileForm
