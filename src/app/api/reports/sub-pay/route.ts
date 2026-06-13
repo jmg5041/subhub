@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, subAssignments, organizations } from '@/db/schema'
-import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, ne } from 'drizzle-orm'
 
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)

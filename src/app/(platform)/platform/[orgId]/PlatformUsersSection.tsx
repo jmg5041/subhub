@@ -92,7 +92,7 @@ export function PlatformUsersSection({
           <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">
             Users ({users.length})
           </p>
-          <p className="text-xs text-gray-600">IT can reset any user's password from here</p>
+          <p className="text-xs text-gray-600">IT can reset any user&apos;s password from here</p>
         </div>
         <table className="w-full text-sm">
           <thead>
