@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import {
-  Building2, MapPin, Users, UserCheck, CheckCircle,
+  Building2, MapPin, CheckCircle,
   ChevronLeft, ChevronRight, Search, Plus, X, Loader2, AlertCircle,
 } from 'lucide-react'
 import {
@@ -47,11 +47,9 @@ type DirectoryEntry = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { number: 1, label: 'School Info',  icon: Building2   },
-  { number: 2, label: 'Campuses',     icon: MapPin      },
-  { number: 3, label: 'Teachers',     icon: Users       },
-  { number: 4, label: 'Substitutes',  icon: UserCheck   },
-  { number: 5, label: 'Finish',       icon: CheckCircle },
+  { number: 1, label: 'School Info', icon: Building2   },
+  { number: 2, label: 'Campuses',    icon: MapPin      },
+  { number: 3, label: 'Finish',      icon: CheckCircle },
 ]
 
 const TIMEZONES = [
@@ -472,47 +470,9 @@ function Step2Schools({
   )
 }
 
-// ─── Steps 3–4: Stubs (built in Chunk 3) ─────────────────────────────────────
+// ─── Step 3: Finish ───────────────────────────────────────────────────────────
 
-function StepStub({
-  title,
-  description,
-  onBack,
-  onNext,
-  nextLabel = 'Skip for now',
-}: {
-  title: string
-  description: string
-  onBack: () => void
-  onNext: () => void
-  nextLabel?: string
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-500">{description}</p>
-      </div>
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-400">
-        This step is coming soon. You can skip it now and add people later from Settings.
-      </div>
-      <div className="flex justify-between">
-        <button type="button" onClick={onBack}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-          <ChevronLeft className="h-4 w-4" /> Back
-        </button>
-        <button type="button" onClick={onNext}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-500">
-          {nextLabel} <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Step 5: Finish ───────────────────────────────────────────────────────────
-
-function Step5Finish({ onBack }: { onBack: () => void }) {
+function Step3Finish({ onBack }: { onBack: () => void }) {
   const [isPending, startTransition] = useTransition()
 
   function handleFinish() {
@@ -581,23 +541,7 @@ export default function OnboardingWizard({
           />
         )}
         {step === 3 && (
-          <StepStub
-            title="Add your teachers"
-            description="Import teachers via CSV or add them one by one. They'll receive an invite to set their password."
-            onBack={() => setStep(2)}
-            onNext={() => setStep(4)}
-          />
-        )}
-        {step === 4 && (
-          <StepStub
-            title="Add your substitutes"
-            description="Import substitutes via CSV or add them one by one. They'll be added to your school pools."
-            onBack={() => setStep(3)}
-            onNext={() => setStep(5)}
-          />
-        )}
-        {step === 5 && (
-          <Step5Finish onBack={() => setStep(4)} />
+          <Step3Finish onBack={() => setStep(2)} />
         )}
       </div>
     </div>

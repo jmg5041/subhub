@@ -171,13 +171,13 @@ export default async function DashboardPage() {
             <SetupItem
               done={setupChecklist.hasTeachers}
               href="/admin/users"
-              label="Invite your teachers"
+              label="Invite or import teachers"
               description="Teachers can submit absence requests once they have an account"
             />
             <SetupItem
               done={setupChecklist.hasSubs}
               href="/admin/users"
-              label="Add substitutes"
+              label="Invite or import substitutes"
               description="Substitutes receive job notifications when absences need coverage"
             />
           </div>

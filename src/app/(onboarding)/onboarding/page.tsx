@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
     where: eq(schools.organizationId, profile.organizationId),
   })
 
-  // Resume at step 2 if they already added schools
+  // Resume at step 2 if they've already added schools
   const startStep = existingSchools.length > 0 ? 2 : 1
 
   return (
