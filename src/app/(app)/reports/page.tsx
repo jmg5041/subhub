@@ -11,17 +11,17 @@ const reports = [
   },
   {
     title: 'Teacher Absence Summary',
-    description: 'Days and hours absent per teacher, broken down by reason.',
+    description: 'Days absent per teacher, broken down by reason. Filter by individual teacher.',
     href: '/reports/teacher-absences',
     icon: UserX,
-    available: false,
+    available: true,
   },
   {
-    title: 'Unfilled Positions',
-    description: 'Absences that went unfilled — no substitute was found.',
-    href: '/reports/unfilled',
+    title: 'Fill Rate Report',
+    description: 'What % of absences were filled by a substitute, with a list of unfilled positions.',
+    href: '/reports/fill-rate',
     icon: TrendingUp,
-    available: false,
+    available: true,
   },
   {
     title: 'Sub Hours Summary',
