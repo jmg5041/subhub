@@ -8,6 +8,7 @@
     { "path": "/api/cron/reblast",           "schedule": "20 14 * * *"},
     { "path": "/api/cron/unfilled-alert",    "schedule": "30 13 * * *"},
     { "path": "/api/cron/unfilled-alert",    "schedule": "30 14 * * *"},
-    { "path": "/api/cron/complete-absences", "schedule": "30 0 * * *" }
+    { "path": "/api/cron/complete-absences", "schedule": "30 0 * * *" },
+    { "path": "/api/cron/cleanup-invites",   "schedule": "0 2 * * *"  }
   ]
 }

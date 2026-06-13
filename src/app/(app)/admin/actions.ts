@@ -174,6 +174,32 @@ export async function resendInvite(formData: FormData) {
   return { success: true }
 }
 
+// Cancels a pending invite: removes the invitation row and the unconfirmed Supabase auth user
+export async function cancelInvite(formData: FormData) {
+  const { orgId } = await getAdminContext()
+  const supabaseAdmin = createAdminClient()
+  const email = formData.get('email') as string
+
+  // Verify the invite belongs to this org
+  const invite = await db.query.invitations.findFirst({
+    where: and(eq(invitations.email, email), eq(invitations.organizationId, orgId)),
+  })
+  if (!invite) return { error: 'Invite not found' }
+
+  // Delete the invitation row
+  await db.delete(invitations).where(eq(invitations.email, email))
+
+  // Delete the unconfirmed Supabase auth user if they exist
+  const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const authUser = authUsers.find(u => u.email === email)
+  if (authUser && !authUser.email_confirmed_at) {
+    await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+  }
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
 export async function updateUserRole(formData: FormData) {
   const { orgId } = await getAdminContext()
 

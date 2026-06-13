@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import Image from 'next/image'
-import { inviteUser, resendInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar, bulkInviteUsers } from '../actions'
+import { inviteUser, resendInvite, cancelInvite, updateUserRole, updateUser, deleteUser, setTempPassword, deactivateUser, reactivateUser, saveUserAvatar, bulkInviteUsers } from '../actions'
 import { Camera, X } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
 
@@ -209,6 +209,17 @@ export default function ManageUsersClient({
       const res = await bulkInviteUsers(bulkRows, bulkRole, bulkSchoolId || null, bulkSendInvites)
       setBulkResults(res)
       if (res.sent > 0) setBulkRows([])
+    })
+  }
+
+  function handleCancelInvite(email: string) {
+    if (!confirm(`Cancel the invite for ${email}? This will remove their pending account.`)) return
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set('email', email)
+      const res = await cancelInvite(fd)
+      if ('error' in res) showMessage(res.error ?? 'Failed to cancel invite', 'error')
+      else showMessage(`Invite for ${email} cancelled.`, 'success')
     })
   }
 
@@ -750,6 +761,13 @@ export default function ManageUsersClient({
                 >
                   Resend
                 </button>
+                <button
+                  onClick={() => handleCancelInvite(inv.email)}
+                  disabled={isPending}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  Cancel
+                </button>
               </div>
             ))}
           </div>
@@ -776,6 +794,13 @@ export default function ManageUsersClient({
                   className="text-xs text-blue-600 hover:underline"
                 >
                   Resend
+                </button>
+                <button
+                  onClick={() => handleCancelInvite(inv.email)}
+                  disabled={isPending}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  Remove
                 </button>
               </div>
             ))}
