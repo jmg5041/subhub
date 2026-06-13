@@ -96,21 +96,25 @@ This allows one substitute to cover multiple teachers in a single assignment.
 There are two completely different auth flows. Mixing them up causes hard-to-debug
 redirect loops.
 
-### Flow 1: PKCE (used for initial invite emails and OAuth)
-1. User clicks invite email link → lands on `/auth/callback?code=...`
+### Flow 1: PKCE (used for OAuth / Google sign-in)
+1. User clicks "Sign in with Google" → `/auth/callback?code=...`
 2. Server Route Handler exchanges the code for a session
 3. Redirects to `/auth/portal` → role-based redirect to correct portal
 
-### Flow 2: Implicit (used for password reset / "resend invite" recovery links)
+### Flow 2: Implicit (used for ALL invite emails AND recovery/magic links)
 Tokens arrive as `#access_token=...` in the URL **hash fragment**.
 Servers never see hash fragments — only the browser can read them.
-1. User clicks link → lands on `/auth/confirm` (a client-side page)
-2. Browser calls `supabase.auth.getSession()` — the SDK reads the hash and writes the session to cookies
+1. User clicks invite or recovery link → lands on `/auth/confirm` (a client-side page)
+2. Browser parses the hash, calls `supabase.auth.setSession()` to write session to cookies
 3. Redirects to `/auth/portal` → role-based redirect
 
-**Rule:** Recovery links must use `/auth/confirm` as the redirect, not `/auth/callback`.
-**Rule:** The resend invite action must use `type: 'recovery'`, not `type: 'invite'`,
-because Supabase rejects the invite type for users who already have an auth account.
+**Rule:** ALL invite and recovery links must use `/auth/confirm` as the redirect — NOT `/auth/callback`.
+Supabase's `inviteUserByEmail` uses implicit flow (hash tokens), even though the docs imply PKCE.
+Sending invites to `/auth/callback` causes a silent failure: the server sees no `?code=` param
+and redirects to the login page with `error=auth_callback_failed` while the token sits unused in the hash.
+
+**Rule:** The resend invite action deletes the old auth user and re-invites fresh (rather than using
+`type: 'recovery'`) because Supabase rejects the invite type for users who already have an auth account.
 
 ### Post-login redirect logic (`/auth/portal`)
 All flows converge at `/auth/portal` (Route Handler). It reads the session, looks up
@@ -137,7 +141,7 @@ This lets an admin share a recovery link from their own logged-in browser.
 
 ### Initial invite
 1. Admin fills `/admin/users` form → `inviteUser(formData)` server action
-2. `supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo: '/auth/callback', data: {firstName, lastName, role, orgId, schoolId} })`
+2. `supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo: '/auth/confirm', data: {firstName, lastName, role, orgId, schoolId} })`
 3. Supabase creates the auth user and sends the invite email automatically
 4. An `invitations` row is inserted for tracking
 5. **No `users` row is created yet** — it's created on first login in `/auth/portal`
@@ -483,4 +487,5 @@ Using `startDate = today` for completion would mark a Mon–Fri absence complete
 `npx drizzle-kit push` requires an interactive TTY — it won't work inside Claude Code.
 After generating a migration with `npx drizzle-kit generate`, copy the SQL and run it
 directly in the Supabase SQL editor. Applied migrations so far: `0012_org_timezone.sql`,
-`0013_completed_at.sql`.
+`0013_completed_at.sql`, `0014_billing_and_signup.sql` (billing columns,
+isPlatformAdmin, billing_events table — applied 2026-06-13).
