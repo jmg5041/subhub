@@ -13,10 +13,11 @@ const EVENT_LABELS: Record<string, string> = {
   note:            'Note',
 }
 
-export default async function PlatformOrgPage({ params }: { params: { orgId: string } }) {
+export default async function PlatformOrgPage({ params }: { params: Promise<{ orgId: string }> }) {
   await getPlatformContext()
 
-  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, params.orgId) })
+  const { orgId } = await params
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   if (!org) notFound()
 
   const [orgSchools, orgUsers, events] = await Promise.all([
