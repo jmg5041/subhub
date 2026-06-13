@@ -12,7 +12,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { employees, users, schools, absenceReasons, teacherTimeOff, organizations } from '@/db/schema'
+import { employees, users, schools, absenceReasons, teacherTimeOff, organizations, invitations } from '@/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import Link from 'next/link'
 import {
@@ -65,15 +65,17 @@ export default async function DashboardPage() {
   let setupChecklist: { schoolReady: boolean; hasTeachers: boolean; hasSubs: boolean } | null = null
   const isAdminRole = ['admin', 'principal'].includes(profile?.role ?? '')
   if (orgId && isAdminRole) {
-    const [firstSchool, firstTeacher, firstSub] = await Promise.all([
+    const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite] = await Promise.all([
       db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
+      db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
+      db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
     ])
     const checklist = {
       schoolReady: !!(firstSchool?.phone || firstSchool?.address),
-      hasTeachers: !!firstTeacher,
-      hasSubs: !!firstSub,
+      hasTeachers: !!firstTeacher || !!firstTeacherInvite,
+      hasSubs: !!firstSub || !!firstSubInvite,
     }
     // Only show if at least one step is incomplete
     if (!checklist.schoolReady || !checklist.hasTeachers || !checklist.hasSubs) {
