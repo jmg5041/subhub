@@ -87,7 +87,7 @@ export async function getOrgUsers() {
 
 /**
  * Invites a user via Supabase admin API (sends them the invite email).
- * Does NOT pre-create a users row — that happens in /auth/callback when they accept.
+ * Does NOT pre-create a users row — that happens in /auth/portal when they accept.
  */
 export async function inviteUser(formData: FormData) {
   const { orgId, adminUserId } = await getAdminContext()
@@ -102,7 +102,7 @@ export async function inviteUser(formData: FormData) {
 
   // Supabase sends the invite email and creates the auth user
   const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${appUrl}/auth/callback`,
+    redirectTo: `${appUrl}/auth/confirm`,
     data: { firstName, lastName, role, orgId, schoolId },
   })
 
@@ -127,7 +127,7 @@ export async function inviteUser(formData: FormData) {
 
 /**
  * Resends an invite by deleting the old Supabase auth user and re-inviting fresh.
- * This uses the same reliable PKCE flow as the original invite (goes to /auth/callback).
+ * Invite links use implicit flow (hash token) — must redirect to /auth/confirm, not /auth/callback.
  * Recovery links were unreliable because each generateLink call invalidates previous OTPs.
  */
 export async function resendInvite(formData: FormData) {
@@ -158,7 +158,7 @@ export async function resendInvite(formData: FormData) {
 
   // Re-invite: Supabase creates a fresh auth user and sends the invite email
   const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${appUrl}/auth/callback`,
+    redirectTo: `${appUrl}/auth/confirm`,
     data: { firstName, lastName, role, orgId, schoolId },
   })
 
@@ -492,7 +492,7 @@ export async function bulkInviteUsers(
       if (sendInvites) {
         // ── Invite path: Supabase sends email; users row created on first login ──
         const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(row.email, {
-          redirectTo: `${appUrl}/auth/callback`,
+          redirectTo: `${appUrl}/auth/confirm`,
           data: { firstName: row.firstName, lastName: row.lastName, role, orgId, schoolId, phone: row.phone ?? null },
         })
         if (error) { errors.push(`${row.email}: ${error.message}`); continue }
