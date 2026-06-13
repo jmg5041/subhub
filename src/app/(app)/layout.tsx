@@ -14,8 +14,10 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { organizations, subSchoolAssignments } from '@/db/schema';
+import { organizations, subSchoolAssignments, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getBillingState } from '@/lib/billing';
+import { BillingBanner } from '@/components/BillingBanner';
 
 export default async function AppLayout({
   children,
@@ -45,26 +47,34 @@ export default async function AppLayout({
     ? profile.schools[0]?.name
     : (profile?.schools as unknown as { name: string } | null)?.name;
 
-  // Admin/principal/staff: check onboarding gate + pending sub count
+  // Admin/principal/staff: onboarding gate + billing gate + pending sub count
   let pendingSubCount = 0
+  let billingState = null
+  let isPlatformAdmin = false
   const orgId = (profile as unknown as { organization_id?: string })?.organization_id
+
   if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role) && orgId) {
-    const [org, pendingRows] = await Promise.all([
+    const [org, pendingRows, userRow] = await Promise.all([
       db.query.organizations.findFirst({
         where: eq(organizations.id, orgId),
-        columns: { onboardingCompletedAt: true },
+        columns: { onboardingCompletedAt: true, subscriptionStatus: true, paidThrough: true },
       }),
       db.select({ id: subSchoolAssignments.id })
         .from(subSchoolAssignments)
         .where(and(eq(subSchoolAssignments.organizationId, orgId), eq(subSchoolAssignments.status, 'pending'))),
+      db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: { isPlatformAdmin: true },
+      }),
     ])
 
-    // Redirect to onboarding wizard if the org hasn't finished setup
-    if (!org?.onboardingCompletedAt) {
-      redirect('/onboarding')
-    }
+    if (!org?.onboardingCompletedAt) redirect('/onboarding')
+
+    billingState = getBillingState({ subscriptionStatus: org.subscriptionStatus, paidThrough: org.paidThrough })
+    if (billingState.status === 'expired') redirect('/billing')
 
     pendingSubCount = pendingRows.length
+    isPlatformAdmin = userRow?.isPlatformAdmin ?? false
   }
 
   return (
@@ -76,7 +86,9 @@ export default async function AppLayout({
       role={profile?.role ?? null}
       avatarUrl={profile?.avatar_url ?? null}
       pendingSubCount={pendingSubCount}
+      isPlatformAdmin={isPlatformAdmin}
     >
+      {billingState && <BillingBanner state={billingState} />}
       {children}
     </AppShell>
   );

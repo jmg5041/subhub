@@ -18,6 +18,7 @@ import {
   Building2,
   HelpCircle,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -72,11 +73,13 @@ export function AppSidebar({
   onClose,
   role,
   pendingSubCount,
+  isPlatformAdmin,
 }: {
   isOpen?: boolean
   onClose?: () => void
   role?: string | null
   pendingSubCount?: number
+  isPlatformAdmin?: boolean
 }) {
   const pathname = usePathname();
   const supabase = createClient();
@@ -149,8 +152,18 @@ export function AppSidebar({
         ))}
       </nav>
 
-      {/* Bottom — help + sign out */}
+      {/* Bottom — platform (if flagged) + help + sign out */}
       <div className="border-t border-gray-200 p-4 space-y-1">
+        {isPlatformAdmin && (
+          <Link
+            href="/platform"
+            onClick={onClose}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Platform Admin
+          </Link>
+        )}
         <Link
           href="/help"
           onClick={onClose}
