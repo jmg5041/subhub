@@ -4,6 +4,7 @@ import { eq, desc } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import { getPlatformContext, recordCheckPayment, addBillingNote } from '../actions'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 
 const EVENT_LABELS: Record<string, string> = {
   check_payment:   'Check payment recorded',
@@ -44,7 +45,7 @@ export default async function PlatformOrgPage({ params }: { params: { orgId: str
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <a href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</a>
+        <Link href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</Link>
         <h1 className="text-2xl font-bold text-white mt-2">{org.name}</h1>
         <p className="text-gray-400 text-sm">slug: {org.slug} · timezone: {org.timezone}</p>
       </div>
