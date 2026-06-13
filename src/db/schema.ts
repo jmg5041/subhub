@@ -22,6 +22,13 @@ export const organizations = pgTable('organizations', {
   halfDayHours: numeric('half_day_hours', { precision: 3, scale: 1 }).default('4.0'),
   fullDayHours: numeric('full_day_hours', { precision: 3, scale: 1 }).default('8.0'),
   timezone: text('timezone').default('America/Los_Angeles'), // IANA timezone name
+  subscriptionStatus: text('subscription_status').default('trial'), // 'trial' | 'active' | 'past_due' | 'expired'
+  paidThrough: date('paid_through'), // date the trial/subscription expires
+  paymentMethod: text('payment_method').default('stripe'), // 'stripe' | 'check' | 'comp'
+  planNotes: text('plan_notes'), // platform staff notes
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  onboardingCompletedAt: timestamp('onboarding_completed_at'), // null = wizard not finished
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -58,6 +65,7 @@ export const users = pgTable('users', {
   schoolId: uuid('school_id').references(() => schools.id),
   status: statusEnum('status').default('active'),
   avatarUrl: text('avatar_url'),
+  isPlatformAdmin: boolean('is_platform_admin').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -264,6 +272,17 @@ export const attachments = pgTable('attachments', {
   fileSize: integer('file_size'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+// Billing event log — written by both the manual check-payment form and Stripe webhooks
+export const billingEvents = pgTable('billing_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  type: text('type').notNull(), // 'check_payment' | 'stripe_payment' | 'status_change' | 'note'
+  amountCents: integer('amount_cents'),
+  note: text('note'),
+  createdBy: uuid('created_by').references(() => users.id), // null = Stripe webhook
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ─── Relations ──────────────────────────────────────────────────────────────
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
@@ -292,6 +311,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   teacherTimeOff: many(teacherTimeOff),
   subAssignments: many(subAssignments),
   subPriorityOrders: many(subPriorityOrders),
+  billingEvents: many(billingEvents),
 }));
 
 export const schoolsRelations = relations(schools, ({ one, many }) => ({
@@ -462,4 +482,9 @@ export const schoolDirectoryRelations = relations(schoolDirectory, ({ one }) => 
 export const userSchoolNotificationPrefsRelations = relations(userSchoolNotificationPrefs, ({ one }) => ({
   user: one(users, { fields: [userSchoolNotificationPrefs.userId], references: [users.id] }),
   school: one(schools, { fields: [userSchoolNotificationPrefs.schoolId], references: [schools.id] }),
+}));
+
+export const billingEventsRelations = relations(billingEvents, ({ one }) => ({
+  organization: one(organizations, { fields: [billingEvents.organizationId], references: [organizations.id] }),
+  creator: one(users, { fields: [billingEvents.createdBy], references: [users.id] }),
 }));

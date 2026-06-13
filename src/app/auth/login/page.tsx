@@ -152,11 +152,10 @@ export default function LoginPage() {
           Sign in with Google
         </button>
 
-        {/* Link to signup (admin only) */}
         <p className="text-center text-sm text-gray-600">
-          Don&apos;t have an account?{' '}
+          New to SubHub?{' '}
           <Link href="/auth/signup" className="font-medium text-blue-600 hover:text-blue-500">
-            Create one
+            Start a free trial
           </Link>
         </p>
       </div>

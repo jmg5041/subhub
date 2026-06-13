@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, invitations, employees, substitutes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { provisionSelfSignupOrg } from '@/lib/self-signup'
 
 function roleToPortal(role: string | null | undefined): string {
   switch (role) {
@@ -71,6 +72,12 @@ export async function GET(request: Request) {
       .set({ usedAt: new Date() })
       .where(eq(invitations.email, user.email))
     return NextResponse.redirect(`${origin}${roleToPortal(role)}`)
+  }
+
+  // Self-signup landing via implicit flow (e.g. Google OAuth or re-visit after confirm)
+  if (!profile && user.email && user.user_metadata?.selfSignup) {
+    await provisionSelfSignupOrg(user)
+    return NextResponse.redirect(`${origin}/onboarding`)
   }
 
   // If an existing user's role was changed to substitute but the substitutes row

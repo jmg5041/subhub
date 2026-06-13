@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { users, invitations, employees, substitutes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { provisionSelfSignupOrg } from '@/lib/self-signup'
 
 function roleToPortal(role: string | null | undefined): string {
   switch (role) {
@@ -94,6 +95,12 @@ export async function GET(request: Request) {
         .where(eq(invitations.email, authUser.email))
 
       return NextResponse.redirect(`${origin}${roleToPortal(role)}`)
+    }
+
+    // Self-signup: no invite orgId, but selfSignup flag set — provision the org now
+    if (meta.selfSignup) {
+      await provisionSelfSignupOrg(authUser)
+      return NextResponse.redirect(`${origin}/onboarding`)
     }
   }
 
