@@ -1,16 +1,18 @@
 import { db } from '@/db'
-import { organizations, schools, users, billingEvents } from '@/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
+import { eq, desc, and, isNull, gt } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import { getPlatformContext, recordCheckPayment, addBillingNote } from '../actions'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { PlatformUsersSection } from './PlatformUsersSection'
 
 const EVENT_LABELS: Record<string, string> = {
-  check_payment:   'Check payment recorded',
-  stripe_payment:  'Stripe payment',
-  status_change:   'Status changed',
-  note:            'Note',
+  check_payment:  'Check payment recorded',
+  stripe_payment: 'Stripe payment',
+  status_change:  'Status changed',
+  note:           'Note',
 }
 
 export default async function PlatformOrgPage({ params }: { params: Promise<{ orgId: string }> }) {
@@ -20,18 +22,59 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   if (!org) notFound()
 
-  const [orgSchools, orgUsers, events] = await Promise.all([
+  const now = new Date()
+
+  const [orgSchools, orgUsers, events, pendingInvites] = await Promise.all([
     db.query.schools.findMany({ where: eq(schools.organizationId, org.id) }),
-    db.query.users.findMany({ where: eq(users.organizationId, org.id) }),
+    db.query.users.findMany({ where: eq(users.organizationId, org.id), orderBy: (u, { asc }) => [asc(u.lastName)] }),
     db.query.billingEvents.findMany({
       where: eq(billingEvents.organizationId, org.id),
       orderBy: [desc(billingEvents.createdAt)],
       with: { creator: { columns: { firstName: true, lastName: true } } },
     }),
+    db.query.invitations.findMany({
+      where: and(
+        eq(invitations.organizationId, org.id),
+        isNull(invitations.usedAt),
+        gt(invitations.expiresAt, now),
+      ),
+    }),
   ])
 
-  const state = getBillingState(org)
+  // Fetch Supabase auth data for all users + pending invite emails
+  const supabaseAdmin = createAdminClient()
+  const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const authByEmail = new Map(authUsers.map(u => [u.email ?? '', u]))
 
+  // Augment org users with auth status
+  const augmentedUsers = orgUsers.map(u => {
+    const auth = authByEmail.get(u.email)
+    return {
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      lastSignIn: auth?.last_sign_in_at ?? null,
+      emailConfirmed: !!(auth?.email_confirmed_at),
+    }
+  })
+
+  // Augment pending invites — isStuck = email confirmed in Supabase but no users row
+  const orgUserEmails = new Set(orgUsers.map(u => u.email))
+  const augmentedInvites = pendingInvites.map(inv => {
+    const auth = authByEmail.get(inv.email)
+    return {
+      id: inv.id,
+      email: inv.email,
+      role: inv.role,
+      expiresAt: inv.expiresAt.toISOString(),
+      isStuck: !!(auth?.email_confirmed_at) && !orgUserEmails.has(inv.email),
+    }
+  })
+
+  const state = getBillingState(org)
   const statusLabel =
     state.status === 'trial_ending' ? `Trial — ${state.daysLeft} days left` :
     state.status === 'trial'         ? `Trial — ${state.daysLeft} days left` :
@@ -52,9 +95,8 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* Left: org info + billing status */}
+        {/* Left: org info */}
         <div className="space-y-4">
-          {/* Billing status */}
           <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 space-y-2">
             <p className="text-xs text-gray-500 uppercase tracking-wider">Billing</p>
             <p className="text-white font-semibold capitalize">{statusLabel}</p>
@@ -65,7 +107,6 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
             </div>
           </div>
 
-          {/* Schools */}
           <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 space-y-2">
             <p className="text-xs text-gray-500 uppercase tracking-wider">Schools ({orgSchools.length})</p>
             {orgSchools.map(s => (
@@ -73,7 +114,6 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
             ))}
           </div>
 
-          {/* Users */}
           <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 space-y-1">
             <p className="text-xs text-gray-500 uppercase tracking-wider">Users ({orgUsers.length})</p>
             {Object.entries(roleCounts).map(([role, ct]) => (
@@ -82,9 +122,8 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
           </div>
         </div>
 
-        {/* Right: actions */}
+        {/* Right: billing actions */}
         <div className="space-y-4">
-          {/* Record check payment */}
           <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
             <p className="text-sm font-semibold text-white mb-3">Record check payment</p>
             <form action={recordCheckPayment} className="space-y-3">
@@ -111,7 +150,6 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
             </form>
           </div>
 
-          {/* Add note */}
           <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
             <p className="text-sm font-semibold text-white mb-3">Add a note</p>
             <form action={addBillingNote} className="space-y-3">
@@ -126,6 +164,9 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
           </div>
         </div>
       </div>
+
+      {/* User management — IT support tools */}
+      <PlatformUsersSection users={augmentedUsers} invites={augmentedInvites} />
 
       {/* Billing event timeline */}
       {events.length > 0 && (
