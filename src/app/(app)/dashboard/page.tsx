@@ -12,8 +12,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { employees, users, schools, absenceReasons, teacherTimeOff, organizations, invitations } from '@/db/schema'
+import { employees, users, schools, absenceReasons, teacherTimeOff, organizations, invitations, substitutes } from '@/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import {
   CalendarPlus,
@@ -25,6 +26,7 @@ import {
   Circle,
 } from 'lucide-react'
 import { formatDateRangeShort } from '@/lib/date-utils'
+import { dismissChecklistAction } from './actions'
 
 // Helper: format '07:30:00' → '7:30 AM'
 function formatTime(timeStr: string) {
@@ -61,21 +63,30 @@ export default async function DashboardPage() {
   const localHour = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
   const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening'
 
-  // Setup checklist — shown to admin/principal until all steps are complete
+  // Setup checklist — shown to admin/principal until all steps are complete or dismissed
   let setupChecklist: { schoolReady: boolean; hasTeachers: boolean; hasSubs: boolean } | null = null
   const isAdminRole = ['admin', 'principal'].includes(profile?.role ?? '')
-  if (orgId && isAdminRole) {
-    const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite] = await Promise.all([
+  const cookieStore = await cookies()
+  const checklistDismissed = cookieStore.get(`checklist_dismissed_${orgId}`)?.value === '1'
+
+  if (orgId && isAdminRole && !checklistDismissed) {
+    const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite, firstSubInSubsTable] = await Promise.all([
       db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
       db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
       db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
+      // Also check substitutes table — catches silent imports and invite users who have logged in
+      db.select({ id: substitutes.id })
+        .from(substitutes)
+        .innerJoin(users, eq(substitutes.userId, users.id))
+        .where(eq(users.organizationId, orgId))
+        .limit(1),
     ])
     const checklist = {
       schoolReady: !!(firstSchool?.phone || firstSchool?.address),
       hasTeachers: !!firstTeacher || !!firstTeacherInvite,
-      hasSubs: !!firstSub || !!firstSubInvite,
+      hasSubs: !!firstSub || !!firstSubInvite || firstSubInSubsTable.length > 0,
     }
     // Only show if at least one step is incomplete
     if (!checklist.schoolReady || !checklist.hasTeachers || !checklist.hasSubs) {
@@ -159,9 +170,17 @@ export default async function DashboardPage() {
               <h2 className="font-semibold text-blue-900">Get started with SubHub</h2>
               <p className="text-sm text-blue-600 mt-0.5">Complete these steps to start managing absences</p>
             </div>
-            <span className="text-sm font-medium text-blue-700 flex-shrink-0">
-              {[setupChecklist.schoolReady, setupChecklist.hasTeachers, setupChecklist.hasSubs].filter(Boolean).length} of 3 complete
-            </span>
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <span className="text-sm font-medium text-blue-700">
+                {[setupChecklist.schoolReady, setupChecklist.hasTeachers, setupChecklist.hasSubs].filter(Boolean).length} of 3 complete
+              </span>
+              <form action={dismissChecklistAction}>
+                <input type="hidden" name="orgId" value={orgId ?? ''} />
+                <button type="submit" className="text-xs text-blue-400 hover:text-blue-600 hover:underline">
+                  Dismiss
+                </button>
+              </form>
+            </div>
           </div>
           <div className="space-y-2">
             <SetupItem
