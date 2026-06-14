@@ -29,6 +29,7 @@ export const organizations = pgTable('organizations', {
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),
   onboardingCompletedAt: timestamp('onboarding_completed_at'), // null = wizard not finished
+  cronEnabled: boolean('cron_enabled').default(true).notNull(), // kill switch: false = no blasts, no notifications
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

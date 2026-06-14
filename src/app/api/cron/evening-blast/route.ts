@@ -17,7 +17,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const allOrgs = await db.select({ id: organizations.id, timezone: organizations.timezone, subscriptionStatus: organizations.subscriptionStatus }).from(organizations)
+  const allOrgs = await db.select({ id: organizations.id, timezone: organizations.timezone })
+    .from(organizations)
+    .where(eq(organizations.cronEnabled, true))
 
   const results = []
   let totalPositions = 0
@@ -28,7 +30,6 @@ export async function GET(req: Request) {
       new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
     )
     if (localHour !== 22) continue
-    if (org.subscriptionStatus === 'expired') continue
 
     // Compute tomorrow in this org's local timezone — can't use UTC arithmetic here
     // because at 10pm the UTC date may already be the next day.

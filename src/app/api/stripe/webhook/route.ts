@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
           subscriptionStatus: newStatus,
           paidThrough,
           paymentMethod: 'stripe',
+          cronEnabled: true,
         })
         .where(eq(organizations.id, orgId))
 
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
       if (!org) break
 
       await db.update(organizations)
-        .set({ subscriptionStatus: 'active', paidThrough })
+        .set({ subscriptionStatus: 'active', paidThrough, cronEnabled: true })
         .where(eq(organizations.id, org.id))
 
       await db.insert(billingEvents).values({
@@ -115,13 +116,13 @@ export async function POST(req: NextRequest) {
       if (!org) break
 
       await db.update(organizations)
-        .set({ subscriptionStatus: 'past_due' })
+        .set({ subscriptionStatus: 'past_due', cronEnabled: false })
         .where(eq(organizations.id, org.id))
 
       await db.insert(billingEvents).values({
         organizationId: org.id,
         type: 'status_change',
-        note: 'Stripe payment failed. Status set to past_due.',
+        note: 'Stripe payment failed. Status set to past_due. Notifications disabled.',
         createdBy: null,
       })
       break
@@ -136,13 +137,13 @@ export async function POST(req: NextRequest) {
       if (!org) break
 
       await db.update(organizations)
-        .set({ subscriptionStatus: 'expired' })
+        .set({ subscriptionStatus: 'expired', cronEnabled: false })
         .where(eq(organizations.id, org.id))
 
       await db.insert(billingEvents).values({
         organizationId: org.id,
         type: 'status_change',
-        note: 'Stripe subscription cancelled. Status set to expired.',
+        note: 'Stripe subscription cancelled. Status set to expired. Notifications disabled.',
         createdBy: null,
       })
       break

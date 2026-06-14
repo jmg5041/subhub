@@ -98,6 +98,20 @@ export async function platformClearStuckAuth(formData: FormData): Promise<{ erro
   return { success: true }
 }
 
+export async function setCronEnabled(formData: FormData) {
+  await getPlatformContext()
+
+  const orgId  = formData.get('orgId') as string
+  const enable = formData.get('enable') === 'true'
+
+  await db.update(organizations)
+    .set({ cronEnabled: enable, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+
+  revalidatePath(`/platform/${orgId}`)
+  redirect(`/platform/${orgId}`)
+}
+
 export async function addBillingNote(formData: FormData) {
   const { adminUserId } = await getPlatformContext()
 

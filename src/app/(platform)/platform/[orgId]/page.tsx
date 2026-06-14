@@ -2,7 +2,7 @@ import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
 import { eq, desc, and, isNull, gt } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
-import { getPlatformContext, recordCheckPayment, addBillingNote } from '../actions'
+import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled } from '../actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -146,6 +146,36 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
               <button type="submit"
                 className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
                 Save payment
+              </button>
+            </form>
+          </div>
+
+          {/* Cron kill switch */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+            <p className="text-sm font-semibold text-white mb-1">Notifications kill switch</p>
+            <p className="text-xs text-gray-400 mb-3">
+              When OFF, this school receives no sub blasts, re-blasts, or unfilled alerts.
+              Use for expired accounts, test schools, or troubleshooting.
+            </p>
+            <div className="flex items-center gap-3 mb-3">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                org.cronEnabled
+                  ? 'bg-green-900 text-green-300'
+                  : 'bg-red-900 text-red-300'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${org.cronEnabled ? 'bg-green-400' : 'bg-red-400'}`} />
+                {org.cronEnabled ? 'Notifications ON' : 'Notifications OFF'}
+              </span>
+            </div>
+            <form action={setCronEnabled}>
+              <input type="hidden" name="orgId" value={org.id} />
+              <input type="hidden" name="enable" value={org.cronEnabled ? 'false' : 'true'} />
+              <button type="submit" className={`w-full rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                org.cronEnabled
+                  ? 'bg-red-900 text-red-300 hover:bg-red-800'
+                  : 'bg-green-900 text-green-300 hover:bg-green-800'
+              }`}>
+                {org.cronEnabled ? 'Turn OFF notifications' : 'Turn ON notifications'}
               </button>
             </form>
           </div>
