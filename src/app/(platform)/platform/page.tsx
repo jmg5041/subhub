@@ -1,9 +1,9 @@
 import { db } from '@/db'
-import { organizations, schools, users } from '@/db/schema'
+import { organizations, schools, users, platformSettings } from '@/db/schema'
 import { eq, count } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
-import { getPlatformContext } from './actions'
+import { getPlatformContext, saveStaffAlertEmail } from './actions'
 
 const STATUS_COLORS: Record<string, string> = {
   active:        'bg-green-100 text-green-700',
@@ -15,6 +15,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default async function PlatformPage() {
   await getPlatformContext()
+
+  const settings = await db.query.platformSettings.findFirst()
 
   const allOrgs = await db.query.organizations.findMany({
     orderBy: (o, { desc }) => [desc(o.createdAt)],
@@ -35,9 +37,32 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">All Organizations</h1>
-        <p className="text-gray-400 text-sm mt-1">{allOrgs.length} orgs total</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">All Organizations</h1>
+          <p className="text-gray-400 text-sm mt-1">{allOrgs.length} orgs total</p>
+        </div>
+
+        {/* Platform settings */}
+        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 w-72">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Staff Alert Email</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Billing expiry alerts are sent here for manual review.
+          </p>
+          <form action={saveStaffAlertEmail} className="flex gap-2">
+            <input
+              type="email"
+              name="staffAlertEmail"
+              defaultValue={settings?.staffAlertEmail ?? ''}
+              placeholder="you@example.com"
+              className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+            />
+            <button type="submit"
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+              Save
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="rounded-lg overflow-hidden border border-gray-800">

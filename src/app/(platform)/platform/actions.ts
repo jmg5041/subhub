@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/db'
-import { users, organizations, billingEvents, invitations } from '@/db/schema'
+import { users, organizations, billingEvents, invitations, platformSettings } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -96,6 +96,18 @@ export async function platformClearStuckAuth(formData: FormData): Promise<{ erro
   await db.delete(invitations).where(eq(invitations.email, email))
 
   return { success: true }
+}
+
+export async function saveStaffAlertEmail(formData: FormData) {
+  await getPlatformContext()
+  const email = (formData.get('staffAlertEmail') as string).trim()
+
+  await db.insert(platformSettings)
+    .values({ id: 1, staffAlertEmail: email })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { staffAlertEmail: email, updatedAt: new Date() } })
+
+  revalidatePath('/platform')
+  redirect('/platform')
 }
 
 export async function setCronEnabled(formData: FormData) {

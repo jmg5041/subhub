@@ -34,6 +34,13 @@ export const organizations = pgTable('organizations', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Platform-wide settings (single row, id always = 1)
+export const platformSettings = pgTable('platform_settings', {
+  id: integer('id').primaryKey().default(1),
+  staffAlertEmail: text('staff_alert_email'), // receives billing expiry alerts
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Schools (campuses within a district)
 export const schools = pgTable('schools', {
   id: uuid('id').primaryKey().defaultRandom(),
