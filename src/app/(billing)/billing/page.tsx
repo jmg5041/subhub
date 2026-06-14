@@ -1,16 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { users, organizations } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, organizations, employees } from '@/db/schema'
+import { eq, countDistinct } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
 
-const TIERS = [
-  { label: 'Small School',  subtitle: 'Up to 50 teachers', price: '$5 / year'  },
-  { label: 'Medium School', subtitle: '51–150 teachers',   price: '$6 / year'  },
-  { label: 'Large School',  subtitle: '151+ teachers',      price: '$7 / year'  },
-]
+const PRICE_PER_TEACHER = 5 // dollars per teacher per month
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -28,6 +24,18 @@ export default async function BillingPage() {
   // Active orgs shouldn't be here — send them back
   if (state.status === 'active') redirect('/dashboard')
 
+  // Count distinct teachers in this org (join through users to get org filter)
+  const [{ value: teacherCount }] = await db
+    .select({ value: countDistinct(employees.userId) })
+    .from(employees)
+    .innerJoin(users, eq(employees.userId, users.id))
+    .where(eq(users.organizationId, profile.organizationId))
+
+  const numTeachers = Math.max(Number(teacherCount), 1)
+  const monthlyTotal = numTeachers * PRICE_PER_TEACHER
+
+  const isAdmin = profile.role === 'admin' || profile.role === 'principal'
+
   const statusLabel =
     state.status === 'trial_ending' ? `Trial ending in ${state.daysLeft} day${state.daysLeft === 1 ? '' : 's'}` :
     state.status === 'trial'        ? `Free trial — ${state.daysLeft} days remaining` :
@@ -35,9 +43,9 @@ export default async function BillingPage() {
     state.status === 'expired'      ? 'Trial expired' : ''
 
   const statusColor =
-    state.status === 'expired'      ? 'bg-red-50 border-red-200 text-red-800' :
-    state.status === 'past_due'     ? 'bg-orange-50 border-orange-200 text-orange-800' :
-                                      'bg-amber-50 border-amber-200 text-amber-800'
+    state.status === 'expired'  ? 'bg-red-50 border-red-200 text-red-800' :
+    state.status === 'past_due' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+                                  'bg-amber-50 border-amber-200 text-amber-800'
 
   return (
     <div className="space-y-8">
@@ -46,36 +54,44 @@ export default async function BillingPage() {
         <p className="text-sm text-gray-500 mt-1">{org.name}</p>
       </div>
 
-      {/* Status card */}
+      {/* Status banner */}
       <div className={`rounded-lg border px-5 py-4 ${statusColor}`}>
         <p className="font-semibold">{statusLabel}</p>
         {state.status === 'expired' && (
-          <p className="text-sm mt-1 opacity-80">Your free trial has ended. Subscribe below to continue using SubHub, or pay by check.</p>
+          <p className="text-sm mt-1 opacity-80">Your free trial has ended. Subscribe below to continue using SubHub.</p>
         )}
         {state.status === 'past_due' && (
-          <p className="text-sm mt-1 opacity-80">Your payment didn&apos;t go through. Update your payment method to restore full access.</p>
+          <p className="text-sm mt-1 opacity-80">Your last payment didn&apos;t go through. Please subscribe again to restore full access.</p>
         )}
       </div>
 
-      {/* Subscription tiers */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Choose a plan</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {TIERS.map((tier) => (
-            <div key={tier.label} className="rounded-lg border border-gray-200 bg-white p-4 flex flex-col gap-2">
-              <p className="font-semibold text-gray-900">{tier.label}</p>
-              <p className="text-xs text-gray-500">{tier.subtitle}</p>
-              <p className="text-lg font-bold text-blue-600 mt-1">{tier.price}</p>
-              <button
-                disabled
-                className="mt-auto rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white opacity-40 cursor-not-allowed"
-              >
-                Coming soon
-              </button>
-            </div>
-          ))}
+      {/* Pricing card */}
+      <div className="rounded-lg border border-gray-200 bg-white px-6 py-6">
+        <h2 className="text-base font-semibold text-gray-900 mb-1">SubHub Subscription</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          ${PRICE_PER_TEACHER} per teacher · per month · cancel anytime
+        </p>
+
+        <div className="flex items-baseline gap-1 mb-1">
+          <span className="text-3xl font-bold text-gray-900">${monthlyTotal}</span>
+          <span className="text-gray-500 text-sm">/month</span>
         </div>
-        <p className="text-xs text-gray-400 mt-3">Online payments launching soon. All plans include ACH bank transfer.</p>
+        <p className="text-xs text-gray-400 mb-6">
+          Based on {numTeachers} teacher{numTeachers === 1 ? '' : 's'} currently in your system
+        </p>
+
+        {isAdmin ? (
+          <form action="/api/stripe/checkout" method="POST">
+            <button
+              type="submit"
+              className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+            >
+              Subscribe with Credit Card
+            </button>
+          </form>
+        ) : (
+          <p className="text-sm text-gray-500">Contact your school admin to set up billing.</p>
+        )}
       </div>
 
       {/* Check payment option */}
