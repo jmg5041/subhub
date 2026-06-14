@@ -32,13 +32,22 @@ export async function POST(req: NextRequest) {
 
   const quantity = Math.max(Number(teacherCount), 1)
 
+  const formData = await req.formData()
+  const returnTo = formData.get('returnTo') as string | null
+  const isOnboarding = returnTo === 'onboarding'
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     line_items: [{ price: PRICE_ID, quantity }],
-    success_url: `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${APP_URL}/billing`,
+    // Onboarding flow returns to wizard; billing page flow goes to success page
+    success_url: isOnboarding
+      ? `${APP_URL}/onboarding?billing=done`
+      : `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: isOnboarding ? `${APP_URL}/onboarding` : `${APP_URL}/billing`,
     metadata: { orgId: org.id },
     allow_promotion_codes: true,
+    // New signups coming through onboarding get a 6-month free trial
+    ...(isOnboarding ? { subscription_data: { trial_period_days: 180 } } : {}),
     // Reuse existing Stripe customer if we have one
     ...(org.stripeCustomerId
       ? { customer: org.stripeCustomerId }

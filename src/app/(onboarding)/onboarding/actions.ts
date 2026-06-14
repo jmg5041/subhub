@@ -102,8 +102,14 @@ export async function removeOnboardingSchool(schoolId: string) {
   return { success: true }
 }
 
+export async function saveBillingPreference(method: 'check') {
+  const { orgId } = await getOnboardingContext()
+  await db.update(organizations)
+    .set({ paymentMethod: method, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+}
+
 // Stamps onboarding complete and sends the user to /dashboard.
-// Called by the Step 5 Finish button; also used by Chunk 3's completeOnboarding.
 export async function completeOnboarding() {
   const { orgId } = await getOnboardingContext()
   await db.update(organizations)

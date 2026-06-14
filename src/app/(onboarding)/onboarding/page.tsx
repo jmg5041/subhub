@@ -5,7 +5,11 @@ import { users, organizations, schools } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import OnboardingWizard from './OnboardingWizard'
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -17,15 +21,21 @@ export default async function OnboardingPage() {
     where: eq(organizations.id, profile.organizationId),
   })
 
-  // If onboarding is already complete, send them to the dashboard
   if (org?.onboardingCompletedAt) redirect('/dashboard')
 
   const existingSchools = await db.query.schools.findMany({
     where: eq(schools.organizationId, profile.organizationId),
   })
 
-  // Resume at step 2 if they've already added schools
-  const startStep = existingSchools.length > 0 ? 2 : 1
+  const params = await searchParams
+  const billingAlreadySetUp = !!org?.stripeCustomerId || org?.paymentMethod === 'check'
+  const returningFromStripe = params.billing === 'done'
+
+  // Resume at the right step
+  const startStep =
+    returningFromStripe || (existingSchools.length > 0 && billingAlreadySetUp) ? 4
+    : existingSchools.length > 0 ? 3
+    : 1
 
   return (
     <div className="space-y-2">
@@ -55,6 +65,7 @@ export default async function OnboardingPage() {
             dayEndTime:   s.dayEndTime,
           }))}
           startStep={startStep}
+          billingAlreadySetUp={billingAlreadySetUp}
         />
       </div>
     </div>
