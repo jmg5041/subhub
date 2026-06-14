@@ -188,6 +188,10 @@ export async function deleteOrganization(formData: FormData) {
     .set({ claimedByOrgId: null })
     .where(eq(schoolDirectory.claimedByOrgId, orgId))
 
+  // Null out users.schoolId before deleting schools (users has a FK to schools)
+  if (orgUserIds.length > 0)
+    await db.update(users).set({ schoolId: null }).where(inArray(users.id, orgUserIds))
+
   await db.delete(schools).where(eq(schools.organizationId, orgId))
 
   // ── Step 3: Delete Supabase auth accounts then user rows ───────────────────
