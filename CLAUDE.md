@@ -422,10 +422,16 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 | `src/app/(billing)/billing/success/page.tsx` | Post-payment success landing page |
 
 ### Environment Variables
-| Variable | Purpose |
-|----------|---------|
-| `STRIPE_SECRET_KEY` | Live secret key (`sk_live_...`) — in Vercel + local `.env.local` |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret (`whsec_...`) — in Vercel only |
+| Variable | Where | Purpose |
+|----------|-------|---------|
+| `STRIPE_SECRET_KEY` | Vercel + `.env.local` | Live secret key (`sk_live_...`) |
+| `STRIPE_WEBHOOK_SECRET` | Vercel only | Webhook signing secret (`whsec_...`) — local webhook testing requires Stripe CLI, skip for now |
+
+**To add Stripe to local dev:** open `.env.local` and add:
+```
+STRIPE_SECRET_KEY=sk_live_...
+```
+`STRIPE_WEBHOOK_SECRET` is not needed locally unless you set up the Stripe CLI to forward webhooks.
 
 ### Stripe API v22 Gotchas
 The Stripe SDK v22 changed two field locations compared to older docs/tutorials:

@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     success_url: `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_URL}/billing`,
     metadata: { orgId: org.id },
+    allow_promotion_codes: true,
     // Reuse existing Stripe customer if we have one
     ...(org.stripeCustomerId
       ? { customer: org.stripeCustomerId }

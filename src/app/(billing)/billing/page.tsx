@@ -87,7 +87,19 @@ export default async function BillingPage() {
         </p>
 
         {state.status === 'active' ? (
-          <p className="text-sm text-green-700 font-medium">✓ Subscription active</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-700 font-medium">✓ Subscription active</p>
+            {isAdmin && (
+              <form action="/api/stripe/portal" method="POST">
+                <button
+                  type="submit"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Manage subscription →
+                </button>
+              </form>
+            )}
+          </div>
         ) : isAdmin ? (
           <form action="/api/stripe/checkout" method="POST">
             <button
