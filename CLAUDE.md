@@ -382,6 +382,73 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 
 ---
 
+## Stripe Configuration
+
+### Account & Mode
+- **Live mode** (not test mode) — real cards, real charges
+- Stripe account email: jessegentile@gmail.com
+- Stripe SDK version: `stripe@22.2.1` (npm)
+- Stripe API version used by webhook destination: `2026-05-27.dahlia`
+
+### Product & Pricing
+- **Product**: "SubHub" (`prod_UhQU3p2FS7Gyld`)
+- **Price**: $5.00 per unit per month, recurring (`price_1Ti1dlB7AVFO3ftiA0nOLuxN`)
+- Billing model: per-teacher. At checkout, `quantity` = number of distinct teachers
+  in the org's `employees` table (counted via join to `users`).
+- Price ID is hardcoded in `src/app/api/stripe/checkout/route.ts` as `PRICE_ID`.
+  To change pricing: create a new price in Stripe dashboard and update that constant.
+- Discounts/coupons are managed entirely in the Stripe dashboard — no code needed.
+  A 6-month free coupon can be created there and shared with a school.
+
+### Webhook Destination
+- **Destination ID**: `we_1Ti2iPB7AVFO3ftih0zpsQwJ`
+- **Name**: SubHub Production
+- **Endpoint URL**: `https://app.substitutes.us/api/stripe/webhook`
+- **Scope**: Your account (not Connected accounts)
+- **Payload style**: Snapshot
+- **Events subscribed** (4 total):
+  - `checkout.session.completed` — fires when a school completes checkout; sets org to `active`
+  - `invoice.paid` — fires on renewal; updates `paidThrough` date
+  - `invoice.payment_failed` — fires when a charge is declined; sets org to `past_due`
+  - `customer.subscription.deleted` — fires when subscription is cancelled; sets org to `expired`
+
+### Key Code Files
+| File | Purpose |
+|------|---------|
+| `src/lib/stripe.ts` | Stripe client singleton (uses `STRIPE_SECRET_KEY`) |
+| `src/app/api/stripe/checkout/route.ts` | POST → creates Checkout session, redirects to Stripe |
+| `src/app/api/stripe/webhook/route.ts` | POST → handles all 4 webhook events |
+| `src/app/(billing)/billing/page.tsx` | Billing page: shows status + Subscribe button |
+| `src/app/(billing)/billing/success/page.tsx` | Post-payment success landing page |
+
+### Environment Variables
+| Variable | Purpose |
+|----------|---------|
+| `STRIPE_SECRET_KEY` | Live secret key (`sk_live_...`) — in Vercel + local `.env.local` |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret (`whsec_...`) — in Vercel only |
+
+### Stripe API v22 Gotchas
+The Stripe SDK v22 changed two field locations compared to older docs/tutorials:
+- **`subscription.current_period_end`** no longer exists on the Subscription object directly.
+  It moved to the subscription item: `sub.items.data[0].current_period_end`.
+  Always pass `{ expand: ['items.data'] }` when retrieving a subscription to read this field.
+- **`invoice.subscription`** no longer exists as a top-level field on Invoice.
+  It moved to: `invoice.parent?.subscription_details?.subscription` (type: `string | Subscription`).
+  Extract the ID with: `typeof subRef === 'string' ? subRef : subRef?.id`
+
+### Flow Summary
+1. Admin visits `/billing` → sees teacher count and monthly total
+2. Clicks "Subscribe with Credit Card" → form POSTs to `/api/stripe/checkout`
+3. Server creates Checkout session with `quantity = teacherCount`, redirects to Stripe
+4. School enters card info on Stripe-hosted page
+5. On success → redirected to `/billing/success`
+6. Stripe fires `checkout.session.completed` webhook → org updated to `active` in DB
+7. Monthly renewal → `invoice.paid` → `paidThrough` updated
+8. Failed payment → `invoice.payment_failed` → org set to `past_due`
+9. Cancellation → `customer.subscription.deleted` → org set to `expired`
+
+---
+
 ## Known Pending Work
 
 **Operational (needed for daily use):**
