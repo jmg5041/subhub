@@ -21,9 +21,6 @@ export default async function BillingPage() {
 
   const state = getBillingState(org)
 
-  // Active orgs shouldn't be here — send them back
-  if (state.status === 'active') redirect('/dashboard')
-
   // Count distinct teachers in this org (join through users to get org filter)
   const [{ value: teacherCount }] = await db
     .select({ value: countDistinct(employees.userId) })
@@ -37,15 +34,21 @@ export default async function BillingPage() {
   const isAdmin = profile.role === 'admin' || profile.role === 'principal'
 
   const statusLabel =
+    state.status === 'active'       ? 'Active' :
     state.status === 'trial_ending' ? `Trial ending in ${state.daysLeft} day${state.daysLeft === 1 ? '' : 's'}` :
     state.status === 'trial'        ? `Free trial — ${state.daysLeft} days remaining` :
     state.status === 'past_due'     ? 'Past due' :
     state.status === 'expired'      ? 'Trial expired' : ''
 
   const statusColor =
+    state.status === 'active'   ? 'bg-green-50 border-green-200 text-green-800' :
     state.status === 'expired'  ? 'bg-red-50 border-red-200 text-red-800' :
     state.status === 'past_due' ? 'bg-orange-50 border-orange-200 text-orange-800' :
                                   'bg-amber-50 border-amber-200 text-amber-800'
+
+  const paidThrough = org.paidThrough
+    ? new Date(org.paidThrough + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
 
   return (
     <div className="space-y-8">
@@ -57,6 +60,9 @@ export default async function BillingPage() {
       {/* Status banner */}
       <div className={`rounded-lg border px-5 py-4 ${statusColor}`}>
         <p className="font-semibold">{statusLabel}</p>
+        {state.status === 'active' && paidThrough && (
+          <p className="text-sm mt-1 opacity-80">Next billing date: {paidThrough}</p>
+        )}
         {state.status === 'expired' && (
           <p className="text-sm mt-1 opacity-80">Your free trial has ended. Subscribe below to continue using SubHub.</p>
         )}
@@ -80,7 +86,9 @@ export default async function BillingPage() {
           Based on {numTeachers} teacher{numTeachers === 1 ? '' : 's'} currently in your system
         </p>
 
-        {isAdmin ? (
+        {state.status === 'active' ? (
+          <p className="text-sm text-green-700 font-medium">✓ Subscription active</p>
+        ) : isAdmin ? (
           <form action="/api/stripe/checkout" method="POST">
             <button
               type="submit"
@@ -94,14 +102,16 @@ export default async function BillingPage() {
         )}
       </div>
 
-      {/* Check payment option */}
-      <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
-        <p className="font-medium text-gray-900">Prefer to pay by check?</p>
-        <p className="text-sm text-gray-500 mt-1">
-          Email <a href="mailto:info@substitutes.us" className="text-blue-600 hover:underline">info@substitutes.us</a> and
-          we&apos;ll send you an invoice. Your account will be activated as soon as payment is received.
-        </p>
-      </div>
+      {/* Check payment option — only show if not already active */}
+      {state.status !== 'active' && (
+        <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
+          <p className="font-medium text-gray-900">Prefer to pay by check?</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Email <a href="mailto:info@substitutes.us" className="text-blue-600 hover:underline">info@substitutes.us</a> and
+            we&apos;ll send you an invoice. Your account will be activated as soon as payment is received.
+          </p>
+        </div>
+      )}
 
       <Link href="/dashboard" className="inline-block text-sm text-gray-400 hover:text-gray-600 hover:underline">
         ← Back to dashboard

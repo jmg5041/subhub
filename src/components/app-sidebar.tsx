@@ -17,6 +17,7 @@ import {
   UserCog,
   Building2,
   HelpCircle,
+  CreditCard,
   X,
   ShieldCheck,
 } from 'lucide-react';
@@ -64,6 +65,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { href: '/settings', label: 'Settings', icon: Settings },
       { href: '/admin/users', label: 'Manage Users', icon: Users },
       { href: '/admin/schools', label: 'Schools', icon: Building2 },
+      { href: '/billing', label: 'Billing', icon: CreditCard },
     ],
   },
 ];
