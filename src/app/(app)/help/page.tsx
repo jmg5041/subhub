@@ -50,6 +50,7 @@ const toc = [
   { id: 'reconcile',        label: 'Reconciling Sub Hours' },
   { id: 'settings',         label: 'Settings' },
   { id: 'schools',          label: 'Schools' },
+  { id: 'billing',          label: 'Billing & Subscription' },
 ]
 
 export default function AdminHelpPage() {
@@ -310,6 +311,59 @@ export default function AdminHelpPage() {
 
         <h3 className="font-semibold text-gray-800 mt-4">Claiming from the school directory</h3>
         <p>SubHub includes a directory of California public schools. Click <strong>Find in directory</strong> to search for your school and import its address, phone, and county automatically. This also makes your school visible to substitutes browsing the directory.</p>
+      </Section>
+
+      {/* ── Billing & Subscription ── */}
+      <Section id="billing" title="Billing & Subscription">
+        <p>SubHub is priced at <strong>$5 per teacher per month</strong>. Your monthly amount is calculated automatically based on the number of teachers in your system.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Free trial</h3>
+        <p>Every new school starts with a <strong>6-month free trial</strong>. No charge is made until the trial period ends. You can cancel at any time during the trial and you will never be billed.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Payment methods</h3>
+        <div className="space-y-3">
+          <div>
+            <p className="font-semibold text-gray-800">Credit or debit card</p>
+            <p>Set up during onboarding via the Billing step. When your trial ends, your card is charged automatically each month. No action is needed — coverage continues without interruption. You can enter a promo or discount code on the Stripe checkout screen.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Check or invoice</p>
+            <p>Email <a href="mailto:info@substitutes.us" className="text-blue-600 hover:underline">info@substitutes.us</a> to arrange invoice billing. We will send you an invoice before your trial ends. Payment must be received to keep your account active after the trial period.</p>
+          </div>
+        </div>
+
+        <h3 className="font-semibold text-gray-800 mt-4">What happens when the trial ends</h3>
+        <div className="space-y-2">
+          <p><strong>Credit card:</strong> Your card is charged automatically. You receive a confirmation email and service continues with no interruption.</p>
+          <p><strong>Invoice/check:</strong> You receive an invoice email when the trial ends. SubHub staff will follow up to confirm payment. If payment is not received, substitute notifications may be paused until the account is settled.</p>
+        </div>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Reminder emails</h3>
+        <p>You will receive automatic reminder emails as your trial approaches its end:</p>
+        <ul className="list-disc list-inside space-y-1 pl-1">
+          <li><strong>14 days before</strong> — a heads-up with your estimated monthly rate</li>
+          <li><strong>3 days before</strong> — an urgent reminder</li>
+          <li><strong>Day of expiry</strong> — a final notice with payment instructions</li>
+        </ul>
+        <Tip>All billing reminder emails go to the account admin&apos;s email address. Make sure your admin email is current under Admin → Manage Users.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">What stops working if billing lapses</h3>
+        <p>If billing is not resolved after the trial ends:</p>
+        <ul className="list-disc list-inside space-y-1 pl-1">
+          <li>Admin dashboard access is paused until billing is updated.</li>
+          <li>Substitute notification blasts (email, SMS, phone) stop.</li>
+          <li>Teachers can still log in and submit absence requests.</li>
+          <li>Existing sub assignments and records are preserved.</li>
+        </ul>
+        <p className="mt-2">Contact <a href="mailto:info@substitutes.us" className="text-blue-600 hover:underline">info@substitutes.us</a> at any time to sort out billing — we will restore full access as soon as payment is confirmed.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Managing your subscription</h3>
+        <p>Go to <strong>Admin → Billing</strong> in the sidebar to view your current subscription status, next billing date, and monthly rate. Credit card subscribers can click <strong>Manage subscription</strong> to update their payment method, view past invoices, or cancel.</p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Discounts and promo codes</h3>
+        <p>If you have a promo or discount code, enter it on the Stripe checkout screen when setting up your credit card. For invoice customers, mention your discount when contacting us at <a href="mailto:info@substitutes.us" className="text-blue-600 hover:underline">info@substitutes.us</a>.</p>
+
+        <Note>Your monthly rate is based on the number of teachers currently in your system. Contact us at info@substitutes.us if you have any questions about your rate.</Note>
       </Section>
 
     </div>
