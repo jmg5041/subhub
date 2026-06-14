@@ -115,6 +115,19 @@ export async function saveStaffAlertEmail(formData: FormData) {
   redirect('/platform')
 }
 
+export async function saveBranding(formData: FormData) {
+  await getPlatformContext()
+  const appName = (formData.get('appName') as string).trim() || 'SubHub'
+  const logoUrl = (formData.get('logoUrl') as string).trim() || null
+
+  await db.insert(platformSettings)
+    .values({ id: 1, appName, logoUrl })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { appName, logoUrl, updatedAt: new Date() } })
+
+  revalidatePath('/platform')
+  redirect('/platform')
+}
+
 export async function setCronEnabled(formData: FormData) {
   await getPlatformContext()
 

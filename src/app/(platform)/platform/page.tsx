@@ -3,7 +3,7 @@ import { organizations, schools, users, platformSettings } from '@/db/schema'
 import { eq, count } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
-import { getPlatformContext, saveStaffAlertEmail } from './actions'
+import { getPlatformContext, saveStaffAlertEmail, saveBranding } from './actions'
 
 const STATUS_COLORS: Record<string, string> = {
   active:        'bg-green-100 text-green-700',
@@ -44,24 +44,46 @@ export default async function PlatformPage() {
         </div>
 
         {/* Platform settings */}
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 w-72">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Staff Alert Email</p>
-          <p className="text-xs text-gray-500 mb-3">
-            Billing expiry alerts are sent here for manual review.
-          </p>
-          <form action={saveStaffAlertEmail} className="flex gap-2">
-            <input
-              type="email"
-              name="staffAlertEmail"
-              defaultValue={settings?.staffAlertEmail ?? ''}
-              placeholder="you@example.com"
-              className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-            />
-            <button type="submit"
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
-              Save
-            </button>
-          </form>
+        <div className="space-y-3 w-80">
+          {/* Staff alert email */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Staff Alert Email</p>
+            <p className="text-xs text-gray-500 mb-3">Billing expiry alerts are sent here.</p>
+            <form action={saveStaffAlertEmail} className="flex gap-2">
+              <input type="email" name="staffAlertEmail"
+                defaultValue={settings?.staffAlertEmail ?? ''}
+                placeholder="you@example.com"
+                className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
+              <button type="submit"
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+                Save
+              </button>
+            </form>
+          </div>
+
+          {/* Branding */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Branding</p>
+            <form action={saveBranding} className="space-y-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">App name</label>
+                <input type="text" name="appName"
+                  defaultValue={settings?.appName ?? 'SubHub'}
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Logo URL <span className="text-gray-600">(optional)</span></label>
+                <input type="url" name="logoUrl"
+                  defaultValue={settings?.logoUrl ?? ''}
+                  placeholder="https://..."
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500" />
+              </div>
+              <button type="submit"
+                className="w-full rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+                Save branding
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 

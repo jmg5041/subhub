@@ -38,6 +38,8 @@ export const organizations = pgTable('organizations', {
 export const platformSettings = pgTable('platform_settings', {
   id: integer('id').primaryKey().default(1),
   staffAlertEmail: text('staff_alert_email'), // receives billing expiry alerts
+  appName: text('app_name').default('SubHub'),
+  logoUrl: text('logo_url'), // URL to logo image; if null, app name text is shown
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
