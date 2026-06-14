@@ -2,7 +2,7 @@ import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
 import { eq, desc, and, isNull, gt } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
-import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled } from '../actions'
+import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization } from '../actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -223,6 +223,36 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
           </div>
         </div>
       )}
+      {/* Danger Zone */}
+      <div className="rounded-lg border border-red-900 bg-gray-900 p-5 space-y-3">
+        <p className="text-sm font-semibold text-red-400 uppercase tracking-wider">Danger Zone</p>
+        <p className="text-xs text-gray-400">
+          Permanently deletes this organization, all its schools, teachers, substitutes, absences,
+          assignments, and Supabase auth accounts. This cannot be undone.
+        </p>
+        <form action={deleteOrganization} className="space-y-3">
+          <input type="hidden" name="orgId" value={org.id} />
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">
+              Type <span className="text-white font-mono">{org.name}</span> to confirm
+            </label>
+            <input
+              type="text"
+              name="confirmName"
+              required
+              autoComplete="off"
+              placeholder={org.name}
+              className="w-full rounded-md border border-red-900 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full rounded-md bg-red-900 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-800 transition-colors"
+          >
+            Delete {org.name} permanently
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

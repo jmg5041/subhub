@@ -1,8 +1,13 @@
 'use server'
 
 import { db } from '@/db'
-import { users, organizations, billingEvents, invitations, platformSettings } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import {
+  users, organizations, billingEvents, invitations, platformSettings,
+  schools, employees, substitutes, absenceReasons, teacherTimeOff,
+  subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders,
+  subSchoolAssignments, subUnavailability, attachments, schoolDirectory,
+} from '@/db/schema'
+import { eq, inArray } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
@@ -122,6 +127,80 @@ export async function setCronEnabled(formData: FormData) {
 
   revalidatePath(`/platform/${orgId}`)
   redirect(`/platform/${orgId}`)
+}
+
+export async function deleteOrganization(formData: FormData) {
+  await getPlatformContext()
+  const supabaseAdmin = createAdminClient()
+
+  const orgId       = formData.get('orgId') as string
+  const confirmName = (formData.get('confirmName') as string).trim()
+
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  if (!org) notFound()
+  if (confirmName !== org.name) redirect(`/platform/${orgId}?deleteError=name_mismatch`)
+
+  // ── Step 1: Collect IDs needed for child-table deletes ─────────────────────
+  const orgUsers = await db.select({ id: users.id }).from(users).where(eq(users.organizationId, orgId))
+  const orgUserIds = orgUsers.map(u => u.id)
+
+  const orgSubs = orgUserIds.length > 0
+    ? await db.select({ id: substitutes.id }).from(substitutes).where(inArray(substitutes.userId, orgUserIds))
+    : []
+  const orgSubIds = orgSubs.map(s => s.id)
+
+  const orgTimeOff = await db.select({ id: teacherTimeOff.id }).from(teacherTimeOff).where(eq(teacherTimeOff.organizationId, orgId))
+  const orgTimeOffIds = orgTimeOff.map(t => t.id)
+
+  const orgAssignments = await db.select({ id: subAssignments.id }).from(subAssignments).where(eq(subAssignments.organizationId, orgId))
+  const orgAssignmentIds = orgAssignments.map(a => a.id)
+
+  // ── Step 2: Delete child records (deepest dependencies first) ──────────────
+  if (orgSubIds.length > 0 || orgTimeOffIds.length > 0) {
+    const tokenFilter = []
+    if (orgSubIds.length > 0) tokenFilter.push(inArray(subNotificationTokens.substituteId, orgSubIds))
+    if (orgTimeOffIds.length > 0) tokenFilter.push(inArray(subNotificationTokens.teacherTimeOffId, orgTimeOffIds))
+    for (const f of tokenFilter) await db.delete(subNotificationTokens).where(f)
+  }
+
+  if (orgAssignmentIds.length > 0)
+    await db.delete(assignmentTimeOff).where(inArray(assignmentTimeOff.assignmentId, orgAssignmentIds))
+
+  await db.delete(attachments).where(eq(attachments.organizationId, orgId))
+  await db.delete(subAssignments).where(eq(subAssignments.organizationId, orgId))
+  await db.delete(teacherTimeOff).where(eq(teacherTimeOff.organizationId, orgId))
+  if (orgUserIds.length > 0)
+    await db.delete(employees).where(inArray(employees.userId, orgUserIds))
+  await db.delete(subPriorityOrders).where(eq(subPriorityOrders.organizationId, orgId))
+  await db.delete(subSchoolAssignments).where(eq(subSchoolAssignments.organizationId, orgId))
+
+  if (orgSubIds.length > 0) {
+    await db.delete(subUnavailability).where(inArray(subUnavailability.substituteId, orgSubIds))
+    await db.delete(substitutes).where(inArray(substitutes.userId, orgUserIds))
+  }
+
+  await db.delete(invitations).where(eq(invitations.organizationId, orgId))
+  await db.delete(billingEvents).where(eq(billingEvents.organizationId, orgId))
+  await db.delete(absenceReasons).where(eq(absenceReasons.organizationId, orgId))
+
+  // Release any school directory claims
+  await db.update(schoolDirectory)
+    .set({ claimedByOrgId: null })
+    .where(eq(schoolDirectory.claimedByOrgId, orgId))
+
+  await db.delete(schools).where(eq(schools.organizationId, orgId))
+
+  // ── Step 3: Delete Supabase auth accounts then user rows ───────────────────
+  for (const u of orgUsers) {
+    try { await supabaseAdmin.auth.admin.deleteUser(u.id) } catch { /* not found = fine */ }
+  }
+  if (orgUserIds.length > 0)
+    await db.delete(users).where(inArray(users.id, orgUserIds))
+
+  // ── Step 4: Delete the org itself ──────────────────────────────────────────
+  await db.delete(organizations).where(eq(organizations.id, orgId))
+
+  redirect('/platform')
 }
 
 export async function addBillingNote(formData: FormData) {
