@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       const customerId = session.customer as string
       const subscriptionId = session.subscription as string
 
-      // In Stripe v22, current_period_end is on the subscription item, not the subscription itself
+      // In Stripe v22, current_period_end is on the subscription item
       const sub = await stripe.subscriptions.retrieve(subscriptionId, {
         expand: ['items.data'],
       })
@@ -39,11 +39,14 @@ export async function POST(req: NextRequest) {
         ? new Date(periodEnd * 1000).toISOString().split('T')[0]
         : null
 
+      // If subscription is trialing, status stays 'trial' in our DB until trial ends
+      const newStatus = sub.status === 'trialing' ? 'trial' : 'active'
+
       await db.update(organizations)
         .set({
           stripeCustomerId: customerId,
           stripeSubscriptionId: subscriptionId,
-          subscriptionStatus: 'active',
+          subscriptionStatus: newStatus,
           paidThrough,
           paymentMethod: 'stripe',
         })
@@ -53,7 +56,9 @@ export async function POST(req: NextRequest) {
         organizationId: orgId,
         type: 'stripe_payment',
         amountCents: session.amount_total ?? 0,
-        note: `Stripe subscription started${paidThrough ? `. Billed through ${paidThrough}` : ''}.`,
+        note: newStatus === 'trial'
+          ? `Stripe subscription started with trial period${paidThrough ? `. Trial through ${paidThrough}` : ''}.`
+          : `Stripe subscription started${paidThrough ? `. Billed through ${paidThrough}` : ''}.`,
         createdBy: null,
       })
       break
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice
 
-      // Skip the first invoice — handled by checkout.session.completed above
+      // Skip the first invoice on a new subscription — handled by checkout.session.completed
       if (invoice.billing_reason === 'subscription_create') break
 
       // In Stripe v22, subscription ID is nested under invoice.parent
@@ -138,6 +143,60 @@ export async function POST(req: NextRequest) {
         organizationId: org.id,
         type: 'status_change',
         note: 'Stripe subscription cancelled. Status set to expired.',
+        createdBy: null,
+      })
+      break
+    }
+
+    case 'customer.subscription.updated': {
+      const sub = event.data.object as Stripe.Subscription
+
+      const org = await db.query.organizations.findFirst({
+        where: eq(organizations.stripeSubscriptionId, sub.id),
+      })
+      if (!org) break
+
+      // Map Stripe subscription status to our internal status
+      const periodEnd = sub.items.data[0]?.current_period_end
+      const paidThrough = periodEnd
+        ? new Date(periodEnd * 1000).toISOString().split('T')[0]
+        : null
+
+      const statusMap: Record<string, string> = {
+        active: 'active',
+        trialing: 'trial',
+        past_due: 'past_due',
+        canceled: 'expired',
+        unpaid: 'past_due',
+      }
+      const newStatus = statusMap[sub.status] ?? org.subscriptionStatus ?? 'trial'
+
+      await db.update(organizations)
+        .set({ subscriptionStatus: newStatus, paidThrough })
+        .where(eq(organizations.id, org.id))
+
+      await db.insert(billingEvents).values({
+        organizationId: org.id,
+        type: 'status_change',
+        note: `Stripe subscription updated. Status: ${sub.status}${paidThrough ? `. Period through ${paidThrough}` : ''}.`,
+        createdBy: null,
+      })
+      break
+    }
+
+    case 'customer.subscription.trial_will_end': {
+      const sub = event.data.object as Stripe.Subscription
+
+      const org = await db.query.organizations.findFirst({
+        where: eq(organizations.stripeSubscriptionId, sub.id),
+      })
+      if (!org) break
+
+      // Log the event — email reminder to admin is future work (Resend)
+      await db.insert(billingEvents).values({
+        organizationId: org.id,
+        type: 'status_change',
+        note: 'Stripe trial ending in 3 days. Admin should be notified.',
         createdBy: null,
       })
       break

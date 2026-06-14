@@ -408,16 +408,19 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 - The portal link above can also be shared directly with a customer if needed
 
 ### Webhook Destination
-- **Destination ID**: `we_1Ti2iPB7AVFO3ftih0zpsQwJ`
+- **Destination ID**: recreated 2026-06-13 (original `we_1Ti2iPB7AVFO3ftih0zpsQwJ` was not visible in Workbench after creation — Stripe UI bug)
 - **Name**: SubHub Production
 - **Endpoint URL**: `https://app.substitutes.us/api/stripe/webhook`
 - **Scope**: Your account (not Connected accounts)
 - **Payload style**: Snapshot
-- **Events subscribed** (4 total):
-  - `checkout.session.completed` — fires when a school completes checkout; sets org to `active`
-  - `invoice.paid` — fires on renewal; updates `paidThrough` date
-  - `invoice.payment_failed` — fires when a charge is declined; sets org to `past_due`
-  - `customer.subscription.deleted` — fires when subscription is cancelled; sets org to `expired`
+- **API version**: `2026-05-27.dahlia`
+- **Events subscribed** (6 total):
+  - `checkout.session.completed` — school completes checkout; saves stripeCustomerId/SubscriptionId, sets status
+  - `invoice.paid` — renewal payment succeeds; updates `paidThrough`, sets `active`
+  - `invoice.payment_failed` — charge declined; sets `past_due`
+  - `customer.subscription.deleted` — subscription cancelled; sets `expired`
+  - `customer.subscription.updated` — any subscription change (trial→active, plan change, quantity); syncs status + `paidThrough`
+  - `customer.subscription.trial_will_end` — fires 3 days before trial ends; logs billing event (email reminder is future work)
 
 ### Key Code Files
 | File | Purpose |
