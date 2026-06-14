@@ -41,6 +41,12 @@ export default async function AppLayout({
     .eq('id', user.id)
     .single();
 
+  // If profile is missing the user row was deleted — sign out and clear the cached session
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect('/auth/login')
+  }
+
   // Extract school name from Supabase foreign key join result
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schoolName = Array.isArray(profile?.schools)

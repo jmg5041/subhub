@@ -141,7 +141,10 @@ export async function deleteOrganization(formData: FormData) {
   if (confirmName !== org.name) redirect(`/platform/${orgId}?deleteError=name_mismatch`)
 
   // ── Step 1: Collect IDs needed for child-table deletes ─────────────────────
-  const orgUsers = await db.select({ id: users.id }).from(users).where(eq(users.organizationId, orgId))
+  const orgUsers = await db
+    .select({ id: users.id, isPlatformAdmin: users.isPlatformAdmin })
+    .from(users)
+    .where(eq(users.organizationId, orgId))
   const orgUserIds = orgUsers.map(u => u.id)
 
   const orgSubs = orgUserIds.length > 0

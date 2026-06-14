@@ -16,7 +16,10 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     with: { school: true },
   })
 
-  if (!profile) redirect('/auth/login')
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect('/auth/login')
+  }
 
   if (!['teacher'].includes(profile.role)) {
     redirect(profile.role === 'substitute' ? '/sub/dashboard' : '/dashboard')

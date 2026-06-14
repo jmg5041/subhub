@@ -16,7 +16,10 @@ export default async function SubLayout({ children }: { children: React.ReactNod
     with: { school: true },
   })
 
-  if (!profile) redirect('/auth/login')
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect('/auth/login')
+  }
 
   if (profile.role !== 'substitute') {
     redirect(profile.role === 'teacher' ? '/teacher' : '/dashboard')
