@@ -91,10 +91,7 @@ export default async function BillingPage() {
             <p className="text-sm text-green-700 font-medium">✓ Subscription active</p>
             {isAdmin && (
               <form action="/api/stripe/portal" method="POST">
-                <button
-                  type="submit"
-                  className="text-sm text-blue-600 hover:underline"
-                >
+                <button type="submit" className="text-sm text-blue-600 hover:underline">
                   Manage subscription →
                 </button>
               </form>

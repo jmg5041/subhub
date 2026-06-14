@@ -400,6 +400,13 @@ unauthorized calls. Vercel sends this automatically from the cron config in `ver
 - Discounts/coupons are managed entirely in the Stripe dashboard — no code needed.
   A 6-month free coupon can be created there and shared with a school.
 
+### Customer Portal
+- **Configuration ID**: `bpc_1Ti3sGB7AVFO3ftiL8oWB562`
+- **Portal Link**: `billing.stripe.com/p/login/aFaeVcfzYgcv2nYflK8g000`
+- Enabled features: invoice history, customer info, payment methods, cancellations, subscriptions
+- Our code creates portal sessions via `/api/stripe/portal` (POST) using `stripe.billingPortal.sessions.create()`
+- The portal link above can also be shared directly with a customer if needed
+
 ### Webhook Destination
 - **Destination ID**: `we_1Ti2iPB7AVFO3ftih0zpsQwJ`
 - **Name**: SubHub Production
