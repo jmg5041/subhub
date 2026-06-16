@@ -33,13 +33,12 @@ export default async function AppLayout({
     redirect('/auth/login');
   }
 
-  // Get user's profile for the top bar
-  // schools is a foreign key join — Supabase returns it as an array
-  const { data: profile } = await supabase
-    .from('users')
-    .select('first_name, last_name, role, school_id, avatar_url, organization_id, schools(name)')
-    .eq('id', user.id)
-    .single();
+  // Get user's profile via Drizzle (bypasses RLS, safe on server)
+  const profile = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
+    columns: { firstName: true, lastName: true, role: true, schoolId: true, avatarUrl: true, organizationId: true },
+    with: { school: { columns: { name: true } } },
+  });
 
   // If profile is missing the user row was deleted — sign out and clear the cached session
   if (!profile) {
@@ -47,17 +46,13 @@ export default async function AppLayout({
     redirect('/auth/login')
   }
 
-  // Extract school name from Supabase foreign key join result
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const schoolName = Array.isArray(profile?.schools)
-    ? profile.schools[0]?.name
-    : (profile?.schools as unknown as { name: string } | null)?.name;
+  const schoolName = profile?.school?.name ?? null;
 
   // Admin/principal/staff: onboarding gate + billing gate + pending sub count
   let pendingSubCount = 0
   let billingState = null
   let isPlatformAdmin = false
-  const orgId = (profile as unknown as { organization_id?: string })?.organization_id
+  const orgId = profile?.organizationId
 
   if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role) && orgId) {
     const [org, pendingRows, userRow] = await Promise.all([
@@ -86,11 +81,11 @@ export default async function AppLayout({
   return (
     <AppShell
       schoolName={schoolName ?? null}
-      firstName={profile?.first_name ?? null}
-      lastName={profile?.last_name ?? null}
+      firstName={profile?.firstName ?? null}
+      lastName={profile?.lastName ?? null}
       email={user?.email ?? null}
       role={profile?.role ?? null}
-      avatarUrl={profile?.avatar_url ?? null}
+      avatarUrl={profile?.avatarUrl ?? null}
       pendingSubCount={pendingSubCount}
       isPlatformAdmin={isPlatformAdmin}
     >
