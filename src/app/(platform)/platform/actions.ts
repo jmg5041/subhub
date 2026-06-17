@@ -151,6 +151,7 @@ export async function deleteOrganization(formData: FormData) {
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   if (!org) notFound()
+  if (org.slug === 'subhub-platform') redirect('/platform')
   if (confirmName !== org.name) redirect(`/platform/${orgId}?deleteError=name_mismatch`)
 
   // ── Step 1: Collect IDs needed for child-table deletes ─────────────────────

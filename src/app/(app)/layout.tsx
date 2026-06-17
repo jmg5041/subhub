@@ -1,15 +1,3 @@
-/**
- * Dashboard/app layout — wraps all authenticated pages with the sidebar.
- * 
- * This layout provides:
- * - Left sidebar (navigation)
- * - Main content area (where page content renders)
- * - Top bar (with school/org info)
- * 
- * Pages inside this layout are automatically protected by the middleware
- * (users must be logged in to see them).
- */
-
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
@@ -18,6 +6,8 @@ import { organizations, subSchoolAssignments, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getBillingState } from '@/lib/billing';
 import { BillingBanner } from '@/components/BillingBanner';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { getImpersonatedOrg } from '@/lib/impersonation';
 
 export default async function AppLayout({
   children,
@@ -27,35 +17,43 @@ export default async function AppLayout({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Double-check auth — middleware should have already redirected,
-  // but this is a safety check
   if (!user) {
     redirect('/auth/login');
   }
 
-  // Get user's profile via Drizzle (bypasses RLS, safe on server)
   const profile = await db.query.users.findFirst({
     where: eq(users.id, user.id),
-    columns: { firstName: true, lastName: true, role: true, schoolId: true, avatarUrl: true, organizationId: true },
+    columns: {
+      firstName: true, lastName: true, role: true,
+      schoolId: true, avatarUrl: true, organizationId: true, isPlatformAdmin: true,
+    },
     with: { school: { columns: { name: true } } },
   });
 
-  // If profile is missing the user row was deleted — sign out and clear the cached session
   if (!profile) {
     await supabase.auth.signOut()
     redirect('/auth/login')
   }
 
   const schoolName = profile?.school?.name ?? null;
+  const isPlatformAdmin = profile?.isPlatformAdmin ?? false
 
-  // Admin/principal/staff: onboarding gate + billing gate + pending sub count
+  // Check if platform admin is currently impersonating a school org
+  const impersonatedOrg = await getImpersonatedOrg(isPlatformAdmin)
+
+  // Platform admins with no active impersonation have no school context — send to platform
+  if (isPlatformAdmin && !impersonatedOrg) {
+    redirect('/platform')
+  }
+
+  const orgId = impersonatedOrg?.id ?? profile?.organizationId
+
+  // Billing + onboarding gates — skipped for platform admins (they're never blocked)
   let pendingSubCount = 0
   let billingState = null
-  let isPlatformAdmin = false
-  const orgId = profile?.organizationId
 
-  if (profile?.role && ['admin', 'principal', 'staff'].includes(profile.role) && orgId) {
-    const [org, pendingRows, userRow] = await Promise.all([
+  if (!isPlatformAdmin && profile?.role && ['admin', 'principal', 'staff'].includes(profile.role) && orgId) {
+    const [org, pendingRows] = await Promise.all([
       db.query.organizations.findFirst({
         where: eq(organizations.id, orgId),
         columns: { onboardingCompletedAt: true, subscriptionStatus: true, paidThrough: true },
@@ -63,10 +61,6 @@ export default async function AppLayout({
       db.select({ id: subSchoolAssignments.id })
         .from(subSchoolAssignments)
         .where(and(eq(subSchoolAssignments.organizationId, orgId), eq(subSchoolAssignments.status, 'pending'))),
-      db.query.users.findFirst({
-        where: eq(users.id, user.id),
-        columns: { isPlatformAdmin: true },
-      }),
     ])
 
     if (!org?.onboardingCompletedAt) redirect('/onboarding')
@@ -75,12 +69,19 @@ export default async function AppLayout({
     if (billingState.status === 'expired') redirect('/billing')
 
     pendingSubCount = pendingRows.length
-    isPlatformAdmin = userRow?.isPlatformAdmin ?? false
+  }
+
+  // When impersonating, still show the pending sub badge for the impersonated org
+  if (isPlatformAdmin && impersonatedOrg) {
+    const pendingRows = await db.select({ id: subSchoolAssignments.id })
+      .from(subSchoolAssignments)
+      .where(and(eq(subSchoolAssignments.organizationId, impersonatedOrg.id), eq(subSchoolAssignments.status, 'pending')))
+    pendingSubCount = pendingRows.length
   }
 
   return (
     <AppShell
-      schoolName={schoolName ?? null}
+      schoolName={impersonatedOrg?.name ?? schoolName ?? null}
       firstName={profile?.firstName ?? null}
       lastName={profile?.lastName ?? null}
       email={user?.email ?? null}
@@ -89,6 +90,7 @@ export default async function AppLayout({
       pendingSubCount={pendingSubCount}
       isPlatformAdmin={isPlatformAdmin}
     >
+      {impersonatedOrg && <ImpersonationBanner orgName={impersonatedOrg.name} />}
       {billingState && <BillingBanner state={billingState} />}
       {children}
     </AppShell>

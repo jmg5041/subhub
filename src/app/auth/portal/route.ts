@@ -96,5 +96,10 @@ export async function GET(request: Request) {
     }
   }
 
+  // Platform admins always land on /platform, not a school portal
+  if (profile.isPlatformAdmin) {
+    return NextResponse.redirect(`${origin}/platform`)
+  }
+
   return NextResponse.redirect(`${origin}${roleToPortal(profile.role)}`)
 }

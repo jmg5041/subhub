@@ -16,6 +16,7 @@ import { employees, users, schools, absenceReasons, teacherTimeOff, organization
 import { eq, and, isNull } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 import {
   CalendarPlus,
   ClipboardList,
@@ -49,8 +50,7 @@ export default async function DashboardPage() {
   })
 
   const firstName = profile?.firstName || 'there'
-  const schoolName = profile?.school?.name || ''
-  const orgId = profile?.organizationId
+  const orgId = await getEffectiveOrgId(user?.id ?? '')
 
   // Use org's configured timezone — falls back to Pacific if not set
   const orgRecord = orgId
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
           {greeting}, {firstName}
         </h1>
         <p className="text-gray-500">
-          {schoolName} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
+          {orgRecord?.name ?? ''} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
 

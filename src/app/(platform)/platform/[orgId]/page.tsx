@@ -3,6 +3,7 @@ import { organizations, schools, users, billingEvents, invitations } from '@/db/
 import { eq, desc, and, isNull, gt } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization } from '../actions'
+import { setImpersonation } from '@/lib/impersonation-actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -88,10 +89,23 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <Link href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</Link>
-        <h1 className="text-2xl font-bold text-white mt-2">{org.name}</h1>
-        <p className="text-gray-400 text-sm">slug: {org.slug} · timezone: {org.timezone}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <Link href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</Link>
+          <h1 className="text-2xl font-bold text-white mt-2">{org.name}</h1>
+          <p className="text-gray-400 text-sm">slug: {org.slug} · timezone: {org.timezone}</p>
+        </div>
+        {org.slug !== 'subhub-platform' && (
+          <form action={setImpersonation}>
+            <input type="hidden" name="orgId" value={org.id} />
+            <button
+              type="submit"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+            >
+              View as Admin →
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-6">
