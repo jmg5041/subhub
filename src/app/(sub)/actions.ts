@@ -189,7 +189,7 @@ export async function updateMyProfile(data: { county: string; phone: string; vis
 }
 
 export async function updateDirectoryVisibility(visible: boolean) {
-  const { sub } = await getSubContext()
+  const { sub } = await getSubViewContext()
   await db.update(substitutes)
     .set({ visibleInDirectory: visible })
     .where(eq(substitutes.id, sub.id))
