@@ -103,6 +103,7 @@ export const substitutes = pgTable('substitutes', {
   // 'sms' | 'email' | 'phone' | 'all'
   county: text('county'),
   resumeUrl: text('resume_url'),
+  visibleInDirectory: boolean('visible_in_directory').default(true).notNull(),
 });
 
 // Absence Reasons (per organization)

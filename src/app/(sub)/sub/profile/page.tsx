@@ -41,6 +41,7 @@ export default async function SubProfilePage() {
         counties={counties}
         avatarUrl={profile.avatarUrl ?? null}
         resumeUrl={sub.resumeUrl ?? null}
+        visibleInDirectory={sub.visibleInDirectory}
       />
     </div>
   )

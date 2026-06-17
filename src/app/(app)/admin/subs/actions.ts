@@ -29,7 +29,9 @@ export async function getSubCounties() {
 export async function getSubsByCounty(county: string | null) {
   await getAdminOrgContext()
   const rows = await db.query.substitutes.findMany({
-    where: county ? eq(substitutes.county, county) : undefined,
+    where: county
+      ? and(eq(substitutes.county, county), eq(substitutes.visibleInDirectory, true))
+      : eq(substitutes.visibleInDirectory, true),
     with: { user: true },
     orderBy: (s, { asc }) => [asc(s.id)],
   })

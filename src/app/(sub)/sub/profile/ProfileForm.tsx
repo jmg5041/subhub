@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Image from 'next/image'
-import { Camera, ChevronDown, FileText } from 'lucide-react'
+import { Camera, ChevronDown, FileText, Globe } from 'lucide-react'
 import { resizeImage } from '@/lib/resize-image'
 import { updateMyProfile, saveAvatar, saveResume } from '../../actions'
 
@@ -16,6 +16,7 @@ export function ProfileForm({
   counties,
   avatarUrl: initialAvatarUrl,
   resumeUrl: initialResumeUrl,
+  visibleInDirectory: initialVisibleInDirectory,
 }: {
   userId: string
   firstName: string
@@ -26,9 +27,11 @@ export function ProfileForm({
   counties: string[]
   avatarUrl: string | null
   resumeUrl: string | null
+  visibleInDirectory: boolean
 }) {
   const [phoneVal, setPhoneVal] = useState(phone)
   const [countyVal, setCountyVal] = useState(county)
+  const [visibleInDirectory, setVisibleInDirectory] = useState(initialVisibleInDirectory)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +97,7 @@ export function ProfileForm({
     setError(null)
     setSaved(false)
     try {
-      await updateMyProfile({ county: countyVal, phone: phoneVal })
+      await updateMyProfile({ county: countyVal, phone: phoneVal, visibleInDirectory })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {
@@ -215,6 +218,37 @@ export function ProfileForm({
           </label>
           {uploadingResume && <span className="text-xs text-gray-400">Uploading…</span>}
           {resumeError && <span className="text-xs text-red-500">{resumeError}</span>}
+        </div>
+      </div>
+
+      {/* Directory visibility */}
+      <div className="px-5 py-5 bg-orange-50 border-t border-orange-100">
+        <div className="flex items-start gap-4">
+          <div className="mt-0.5 flex-shrink-0 rounded-full bg-orange-100 p-2">
+            <Globe className="h-5 w-5 text-orange-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Be found by other schools</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {visibleInDirectory
+                ? `Your profile is visible to schools in your county looking for substitutes. Turn this off if you only want to work with your current school.`
+                : `Your profile is hidden from the directory. Only schools you already work with can see you. Turn this on to get more job opportunities.`
+              }
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVisibleInDirectory(v => !v)}
+            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+              visibleInDirectory ? 'bg-orange-500' : 'bg-gray-300'
+            }`}
+            role="switch"
+            aria-checked={visibleInDirectory}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              visibleInDirectory ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
         </div>
       </div>
 

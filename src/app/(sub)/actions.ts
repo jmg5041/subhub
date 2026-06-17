@@ -172,12 +172,12 @@ export async function getMyProfile() {
 /**
  * Updates the sub's county and phone number.
  */
-export async function updateMyProfile(data: { county: string; phone: string }) {
+export async function updateMyProfile(data: { county: string; phone: string; visibleInDirectory: boolean }) {
   const { profile, sub } = await getSubContext()
 
   await Promise.all([
     db.update(substitutes)
-      .set({ county: data.county || null })
+      .set({ county: data.county || null, visibleInDirectory: data.visibleInDirectory })
       .where(eq(substitutes.id, sub.id)),
     db.update(users)
       .set({ phone: data.phone || null })
