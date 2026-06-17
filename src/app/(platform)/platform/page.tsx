@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { organizations, schools, users, platformSettings } from '@/db/schema'
-import { eq, count, sql, inArray } from 'drizzle-orm'
+import { eq, count, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
 import { getPlatformContext, saveStaffAlertEmail, saveBranding } from './actions'

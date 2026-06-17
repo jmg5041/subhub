@@ -35,7 +35,7 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
     const authByEmail = new Map(authUsers.map(u => [u.email ?? '', u]))
 
     // Detect which staff have active sessions right now
-    let activeSessionIds = new Set<string>()
+    const activeSessionIds = new Set<string>()
     if (orgUsers.length > 0) {
       try {
         const staffIds = orgUsers.map(u => u.id)
