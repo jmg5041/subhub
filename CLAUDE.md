@@ -119,6 +119,7 @@ and redirects to the login page with `error=auth_callback_failed` while the toke
 ### Post-login redirect logic (`/auth/portal`)
 All flows converge at `/auth/portal` (Route Handler). It reads the session, looks up
 the user's role, and redirects:
+- `isPlatformAdmin = true` → `/platform` (checked first, before role)
 - `admin` / `principal` / `staff` → `/dashboard`
 - `teacher` → `/teacher`
 - `substitute` → `/sub/dashboard`
@@ -128,7 +129,8 @@ On first login, `/auth/callback` or `/auth/portal` finds them by email and updat
 their `users.id` to their real Supabase auth ID.
 
 For new invited users (no `users` row yet), `/auth/portal` reads metadata set during
-invite (`firstName`, `lastName`, `role`, `orgId`, `schoolId`) and creates the row.
+invite (`firstName`, `lastName`, `role`, `orgId`, `schoolId`, `isPlatformAdmin`) and
+creates the row. The `isPlatformAdmin` flag is set when inviting via the IT Staff page.
 
 ### Middleware exclusions
 `/auth/callback`, `/auth/portal`, and `/auth/confirm` are excluded from the
@@ -465,6 +467,79 @@ The Stripe SDK v22 changed two field locations compared to older docs/tutorials:
 
 ---
 
+## Security
+
+### Row-Level Security (RLS)
+All 19 application tables have RLS enabled (migration `0018_enable_rls.sql`). No
+policies are defined — the default "deny all via PostgREST" is intentional.
+
+**Why no policies are needed:** All server-side data access goes through either:
+- Drizzle ORM via `DATABASE_URL` (postgres superuser — bypasses RLS)
+- Supabase admin client with service role key (bypasses RLS)
+
+The anon key is public, so without RLS any browser could query the REST API directly.
+With RLS enabled and no policies, PostgREST access is completely blocked.
+
+**Rule:** Never add a PostgREST data query using the session or anon client. All data
+queries must go through Drizzle or the admin client.
+
+---
+
+## Platform Admin System
+
+### The `subhub-platform` org
+Platform/IT staff belong to a permanent org with `slug = 'subhub-platform'` rather than
+a school org. This means they survive school deletions and are never tied to a customer.
+
+Key properties of this org:
+- `subscription_status = 'active'`, `onboarding_completed_at = now()` — skips all gates
+- `cron_enabled = false` — no blast emails ever sent from this org
+- **Cannot be deleted** — `deleteOrganization` action guards against `slug = 'subhub-platform'`
+
+### `isPlatformAdmin` flag
+`users.isPlatformAdmin` (boolean) is the gate for platform access. It is:
+- Set `true` when inviting via the IT Staff invite form (passed in Supabase invite metadata)
+- Set on first login in `/auth/portal` from `user.user_metadata.isPlatformAdmin`
+- Checked in the `(platform)` layout and `getPlatformContext()` action
+
+Platform admins always redirect to `/platform` on login, before role-based routing.
+
+### Impersonation system
+Platform admins can view any school's admin portal via an `impersonate_org_id` cookie.
+
+| File | Purpose |
+|------|---------|
+| `src/lib/impersonation.ts` | `getEffectiveOrgId(userId)` — returns impersonated org if cookie set, otherwise user's own org. `getImpersonatedOrg(isPlatformAdmin)` — returns `{id, name}` or null |
+| `src/lib/impersonation-actions.ts` | `setImpersonation(formData)` — validates platform admin, sets cookie, redirects to `/dashboard`. `clearImpersonation()` — clears cookie, redirects to `/platform` |
+| `src/components/ImpersonationBanner.tsx` | Yellow banner shown inside the `(app)` shell when impersonating. Shows org name + "Exit to Platform" button |
+
+**How impersonation works in the `(app)` layout:**
+1. If `isPlatformAdmin` and no impersonation cookie → redirect to `/platform`
+2. If `isPlatformAdmin` and cookie set → use impersonated org's ID for all data queries; skip billing/onboarding redirects; show `ImpersonationBanner`
+3. Pages that need `orgId` should call `getEffectiveOrgId(userId)` from `src/lib/impersonation.ts`
+
+**Pages updated to use `getEffectiveOrgId`:** `dashboard/page.tsx`. Other pages still use
+`profile.organizationId` directly — they'll show empty data when a platform admin visits
+without impersonating (acceptable, since `/platform` is their home).
+
+**"View as Admin" button:** on `/platform/[orgId]` page, sets the cookie and enters the
+school's `/dashboard`. Sub/teacher portal impersonation is future work.
+
+### Online presence detection
+The IT Staff page queries `auth.sessions` (the Supabase auth sessions table) directly
+via raw SQL to detect users with unexpired sessions. Wrapped in try/catch — if the table
+is inaccessible it silently shows everyone as offline. The platform index strip shows
+"IT Staff Online: X" and the IT Staff table shows an ONLINE column (YES/—).
+
+### IT Staff management
+Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
+- Form: first name, last name, email → `invitePlatformStaff` server action
+- Sends Supabase invite email (same `/auth/confirm` flow as school users)
+- Metadata includes `isPlatformAdmin: true` → set on user row at first login
+- Error handling: if email already registered, shows which org they belong to
+
+---
+
 ## Known Pending Work
 
 **Operational (needed for daily use):**
@@ -481,11 +556,17 @@ The Stripe SDK v22 changed two field locations compared to older docs/tutorials:
 - ~~Marketing/signup self-registration~~ — DONE: `/auth/signup` with 120-day free trial provisioning; `provisionSelfSignupOrg()` in `src/lib/self-signup.ts`
 - ~~Billing enforcement~~ — DONE: `getBillingState()` in `src/lib/billing.ts`; expired orgs → `/billing`; amber `BillingBanner` for trial_ending/past_due
 - ~~Platform staff dashboard~~ — DONE: `/platform` (dark theme, isPlatformAdmin gate); org table; `/platform/[orgId]` with check payment form, billing timeline, user management (reset password, clear stuck auth)
+- ~~Platform admin identity~~ — DONE: `subhub-platform` org; platform admins no longer tied to school orgs; survive school deletions
+- ~~Platform impersonation~~ — DONE: "View as Admin" cookie-based system; `ImpersonationBanner`; `getEffectiveOrgId()` helper
+- ~~IT Staff management~~ — DONE: invite form on IT Staff page; online presence via `auth.sessions`
+- ~~RLS enabled~~ — DONE: all 19 tables locked down; no PostgREST access without service role
 - ~~Reports~~ — DONE: Teacher Absence Summary, Fill Rate Report added; Sub Pay Report improved (sub filter, phone, multi-page print fix)
 - Teacher onboarding: simple first-login walkthrough (deferred — schools can invite directly)
 - Sub onboarding: profile, availability, schools (partially done via sub portal)
 
 **Longer-term:**
+- Platform impersonation for sub/teacher portals: same cookie pattern, needs `(sub)` and `(teacher)` layouts updated to respect `impersonate_org_id`
+- More pages using `getEffectiveOrgId()`: currently only `dashboard/page.tsx` is updated; other `(app)` pages still use `profile.organizationId` directly
 - Stripe payments: subscriptions, tier by school size; `/billing` page has stub tier cards ready
 - Sub rating UI: DB columns exist (`subFeedbackRating`, `subFeedbackNotes` on `sub_assignments`), no UI yet
 - Sub post-assignment report/notes to teacher: no DB table or UI yet
@@ -544,6 +625,18 @@ A page at `src/app/(teacher)/teacher/page.tsx` maps to `/teacher`, not `/(teache
 `src/lib/supabase/admin.ts` uses the service role key. Only use it for operations that
 need to bypass Row Level Security (e.g., inviting users, generating auth links, file upload).
 Never use it in client components or expose it to the browser.
+
+**13. Never query data tables via PostgREST**
+All 19 tables have RLS enabled with no policies. Any query using `supabase.from('table_name')`
+with the session or anon client will return zero rows (silently, no error). All data queries
+must use Drizzle (`db.query.*` or `db.select().from(...)`) or the admin client.
+
+**14. Platform admin orgId is the platform org, not a school**
+When a platform admin visits `(app)` pages without impersonating, `profile.organizationId`
+points to the `subhub-platform` org which has no schools, absences, or users. Pages will
+appear empty — this is expected. To see a school's data, use "View as Admin" from `/platform`.
+Pages should call `getEffectiveOrgId(userId)` from `src/lib/impersonation.ts` to respect
+the active impersonation cookie.
 
 **8. Multi-school teachers**
 A teacher who works at multiple campuses has one `employees` row per school (same `userId`,
