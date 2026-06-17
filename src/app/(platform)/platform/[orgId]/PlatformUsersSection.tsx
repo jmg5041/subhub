@@ -12,6 +12,7 @@ export type OrgUser = {
   status: string | null
   lastSignIn: string | null
   emailConfirmed: boolean
+  isOnline?: boolean
 }
 
 export type PendingInvite = {
@@ -33,9 +34,11 @@ const ROLE_COLORS: Record<string, string> = {
 export function PlatformUsersSection({
   users,
   invites,
+  showOnline = false,
 }: {
   users: OrgUser[]
   invites: PendingInvite[]
+  showOnline?: boolean
 }) {
   const [resetTargetId, setResetTargetId] = useState<string | null>(null)
   const [newPassword, setNewPassword]     = useState('')
@@ -102,6 +105,7 @@ export function PlatformUsersSection({
               <th className="px-4 py-2 text-left">Role</th>
               <th className="px-4 py-2 text-left">Last login</th>
               <th className="px-4 py-2 text-left">Auth</th>
+              {showOnline && <th className="px-4 py-2 text-left">Online</th>}
               <th className="px-4 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -128,6 +132,14 @@ export function PlatformUsersSection({
                     {u.emailConfirmed ? '✓ Confirmed' : '⚠ Unconfirmed'}
                   </span>
                 </td>
+                {showOnline && (
+                  <td className="px-4 py-3">
+                    {u.isOnline
+                      ? <span className="text-xs font-semibold text-green-400">YES</span>
+                      : <span className="text-xs text-gray-600">—</span>
+                    }
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right">
                   {resetTargetId === u.id ? (
                     <div className="flex items-center gap-2 justify-end">

@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { organizations, schools, users, platformSettings } from '@/db/schema'
-import { eq, count } from 'drizzle-orm'
+import { eq, count, sql, inArray } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
 import { getPlatformContext, saveStaffAlertEmail, saveBranding } from './actions'
@@ -14,7 +14,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default async function PlatformPage() {
-  await getPlatformContext()
+  const { adminUserId } = await getPlatformContext()
 
   const settings = await db.query.platformSettings.findFirst()
 
@@ -41,25 +41,49 @@ export default async function PlatformPage() {
       : Promise.resolve([]),
   ])
 
+  // Count platform staff with active (unexpired) sessions
+  let onlineCount = 0
+  if (platformStaff.length > 0) {
+    try {
+      const staffIds = platformStaff.map(u => u.id)
+      const result = await db.execute(sql`
+        SELECT COUNT(DISTINCT user_id) as cnt
+        FROM auth.sessions
+        WHERE not_after > now()
+        AND user_id = ANY(ARRAY[${sql.join(staffIds.map(id => sql`${id}::uuid`), sql`, `)}])
+      `)
+      onlineCount = Number((result[0] as { cnt: unknown })?.cnt ?? 0)
+    } catch {
+      // auth.sessions inaccessible — omit count
+    }
+  }
+
+  // Current logged-in user's profile (to show their name in the strip)
+  const currentUser = platformStaff.find(u => u.id === adminUserId)
+
   const schoolMap = new Map(schoolCounts.map(r => [r.orgId, r.count]))
   const userMap   = new Map(userCounts.map(r => [r.orgId, r.count]))
 
   return (
     <div className="space-y-6">
-      {/* IT Staff section — platform org users, shown separately from school orgs */}
+      {/* IT Staff strip — shows logged-in user, online count, and manage link */}
       {platformOrg && (
-        <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 p-4 flex items-center justify-between">
+        <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 px-5 py-3 flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-indigo-400 uppercase tracking-wider mb-1">IT Staff</p>
-            <div className="flex gap-3 flex-wrap">
-              {platformStaff.map(u => (
-                <span key={u.id} className="text-sm text-white">
-                  {u.firstName} {u.lastName} <span className="text-indigo-400 text-xs">({u.email})</span>
-                </span>
-              ))}
-            </div>
+            <p className="text-xs text-indigo-400 uppercase tracking-wider mb-0.5">IT Staff</p>
+            {currentUser && (
+              <span className="text-sm text-white">
+                {currentUser.firstName} {currentUser.lastName}{' '}
+                <span className="text-indigo-400 text-xs">({currentUser.email})</span>
+              </span>
+            )}
           </div>
-          <Link href={`/platform/${platformOrg.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs flex-shrink-0 ml-4">
+          {onlineCount > 0 && (
+            <p className="text-xs text-indigo-300 uppercase tracking-widest font-semibold">
+              IT Staff Online: {onlineCount}
+            </p>
+          )}
+          <Link href={`/platform/${platformOrg.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs flex-shrink-0">
             Manage IT Staff →
           </Link>
         </div>

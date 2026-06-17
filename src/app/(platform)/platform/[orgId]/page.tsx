@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
-import { eq, desc, and, isNull, gt } from 'drizzle-orm'
+import { eq, desc, and, isNull, gt, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization } from '../actions'
 import { setImpersonation } from '@/lib/impersonation-actions'
@@ -33,6 +33,28 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
     })
     const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
     const authByEmail = new Map(authUsers.map(u => [u.email ?? '', u]))
+
+    // Detect which staff have active sessions right now
+    let activeSessionIds = new Set<string>()
+    if (orgUsers.length > 0) {
+      try {
+        const staffIds = orgUsers.map(u => u.id)
+        const result = await db.execute(sql`
+          SELECT DISTINCT user_id::text as uid
+          FROM auth.sessions
+          WHERE not_after > now()
+          AND user_id = ANY(ARRAY[${sql.join(staffIds.map(id => sql`${id}::uuid`), sql`, `)}])
+        `)
+        for (const row of result) {
+          if (typeof (row as { uid?: unknown }).uid === 'string') {
+            activeSessionIds.add((row as { uid: string }).uid)
+          }
+        }
+      } catch {
+        // auth.sessions inaccessible — show all as offline
+      }
+    }
+
     const augmentedUsers = orgUsers.map(u => ({
       id: u.id,
       firstName: u.firstName,
@@ -42,6 +64,7 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
       status: u.status,
       lastSignIn: authByEmail.get(u.email)?.last_sign_in_at ?? null,
       emailConfirmed: !!(authByEmail.get(u.email)?.email_confirmed_at),
+      isOnline: activeSessionIds.has(u.id),
     }))
 
     return (
@@ -54,7 +77,7 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
 
         <InvitePlatformStaffForm orgId={org.id} />
 
-        <PlatformUsersSection users={augmentedUsers} invites={[]} />
+        <PlatformUsersSection users={augmentedUsers} invites={[]} showOnline />
       </div>
     )
   }
