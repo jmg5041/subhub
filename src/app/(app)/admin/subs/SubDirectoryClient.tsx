@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, Search, User } from 'lucide-react'
+import { ChevronDown, FileText, Search, Star } from 'lucide-react'
 import { getSubsByCounty } from './actions'
 
 type Sub = {
@@ -9,6 +9,7 @@ type Sub = {
   county: string | null
   rating: string | null
   ratingCount: number | null
+  resumeUrl: string | null
   user: {
     id: string
     firstName: string
@@ -113,7 +114,7 @@ function SubCard({ sub }: { sub: Sub }) {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-start gap-3">
-      <div className="mt-0.5 flex-shrink-0 h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-bold">
+      <div className="mt-0.5 flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-bold">
         {sub.user.firstName[0]}{sub.user.lastName[0]}
       </div>
       <div className="min-w-0 flex-1">
@@ -121,15 +122,26 @@ function SubCard({ sub }: { sub: Sub }) {
           <span className="text-sm font-semibold text-gray-900">
             {sub.user.firstName} {sub.user.lastName}
           </span>
-          {rating && (
-            <span className="text-xs text-yellow-600 font-medium">★ {rating}</span>
+          {rating ? (
+            <span className="flex items-center gap-0.5 text-xs text-yellow-600 font-medium">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              {rating} <span className="text-gray-400 font-normal">({sub.ratingCount})</span>
+            </span>
+          ) : (
+            <span className="text-xs text-gray-300">No rating yet</span>
           )}
         </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-3 mt-1 flex-wrap">
           {sub.user.phone && (
             <a href={`tel:${sub.user.phone}`} className="text-xs text-blue-500 hover:underline">{sub.user.phone}</a>
           )}
           <a href={`mailto:${sub.user.email}`} className="text-xs text-blue-500 hover:underline truncate">{sub.user.email}</a>
+          {sub.resumeUrl && (
+            <a href={sub.resumeUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-blue-500 hover:underline">
+              <FileText className="h-3 w-3" /> Resume
+            </a>
+          )}
         </div>
       </div>
     </div>

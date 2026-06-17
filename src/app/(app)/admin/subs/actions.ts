@@ -32,7 +32,8 @@ export async function getSubsByCounty(county: string | null) {
     where: county
       ? and(eq(substitutes.county, county), eq(substitutes.visibleInDirectory, true))
       : eq(substitutes.visibleInDirectory, true),
-    with: { user: true },
+    columns: { id: true, county: true, rating: true, ratingCount: true, resumeUrl: true, status: true },
+    with: { user: { columns: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
     orderBy: (s, { asc }) => [asc(s.id)],
   })
   return rows

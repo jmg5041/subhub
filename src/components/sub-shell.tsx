@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Briefcase, Calendar, HelpCircle, Home, LogOut, Menu, School, User, X } from 'lucide-react'
+import { Briefcase, Calendar, HelpCircle, Home, LogOut, Menu, School, Sparkles, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/sub/availability', label: 'My Availability', icon: Calendar },
   { href: '/sub/past-jobs', label: 'Past Jobs', icon: Briefcase },
   { href: '/sub/schools', label: 'Find Schools', icon: School },
+  { href: '/sub/get-hired', label: 'Get Hired', icon: Sparkles },
   { href: '/sub/profile', label: 'My Profile', icon: User },
 ]
 

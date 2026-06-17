@@ -188,6 +188,14 @@ export async function updateMyProfile(data: { county: string; phone: string; vis
   return { success: true }
 }
 
+export async function updateDirectoryVisibility(visible: boolean) {
+  const { sub } = await getSubContext()
+  await db.update(substitutes)
+    .set({ visibleInDirectory: visible })
+    .where(eq(substitutes.id, sub.id))
+  revalidatePath('/sub/get-hired')
+}
+
 /**
  * Returns distinct counties from the school directory, sorted alphabetically.
  */
