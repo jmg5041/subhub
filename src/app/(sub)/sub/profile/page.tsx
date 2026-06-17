@@ -5,15 +5,18 @@ import { users, substitutes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { ProfileForm } from './ProfileForm'
 import { getDirectoryCounties } from '../../actions'
+import { getEffectiveUserId } from '@/lib/impersonation'
 
 export default async function SubProfilePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
+  const effectiveUserId = await getEffectiveUserId(user.id)
+
   const [profile, sub, counties] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.id, user.id) }),
-    db.query.substitutes.findFirst({ where: eq(substitutes.userId, user.id) }),
+    db.query.users.findFirst({ where: eq(users.id, effectiveUserId) }),
+    db.query.substitutes.findFirst({ where: eq(substitutes.userId, effectiveUserId) }),
     getDirectoryCounties(),
   ])
 

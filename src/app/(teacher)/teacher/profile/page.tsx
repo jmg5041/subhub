@@ -4,13 +4,15 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { TeacherProfileForm } from './TeacherProfileForm'
+import { getEffectiveUserId } from '@/lib/impersonation'
 
 export default async function TeacherProfilePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
+  const effectiveUserId = await getEffectiveUserId(user.id)
+  const profile = await db.query.users.findFirst({ where: eq(users.id, effectiveUserId) })
   if (!profile) redirect('/auth/login')
 
   return (

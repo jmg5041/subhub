@@ -82,7 +82,7 @@ export async function saveTeacherProfile(data: { firstName: string; lastName: st
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export async function getMyTeacherContext() {
-  const { profile, employee, orgId } = await getTeacherContext()
+  const { profile, employee, orgId } = await getTeacherViewContext()
 
   // Get sub IDs assigned to this teacher's school
   const schoolSubRows = employee?.schoolId
