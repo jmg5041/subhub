@@ -23,6 +23,38 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   if (!org) notFound()
 
+  // Platform org: show IT staff management only — no billing, no danger zone
+  if (org.slug === 'subhub-platform') {
+    const supabaseAdmin = createAdminClient()
+    const orgUsers = await db.query.users.findMany({
+      where: eq(users.organizationId, org.id),
+      orderBy: (u, { asc }) => [asc(u.lastName)],
+    })
+    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const authByEmail = new Map(authUsers.map(u => [u.email ?? '', u]))
+    const augmentedUsers = orgUsers.map(u => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      lastSignIn: authByEmail.get(u.email)?.last_sign_in_at ?? null,
+      emailConfirmed: !!(authByEmail.get(u.email)?.email_confirmed_at),
+    }))
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <Link href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</Link>
+          <h1 className="text-2xl font-bold text-white mt-2">IT Staff</h1>
+          <p className="text-gray-400 text-sm">SubHub platform administrators. These users have access to all organizations.</p>
+        </div>
+        <PlatformUsersSection users={augmentedUsers} invites={[]} />
+      </div>
+    )
+  }
+
   const now = new Date()
 
   const [orgSchools, orgUsers, events, pendingInvites] = await Promise.all([

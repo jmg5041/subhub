@@ -22,14 +22,23 @@ export default async function PlatformPage() {
     orderBy: (o, { desc }) => [desc(o.createdAt)],
   })
 
+  const platformOrg = allOrgs.find(o => o.slug === 'subhub-platform')
+  const schoolOrgs  = allOrgs.filter(o => o.slug !== 'subhub-platform')
+
   // Counts per org
-  const [schoolCounts, userCounts] = await Promise.all([
+  const [schoolCounts, userCounts, platformStaff] = await Promise.all([
     db.select({ orgId: schools.organizationId, count: count() })
       .from(schools)
       .groupBy(schools.organizationId),
     db.select({ orgId: users.organizationId, count: count() })
       .from(users)
       .groupBy(users.organizationId),
+    platformOrg
+      ? db.query.users.findMany({
+          where: eq(users.organizationId, platformOrg.id),
+          columns: { id: true, firstName: true, lastName: true, email: true },
+        })
+      : Promise.resolve([]),
   ])
 
   const schoolMap = new Map(schoolCounts.map(r => [r.orgId, r.count]))
@@ -37,10 +46,29 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-6">
+      {/* IT Staff section — platform org users, shown separately from school orgs */}
+      {platformOrg && (
+        <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-indigo-400 uppercase tracking-wider mb-1">IT Staff</p>
+            <div className="flex gap-3 flex-wrap">
+              {platformStaff.map(u => (
+                <span key={u.id} className="text-sm text-white">
+                  {u.firstName} {u.lastName} <span className="text-indigo-400 text-xs">({u.email})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <Link href={`/platform/${platformOrg.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs flex-shrink-0 ml-4">
+            Manage IT Staff →
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">All Organizations</h1>
-          <p className="text-gray-400 text-sm mt-1">{allOrgs.length} orgs total</p>
+          <p className="text-gray-400 text-sm mt-1">{schoolOrgs.length} orgs total</p>
         </div>
 
         {/* Platform settings */}
@@ -101,7 +129,7 @@ export default async function PlatformPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {allOrgs.map(org => {
+            {schoolOrgs.map(org => {
               const state = getBillingState(org)
               const statusLabel =
                 state.status === 'trial_ending' ? `Trial (${state.daysLeft}d left)` :
