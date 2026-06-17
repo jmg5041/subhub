@@ -73,7 +73,7 @@ export async function getMyAssignments() {
  * Verifies the assignment belongs to the logged-in sub.
  */
 export async function getMyAssignmentById(assignmentId: string) {
-  const { sub } = await getSubContext()
+  const { sub } = await getSubViewContext()
 
   return db.query.subAssignments.findFirst({
     where: and(
@@ -101,7 +101,7 @@ export async function getMyAssignmentById(assignmentId: string) {
  * Returns school profile info. Accessible to any authenticated substitute.
  */
 export async function getSchoolProfile(schoolId: string) {
-  const { sub } = await getSubContext()
+  const { sub } = await getSubViewContext()
   // Verify sub belongs to the same org as the school
   const profile = await db.query.users.findFirst({
     where: eq(users.id, sub.userId),
@@ -150,7 +150,7 @@ export async function getMyPendingTokens() {
 }
 
 export async function getMyUnavailableDates(year: number, month: number) {
-  const { sub } = await getSubContext()
+  const { sub } = await getSubViewContext()
 
   // Get all unavailability rows for this sub (we'll filter client-side by month)
   const rows = await db
@@ -165,7 +165,7 @@ export async function getMyUnavailableDates(year: number, month: number) {
  * Returns the logged-in sub's profile (name, phone, county).
  */
 export async function getMyProfile() {
-  const { profile, sub } = await getSubContext()
+  const { profile, sub } = await getSubViewContext()
   return { profile, sub }
 }
 
