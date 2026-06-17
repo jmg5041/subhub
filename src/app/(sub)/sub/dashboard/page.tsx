@@ -16,6 +16,7 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMyAssignments, getMyPendingTokens } from '../../actions'
+import { getEffectiveUserId } from '@/lib/impersonation'
 import { Calendar, Clock, MapPin, ChevronRight } from 'lucide-react'
 import { formatDateRange } from '@/lib/date-utils'
 import AutoRefresh from './AutoRefresh'
@@ -36,7 +37,8 @@ export default async function SubDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
+  const effectiveUserId = await getEffectiveUserId(user.id)
+  const profile = await db.query.users.findFirst({ where: eq(users.id, effectiveUserId) })
   if (!profile) redirect('/auth/login')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })

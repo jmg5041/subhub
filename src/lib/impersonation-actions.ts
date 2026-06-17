@@ -36,3 +36,24 @@ export async function clearImpersonation() {
   cookieStore.delete('impersonate_org_id')
   redirect('/platform')
 }
+
+// ─── User impersonation (sub / teacher portals) ───────────────────────────────
+
+export async function setUserImpersonation(formData: FormData) {
+  await assertPlatformAdmin()
+
+  const userId     = formData.get('userId') as string
+  const redirectTo = (formData.get('redirectTo') as string) || '/sub/dashboard'
+
+  const cookieStore = await cookies()
+  cookieStore.set('impersonate_user_id', userId, { httpOnly: true, sameSite: 'lax', path: '/' })
+  cookieStore.delete('impersonate_org_id') // clear org impersonation — mutually exclusive
+
+  redirect(redirectTo)
+}
+
+export async function clearUserImpersonation() {
+  const cookieStore = await cookies()
+  cookieStore.delete('impersonate_user_id')
+  redirect('/platform')
+}

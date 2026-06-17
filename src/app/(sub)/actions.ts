@@ -10,7 +10,10 @@ import { db } from '@/db'
 import { users, substitutes, subAssignments, subUnavailability, subNotificationTokens, schools, schoolDirectory, subSchoolAssignments, organizations } from '@/db/schema'
 import { eq, and, isNull, gt, asc, sql, ilike, or, isNotNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { getEffectiveUserId } from '@/lib/impersonation'
 
+// Write context — always uses the real auth user, blocks impersonation.
+// Used by actions that mutate data (availability, profile, accept/decline).
 async function getSubContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,8 +28,26 @@ async function getSubContext() {
   return { profile, sub }
 }
 
+// Read context — respects impersonate_user_id cookie for platform admins.
+// Used by read-only actions (assignments, tokens).
+async function getSubViewContext() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const effectiveUserId = await getEffectiveUserId(user.id)
+
+  const profile = await db.query.users.findFirst({ where: eq(users.id, effectiveUserId) })
+  if (!profile || profile.role !== 'substitute') throw new Error('Substitute access required')
+
+  const sub = await db.query.substitutes.findFirst({ where: eq(substitutes.userId, effectiveUserId) })
+  if (!sub) throw new Error('Substitute profile not found')
+
+  return { profile, sub }
+}
+
 export async function getMyAssignments() {
-  const { sub } = await getSubContext()
+  const { sub } = await getSubViewContext()
 
   return db.query.subAssignments.findMany({
     where: eq(subAssignments.substituteId, sub.id),
@@ -94,7 +115,7 @@ export async function getSchoolProfile(schoolId: string) {
 }
 
 export async function getMyPendingTokens() {
-  const { profile, sub } = await getSubContext()
+  const { profile, sub } = await getSubViewContext()
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
   const TZ = org?.timezone ?? 'America/Los_Angeles'

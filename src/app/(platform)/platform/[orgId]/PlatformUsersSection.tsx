@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { platformResetPassword, platformClearStuckAuth } from '../actions'
+import { setUserImpersonation } from '@/lib/impersonation-actions'
 
 export type OrgUser = {
   id: string
@@ -141,33 +142,46 @@ export function PlatformUsersSection({
                   </td>
                 )}
                 <td className="px-4 py-3 text-right">
-                  {resetTargetId === u.id ? (
-                    <div className="flex items-center gap-2 justify-end">
-                      <input
-                        type="password"
-                        placeholder="Min 8 chars"
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleReset(u.id)}
-                        className="text-xs border border-gray-600 rounded bg-gray-800 text-white px-2 py-1 w-28 focus:outline-none focus:border-indigo-500"
-                      />
-                      <button onClick={() => handleReset(u.id)} disabled={isPending}
-                        className="text-xs text-indigo-400 hover:text-indigo-200">
-                        Set
+                  <div className="flex items-center gap-3 justify-end">
+                    {/* View-as shortcut for subs and teachers */}
+                    {(u.role === 'substitute' || u.role === 'teacher') && (
+                      <form action={setUserImpersonation}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <input type="hidden" name="redirectTo" value={u.role === 'substitute' ? '/sub/dashboard' : '/teacher'} />
+                        <button type="submit" className="text-xs text-violet-400 hover:text-violet-200">
+                          View as {u.role === 'substitute' ? 'Sub' : 'Teacher'} →
+                        </button>
+                      </form>
+                    )}
+
+                    {resetTargetId === u.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="password"
+                          placeholder="Min 8 chars"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleReset(u.id)}
+                          className="text-xs border border-gray-600 rounded bg-gray-800 text-white px-2 py-1 w-28 focus:outline-none focus:border-indigo-500"
+                        />
+                        <button onClick={() => handleReset(u.id)} disabled={isPending}
+                          className="text-xs text-indigo-400 hover:text-indigo-200">
+                          Set
+                        </button>
+                        <button onClick={() => { setResetTargetId(null); setNewPassword('') }}
+                          className="text-xs text-gray-500 hover:text-gray-300">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setResetTargetId(u.id); setNewPassword(''); setMessage(null) }}
+                        className="text-xs text-indigo-400 hover:text-indigo-200"
+                      >
+                        Reset password
                       </button>
-                      <button onClick={() => { setResetTargetId(null); setNewPassword('') }}
-                        className="text-xs text-gray-500 hover:text-gray-300">
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { setResetTargetId(u.id); setNewPassword(''); setMessage(null) }}
-                      className="text-xs text-indigo-400 hover:text-indigo-200"
-                    >
-                      Reset password
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

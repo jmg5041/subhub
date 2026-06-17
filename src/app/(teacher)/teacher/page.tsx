@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarPlus } from 'lucide-react'
 import { getMyAbsences } from '../actions'
+import { getEffectiveUserId } from '@/lib/impersonation'
 import { formatDateRangeShort } from '@/lib/date-utils'
 
 function formatTime(t: string) {
@@ -36,7 +37,8 @@ export default async function TeacherDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
+  const effectiveUserId = await getEffectiveUserId(user.id)
+  const profile = await db.query.users.findFirst({ where: eq(users.id, effectiveUserId) })
   if (!profile) redirect('/auth/login')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })

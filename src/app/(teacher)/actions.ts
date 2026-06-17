@@ -14,9 +14,11 @@ import { users, employees, teacherTimeOff, absenceReasons, substitutes, schools,
 import { eq, and, asc, desc, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyAdminsOfAbsenceRequest } from '@/lib/notifications'
+import { getEffectiveUserId } from '@/lib/impersonation'
 
-// ─── Auth helper ──────────────────────────────────────────────────────────────
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
 
+// Write context — always uses the real auth user, blocks impersonation.
 async function getTeacherContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,9 +30,30 @@ async function getTeacherContext() {
   })
   if (!profile || profile.role !== 'teacher') throw new Error('Teacher access required')
 
-  // Get this teacher's employee record (links them to a school)
   const employee = await db.query.employees.findFirst({
     where: eq(employees.userId, user.id),
+    with: { school: true },
+  })
+
+  return { profile, employee, orgId: profile.organizationId }
+}
+
+// Read context — respects impersonate_user_id cookie for platform admins.
+async function getTeacherViewContext() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const effectiveUserId = await getEffectiveUserId(user.id)
+
+  const profile = await db.query.users.findFirst({
+    where: eq(users.id, effectiveUserId),
+    with: { school: true },
+  })
+  if (!profile || profile.role !== 'teacher') throw new Error('Teacher access required')
+
+  const employee = await db.query.employees.findFirst({
+    where: eq(employees.userId, effectiveUserId),
     with: { school: true },
   })
 
@@ -106,7 +129,7 @@ export async function getMyTeacherContext() {
 }
 
 export async function getMyAbsences() {
-  const { employee } = await getTeacherContext()
+  const { employee } = await getTeacherViewContext()
   if (!employee) return []
 
   return db.query.teacherTimeOff.findMany({
