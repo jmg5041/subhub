@@ -103,16 +103,23 @@ export default function AdminHelpPage() {
         ]} />
 
         <h3 className="font-semibold text-gray-800 mt-4">Bulk import from CSV</h3>
-        <p>To add many people at once, use the <strong>Bulk import from CSV</strong> toggle below the invite form.</p>
+        <p>To add many people at once, use the <strong>Bulk import from CSV</strong> toggle below the invite form. You can import everyone in a single spreadsheet — different roles and different campuses in the same file.</p>
         <Steps items={[
-          'Download the template CSV and fill it in. Required columns: First Name, Last Name, Email. Optional: Phone.',
-          'Select the role and school for the whole batch.',
-          'Upload the file. Review the preview — you can remove individual rows before sending.',
-          'Choose whether to send invite emails or do a silent import.',
+          'Download the template CSV and fill it in.',
+          'Required columns: First Name, Last Name, Email.',
+          'Optional columns: Phone, Role, School.',
+          'Upload the file — you\'ll see a preview of all rows before anything is sent.',
+          'Set a default role and default school for any rows that don\'t have those columns.',
+          'Review the preview, remove any rows you don\'t want, then click Import.',
         ]} />
         <Note>
+          <strong>Role column values:</strong> Teacher, Substitute, Staff, Admin, Principal (case-insensitive).<br />
+          <strong>School column values:</strong> Any part of the campus name — &quot;Elementary&quot; matches &quot;Southlands Elementary Campus&quot;. Substitutes and admins don&apos;t need a school.<br />
+          <strong>Multi-campus teachers:</strong> Import them once with their primary campus. Then use Edit on their user card to add a second campus manually.
+        </Note>
+        <Note>
           <strong>Send invites</strong> emails each person a link to set their password.{' '}
-          <strong>Silent import</strong> creates their accounts immediately — tell them to go to the app and use &quot;Forgot Password&quot; with their school email to log in. Silent import is often easier for onboarding a whole staff at once.
+          <strong>Silent import</strong> creates their accounts immediately — tell them to visit the app and use &quot;Forgot Password&quot; with their school email to log in. Silent import is often easier when onboarding an entire staff at once.
         </Note>
 
         <h3 className="font-semibold text-gray-800 mt-4">Resending an invite</h3>

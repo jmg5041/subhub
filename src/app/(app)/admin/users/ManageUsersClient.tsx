@@ -64,7 +64,10 @@ export default function ManageUsersClient({
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkRole, setBulkRole] = useState('teacher')
   const [bulkSchoolId, setBulkSchoolId] = useState('')
-  const [bulkRows, setBulkRows] = useState<Array<{ firstName: string; lastName: string; email: string; phone?: string }>>([])
+  const [bulkRows, setBulkRows] = useState<Array<{
+    firstName: string; lastName: string; email: string; phone?: string
+    csvRole?: string; csvSchool?: string // raw values from CSV columns if present
+  }>>([])
   const [bulkParseError, setBulkParseError] = useState<string | null>(null)
   const [bulkResults, setBulkResults] = useState<{ sent: number; errors: string[] } | null>(null)
   const [bulkSendInvites, setBulkSendInvites] = useState(true)
@@ -201,13 +204,44 @@ export default function ManageUsersClient({
 
   function handleBulkSubmit() {
     if (bulkRows.length === 0) return
-    if (['teacher', 'staff'].includes(bulkRole) && !bulkSchoolId) {
-      showMessage('Please select a school for teacher/staff imports.', 'error')
+
+    // Resolve each row to its final role + schoolId
+    const resolved: Array<{ firstName: string; lastName: string; email: string; phone?: string; role: string; schoolId?: string }> = []
+    const resolveErrors: string[] = []
+
+    for (const row of bulkRows) {
+      const role = row.csvRole?.toLowerCase().trim() || bulkRole
+
+      let schoolId: string | undefined = undefined
+      if (row.csvSchool) {
+        const match = schools.find(s =>
+          s.name.toLowerCase().includes(row.csvSchool!.toLowerCase()) ||
+          row.csvSchool!.toLowerCase().includes(s.name.toLowerCase())
+        )
+        if (!match) {
+          resolveErrors.push(`${row.email}: school "${row.csvSchool}" not found — update or remove this row`)
+          continue
+        }
+        schoolId = match.id
+      } else if (['teacher', 'staff'].includes(role)) {
+        if (!bulkSchoolId) {
+          resolveErrors.push(`${row.email}: role "${role}" requires a school — select a default school above`)
+          continue
+        }
+        schoolId = bulkSchoolId
+      }
+
+      resolved.push({ firstName: row.firstName, lastName: row.lastName, email: row.email, phone: row.phone, role, schoolId })
+    }
+
+    if (resolveErrors.length > 0 && resolved.length === 0) {
+      setBulkResults({ sent: 0, errors: resolveErrors })
       return
     }
+
     startTransition(async () => {
-      const res = await bulkInviteUsers(bulkRows, bulkRole, bulkSchoolId || null, bulkSendInvites)
-      setBulkResults(res)
+      const res = await bulkInviteUsers(resolved, bulkSendInvites)
+      setBulkResults({ sent: res.sent, errors: [...resolveErrors, ...res.errors] })
       if (res.sent > 0) setBulkRows([])
     })
   }
@@ -551,9 +585,10 @@ export default function ManageUsersClient({
         {showBulkImport && (
           <div className="border-t border-gray-100 px-6 pb-6 space-y-4">
             <p className="text-sm text-gray-500 pt-4">
-              Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email, Phone (optional)</code>.{' '}
+              Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email, Phone, Role, School</code>.
+              Role and School columns are optional — if omitted, the defaults below are used for every row.{' '}
               <a
-                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email,Phone\nJohn,Smith,jsmith@school.edu,555-555-1234\nJane,Doe,jdoe@school.edu,')}`}
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email,Phone,Role,School\nJohn,Smith,jsmith@school.edu,555-555-1234,Teacher,Elementary Campus\nJane,Doe,jdoe@school.edu,,Substitute,\nBob,Jones,bjones@school.edu,,Admin,')}`}
                 download="subhub-import-template.csv"
                 className="text-blue-600 hover:underline"
               >
@@ -563,7 +598,7 @@ export default function ManageUsersClient({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Default role <span className="text-gray-400 font-normal">(for rows with no Role column)</span></label>
                 <select
                   value={bulkRole}
                   onChange={e => setBulkRole(e.target.value)}
@@ -574,21 +609,17 @@ export default function ManageUsersClient({
                   <option value="staff">Staff</option>
                 </select>
               </div>
-              {['teacher', 'staff'].includes(bulkRole) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    School <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={bulkSchoolId}
-                    onChange={e => setBulkSchoolId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">— Select a school —</option>
-                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Default school <span className="text-gray-400 font-normal">(for teacher/staff rows with no School column)</span></label>
+                <select
+                  value={bulkSchoolId}
+                  onChange={e => setBulkSchoolId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— Select a school —</option>
+                  {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -614,7 +645,8 @@ export default function ManageUsersClient({
                       <tr>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">Name</th>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Phone</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">Role</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium">School</th>
                         <th className="px-3 py-2" />
                       </tr>
                     </thead>
@@ -623,7 +655,18 @@ export default function ManageUsersClient({
                         <tr key={i}>
                           <td className="px-3 py-2 text-gray-900">{r.firstName} {r.lastName}</td>
                           <td className="px-3 py-2 text-gray-500">{r.email}</td>
-                          <td className="px-3 py-2 text-gray-400">{r.phone ?? '—'}</td>
+                          <td className="px-3 py-2">
+                            {r.csvRole
+                              ? <span className="capitalize text-gray-900">{r.csvRole}</span>
+                              : <span className="text-gray-400 italic capitalize">{bulkRole}</span>}
+                          </td>
+                          <td className="px-3 py-2">
+                            {r.csvSchool
+                              ? <span className="text-gray-900">{r.csvSchool}</span>
+                              : bulkSchoolId
+                                ? <span className="text-gray-400 italic">{schools.find(s => s.id === bulkSchoolId)?.name ?? '—'}</span>
+                                : <span className="text-gray-300">—</span>}
+                          </td>
                           <td className="px-3 py-2 text-right">
                             <button onClick={() => setBulkRows(rows => rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">✕</button>
                           </td>
@@ -813,7 +856,10 @@ export default function ManageUsersClient({
 
 // Parses CSV text into rows. Returns an error string if the format is unrecognizable.
 // Required columns: First Name, Last Name, Email. Optional: Phone.
-function parseCsv(text: string): Array<{ firstName: string; lastName: string; email: string; phone?: string }> | string {
+function parseCsv(text: string): Array<{
+  firstName: string; lastName: string; email: string
+  phone?: string; csvRole?: string; csvSchool?: string
+}> | string {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return 'File must have a header row and at least one data row.'
 
@@ -821,23 +867,28 @@ function parseCsv(text: string): Array<{ firstName: string; lastName: string; em
   const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
 
   const findCol = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)))
-  const firstIdx = findCol(['first'])
-  const lastIdx  = findCol(['last'])
-  const emailIdx = findCol(['email'])
-  const phoneIdx = findCol(['phone', 'mobile', 'cell'])
+  const firstIdx  = findCol(['first'])
+  const lastIdx   = findCol(['last'])
+  const emailIdx  = findCol(['email'])
+  const phoneIdx  = findCol(['phone', 'mobile', 'cell'])
+  const roleIdx   = findCol(['role', 'position', 'type'])
+  const schoolIdx = findCol(['school', 'campus', 'site'])
 
   if (firstIdx === -1 || lastIdx === -1 || emailIdx === -1) {
     return 'Could not find required columns. Make sure your CSV has "First Name", "Last Name", and "Email" columns.'
   }
 
-  const rows: Array<{ firstName: string; lastName: string; email: string; phone?: string }> = []
+  const rows: Array<{ firstName: string; lastName: string; email: string; phone?: string; csvRole?: string; csvSchool?: string }> = []
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
     const firstName = cells[firstIdx]?.trim()
     const lastName  = cells[lastIdx]?.trim()
     const email     = cells[emailIdx]?.trim()
-    const phone     = phoneIdx >= 0 ? cells[phoneIdx]?.trim() || undefined : undefined
-    if (firstName && lastName && email) rows.push({ firstName, lastName, email, phone })
+    if (!firstName || !lastName || !email) continue
+    const phone     = phoneIdx  >= 0 ? cells[phoneIdx]?.trim()  || undefined : undefined
+    const csvRole   = roleIdx   >= 0 ? cells[roleIdx]?.trim()   || undefined : undefined
+    const csvSchool = schoolIdx >= 0 ? cells[schoolIdx]?.trim() || undefined : undefined
+    rows.push({ firstName, lastName, email, phone, csvRole, csvSchool })
   }
 
   return rows.length === 0 ? 'No valid rows found. Check that your CSV matches the template.' : rows

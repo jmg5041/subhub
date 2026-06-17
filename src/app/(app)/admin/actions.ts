@@ -539,9 +539,7 @@ export async function claimDirectorySchool(schoolId: string, directoryEntryId: s
  * Errors are collected per row rather than aborting the whole batch.
  */
 export async function bulkInviteUsers(
-  rows: Array<{ email: string; firstName: string; lastName: string; phone?: string }>,
-  role: string,
-  schoolId: string | null,
+  rows: Array<{ email: string; firstName: string; lastName: string; phone?: string; role: string; schoolId?: string }>,
   sendInvites: boolean
 ): Promise<{ sent: number; errors: string[] }> {
   const { orgId, adminUserId } = await getAdminContext()
@@ -552,6 +550,8 @@ export async function bulkInviteUsers(
   const errors: string[] = []
 
   for (const row of rows) {
+    const role     = row.role
+    const schoolId = row.schoolId ?? null
     try {
       if (sendInvites) {
         // ── Invite path: Supabase sends email; users row created on first login ──
@@ -573,7 +573,7 @@ export async function bulkInviteUsers(
         // ── Silent path: create account + users row now; person uses Forgot Password ──
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
           email: row.email,
-          email_confirm: true, // mark confirmed so Forgot Password works immediately
+          email_confirm: true,
           user_metadata: { firstName: row.firstName, lastName: row.lastName },
         })
         if (error || !data.user) { errors.push(`${row.email}: ${error?.message ?? 'Unknown error'}`); continue }
