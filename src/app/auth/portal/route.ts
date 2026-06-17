@@ -59,6 +59,7 @@ export async function GET(request: Request) {
       role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
       organizationId: meta.orgId as string,
       schoolId,
+      isPlatformAdmin: meta.isPlatformAdmin === true,
     })
 
     // Create the role-specific profile row so the portal works immediately
