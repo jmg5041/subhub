@@ -224,7 +224,7 @@ export async function deleteOrganization(formData: FormData) {
   redirect('/platform')
 }
 
-export async function invitePlatformStaff(formData: FormData) {
+export async function invitePlatformStaff(_prev: { error: string } | void, formData: FormData): Promise<{ error: string } | void> {
   await getPlatformContext()
   const supabaseAdmin = createAdminClient()
 
@@ -235,10 +235,12 @@ export async function invitePlatformStaff(formData: FormData) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-  await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+  const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${appUrl}/auth/confirm`,
     data: { firstName, lastName, role: 'admin', orgId, isPlatformAdmin: true },
   })
+
+  if (error) return { error: error.message }
 
   revalidatePath(`/platform/${orgId}`)
   redirect(`/platform/${orgId}`)

@@ -2,12 +2,13 @@ import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
 import { eq, desc, and, isNull, gt } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
-import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization, invitePlatformStaff } from '../actions'
+import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization } from '../actions'
 import { setImpersonation } from '@/lib/impersonation-actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PlatformUsersSection } from './PlatformUsersSection'
+import { InvitePlatformStaffForm } from './InvitePlatformStaffForm'
 
 const EVENT_LABELS: Record<string, string> = {
   check_payment:  'Check payment recorded',
@@ -51,34 +52,7 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
           <p className="text-gray-400 text-sm">SubHub platform administrators. These users have access to all organizations.</p>
         </div>
 
-        {/* Invite new IT staff */}
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-5">
-          <p className="text-sm font-semibold text-white mb-4">Invite IT Staff</p>
-          <form action={invitePlatformStaff} className="space-y-3">
-            <input type="hidden" name="orgId" value={org.id} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">First name</label>
-                <input type="text" name="firstName" required placeholder="Jane"
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Last name</label>
-                <input type="text" name="lastName" required placeholder="Smith"
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Email</label>
-              <input type="email" name="email" required placeholder="jane@example.com"
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
-            </div>
-            <button type="submit"
-              className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
-              Send invite
-            </button>
-          </form>
-        </div>
+        <InvitePlatformStaffForm orgId={org.id} />
 
         <PlatformUsersSection users={augmentedUsers} invites={[]} />
       </div>
