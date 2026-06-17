@@ -240,7 +240,17 @@ export async function invitePlatformStaff(_prev: { error: string } | void, formD
     data: { firstName, lastName, role: 'admin', orgId, isPlatformAdmin: true },
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    if (error.message.toLowerCase().includes('already registered') || error.code === 'email_exists') {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.email, email),
+        with: { organization: { columns: { name: true } } },
+      })
+      const orgName = existing?.organization?.name
+      return { error: `${email} has already been registered${orgName ? ` with ${orgName}` : ''}.` }
+    }
+    return { error: error.message }
+  }
 
   revalidatePath(`/platform/${orgId}`)
   redirect(`/platform/${orgId}`)
