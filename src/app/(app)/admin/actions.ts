@@ -6,6 +6,7 @@ import { db } from '@/db'
 import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory } from '@/db/schema'
 import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -16,9 +17,12 @@ async function getAdminContext() {
 
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) throw new Error('User profile not found')
-  if (!['admin', 'principal'].includes(profile.role)) throw new Error('Admin access required')
+  if (!['admin', 'principal'].includes(profile.role) && !profile.isPlatformAdmin) throw new Error('Admin access required')
 
-  return { orgId: profile.organizationId, adminUserId: user.id }
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) throw new Error('Org not found')
+
+  return { orgId, adminUserId: user.id }
 }
 
 // ─── Reads ────────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { notifyAllSubs } from '@/lib/notifications'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 // Runs at 6am Pacific. Two UTC entries cover both PDT (UTC-7) and PST (UTC-8):
 //   0 13 * * * = 6am PDT  |  0 14 * * * = 6am PST
@@ -23,42 +24,41 @@ export async function GET(req: Request) {
     .from(organizations)
     .where(eq(organizations.cronEnabled, true))
 
-  const results = []
-  let totalPositions = 0
+  // Process all orgs in parallel — each org's blast is independent
+  const orgResults = await Promise.allSettled(
+    allOrgs.map(async (org) => {
+      const tz = org.timezone ?? 'America/Los_Angeles'
+      const localHour = parseInt(
+        new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
+      )
+      if (localHour !== 6) return null
 
-  for (const org of allOrgs) {
-    const tz = org.timezone ?? 'America/Los_Angeles'
-    const localHour = parseInt(
-      new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).split(':')[0]
-    )
-    if (localHour !== 6) continue
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+      const pending = await db
+        .select({ id: teacherTimeOff.id })
+        .from(teacherTimeOff)
+        .where(and(
+          eq(teacherTimeOff.organizationId, org.id),
+          eq(teacherTimeOff.startDate, today),
+          eq(teacherTimeOff.approvalStatus, 'approved'),
+          eq(teacherTimeOff.substituteRequired, true),
+          // Include both never-blasted AND previously-blasted-but-unfilled positions
+          inArray(teacherTimeOff.subOutreachStatus, ['not_started', 'sent']),
+          ne(teacherTimeOff.approvalStatus, 'denied'),
+        ))
 
-    const pending = await db
-      .select({ id: teacherTimeOff.id })
-      .from(teacherTimeOff)
-      .where(and(
-        eq(teacherTimeOff.organizationId, org.id),
-        eq(teacherTimeOff.startDate, today),
-        eq(teacherTimeOff.approvalStatus, 'approved'),
-        eq(teacherTimeOff.substituteRequired, true),
-        // Include both never-blasted AND previously-blasted-but-unfilled positions
-        inArray(teacherTimeOff.subOutreachStatus, ['not_started', 'sent']),
-        ne(teacherTimeOff.approvalStatus, 'denied'),
-      ))
+      if (pending.length === 0) return null
 
-    if (pending.length === 0) continue
-    totalPositions += pending.length
-
-    try {
       const result = await notifyAllSubs(pending.map(p => p.id))
-      results.push({ orgId: org.id, tz, today, positions: pending.length, sent: result.sent, errors: result.errors })
-    } catch (err) {
-      results.push({ orgId: org.id, tz, error: String(err) })
-    }
-  }
+      return { orgId: org.id, tz, today, positions: pending.length, sent: result.sent, errors: result.errors }
+    })
+  )
+
+  const results = orgResults.flatMap(r => r.status === 'fulfilled' && r.value ? [r.value] : [])
+  const errors = orgResults.flatMap(r => r.status === 'rejected' ? [{ error: String(r.reason) }] : [])
+  const totalPositions = results.reduce((sum, r) => sum + r.positions, 0)
 
   console.log(`[MORNING BLAST] ${totalPositions} positions across ${results.length} orgs`)
-  return NextResponse.json({ positions: totalPositions, orgs: results.length, results })
+  return NextResponse.json({ positions: totalPositions, orgs: results.length, results, errors })
 }

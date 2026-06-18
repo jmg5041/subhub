@@ -16,6 +16,7 @@ import { db } from '@/db'
 import { users, subAssignments, organizations, substitutes } from '@/db/schema'
 import { eq, and, gte, lte, ne, asc } from 'drizzle-orm'
 import PrintButton from './PrintButton'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number)
@@ -49,9 +50,8 @@ export default async function SubPayReportPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
-  if (!profile) redirect('/auth/login')
-  const orgId = profile.organizationId
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) redirect('/auth/login')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   const TZ = org?.timezone ?? 'America/Los_Angeles'

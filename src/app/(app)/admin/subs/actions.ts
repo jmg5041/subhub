@@ -5,16 +5,19 @@ import { db } from '@/db'
 import { users, substitutes, subSchoolAssignments, schools } from '@/db/schema'
 import { eq, asc, sql, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 async function getAdminOrgContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
-  if (!profile || !['admin', 'principal', 'staff'].includes(profile.role)) {
+  if (!profile || (!['admin', 'principal', 'staff'].includes(profile.role) && !profile.isPlatformAdmin)) {
     throw new Error('Admin access required')
   }
-  return { orgId: profile.organizationId, userId: user.id }
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) throw new Error('Org not found')
+  return { orgId, userId: user.id }
 }
 
 export async function getSubCounties() {

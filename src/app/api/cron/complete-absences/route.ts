@@ -5,6 +5,7 @@ import { eq, and, isNull, inArray, ne, sql } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 // Runs at 5:30pm Pacific (00:30 UTC next day). Marks absences whose last day is today
 // as completed, which removes them from the dashboard and marks linked sub assignments

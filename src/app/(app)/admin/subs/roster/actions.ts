@@ -5,14 +5,15 @@ import { db } from '@/db'
 import { users, substitutes, subPriorityOrders, schools, subSchoolAssignments } from '@/db/schema'
 import { eq, asc, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 async function getOrgId(): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
-  if (!profile) throw new Error('User profile not found')
-  return profile.organizationId
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) throw new Error('User profile not found')
+  return orgId
 }
 
 export async function getRosterData() {

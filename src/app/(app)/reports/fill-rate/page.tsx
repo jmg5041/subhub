@@ -2,9 +2,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, teacherTimeOff, organizations } from '@/db/schema'
+import { teacherTimeOff, organizations } from '@/db/schema'
 import { eq, and, gte, lte, inArray } from 'drizzle-orm'
 import PrintButton from '../sub-pay/PrintButton'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 function fmt(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
@@ -26,9 +27,8 @@ export default async function FillRatePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
-  if (!profile) redirect('/auth/login')
-  const orgId = profile.organizationId
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) redirect('/auth/login')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
   const TZ = org?.timezone ?? 'America/Los_Angeles'

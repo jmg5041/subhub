@@ -311,6 +311,26 @@ at onboarding — all blast timing depends on it.
 blast went out but no sub was found, the 6am blast re-notifies everyone. The 6:20am
 re-blast is a final attempt for anything still unfilled after 6am.
 
+### Scale architecture (parallel execution)
+
+All cron routes have `export const maxDuration = 300` (Vercel Pro — 5 minute ceiling).
+
+**Org-level parallelism:** Every cron handler processes orgs with `Promise.allSettled` rather
+than a sequential `for` loop. At 40 schools, all orgs fire simultaneously instead of end-to-end.
+
+**Sub-level parallelism:** Inside `notifyAllSubs`, the per-sub notification loop also uses
+`Promise.allSettled`. All eligible subs for a school receive their email/SMS/call concurrently.
+A failure for one sub (bad phone number, Resend error) is caught individually and does not
+stop the blast for the others.
+
+Rough math at 40 schools × 20 subs × 200ms API latency:
+- Sequential (old): 40 × 20 × 200ms ≈ **160 seconds** → would time out
+- Parallel (current): max(200ms per sub) per org, all orgs in parallel ≈ **~1 second total**
+
+Twilio voice calls are not a concurrency concern at this scale: `makeVoiceCall` fires the
+Twilio API (returns in ~100ms) and Twilio handles the actual calling in the background.
+Twilio's concurrent call limits only become relevant above several hundred simultaneous calls.
+
 ### Manual blast
 Admin can click "Notify Subs Immediately" on any Find Sub page. This bundles all
 same-org same-date `not_started` positions into one blast — not just the one absence
@@ -518,9 +538,11 @@ Platform admins can view any school's admin portal via an `impersonate_org_id` c
 2. If `isPlatformAdmin` and cookie set → use impersonated org's ID for all data queries; skip billing/onboarding redirects; show `ImpersonationBanner`
 3. Pages that need `orgId` should call `getEffectiveOrgId(userId)` from `src/lib/impersonation.ts`
 
-**Pages updated to use `getEffectiveOrgId`:** `dashboard/page.tsx`. Other pages still use
-`profile.organizationId` directly — they'll show empty data when a platform admin visits
-without impersonating (acceptable, since `/platform` is their home).
+**Pages updated to use `getEffectiveOrgId`:** All `(app)` pages and server actions. Every
+auth helper (`getOrgAndUserId`, `getAdminContext`, `getOrgId`, etc.) now calls
+`getEffectiveOrgId(userId)` instead of reading `profile.organizationId` directly. This means
+a platform admin who has set the impersonation cookie will see the target school's data on
+every page — absences, users, reports, settings, sub roster, find-sub.
 
 **"View as Admin" button:** on `/platform/[orgId]` page, sets the cookie and enters the
 school's `/dashboard`. Sub/teacher portal impersonation is future work.
@@ -566,7 +588,8 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 
 **Longer-term:**
 - Platform impersonation for sub/teacher portals: same cookie pattern, needs `(sub)` and `(teacher)` layouts updated to respect `impersonate_org_id`
-- More pages using `getEffectiveOrgId()`: currently only `dashboard/page.tsx` is updated; other `(app)` pages still use `profile.organizationId` directly
+- ~~More pages using `getEffectiveOrgId()`~~ — DONE: all `(app)` auth helpers updated; platform admins see target school's data on every page when impersonating
+- ~~Cron parallel execution~~ — DONE: orgs processed in parallel (`Promise.allSettled`), subs notified in parallel within each org, `maxDuration = 300` on all cron routes; scales to 40+ schools without timeout risk
 - Stripe payments: subscriptions, tier by school size; `/billing` page has stub tier cards ready
 - Sub rating UI: DB columns exist (`subFeedbackRating`, `subFeedbackNotes` on `sub_assignments`), no UI yet
 - Sub post-assignment report/notes to teacher: no DB table or UI yet

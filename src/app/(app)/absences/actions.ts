@@ -35,6 +35,7 @@ import {
 import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql, ne } from 'drizzle-orm'
 import { countWeekdays } from '@/lib/date-utils'
 import { revalidatePath } from 'next/cache'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 
 // ─── Auth Helper ─────────────────────────────────────────────────────────────
 
@@ -49,12 +50,10 @@ async function getOrgAndUserId(): Promise<{ orgId: string; userId: string }> {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const profile = await db.query.users.findFirst({
-    where: eq(users.id, user.id),
-  })
-  if (!profile) throw new Error('User profile not found')
+  const orgId = await getEffectiveOrgId(user.id)
+  if (!orgId) throw new Error('User profile not found')
 
-  return { orgId: profile.organizationId, userId: user.id }
+  return { orgId, userId: user.id }
 }
 
 /** Exported wrapper so server pages can get org/user context for passing to client components. */

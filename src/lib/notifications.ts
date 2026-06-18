@@ -562,14 +562,15 @@ export async function notifyAllSubs(
   const errors: string[] = []
   let sent = 0
 
-  for (const sub of availableSubs) {
-    if (!sub.user.email) continue
+  // Notify all eligible subs in parallel — each sub's notification is independent
+  const subResults = await Promise.allSettled(
+    availableSubs.map(async (sub): Promise<boolean> => {
+      if (!sub.user.email) return false
 
-    // Which positions is this sub eligible for?
-    const myAbsences = absences.filter(a => absenceSubPools.get(a.id)?.has(sub.id))
-    if (myAbsences.length === 0) continue
+      // Which positions is this sub eligible for?
+      const myAbsences = absences.filter(a => absenceSubPools.get(a.id)?.has(sub.id))
+      if (myAbsences.length === 0) return false
 
-    try {
       // Generate one token per position for this sub
       const positions = await Promise.all(
         myAbsences.map(async (absence) => {
@@ -625,10 +626,15 @@ export async function notifyAllSubs(
         await makeVoiceCall(sub.user.phone, positions[0].token)
       }
 
-      sent++
-    } catch (err) {
-      console.error(`[BLAST] Failed for ${sub.user.email}:`, err)
-      errors.push(`Failed for ${sub.user.email}: ${err}`)
+      return true
+    })
+  )
+
+  for (const result of subResults) {
+    if (result.status === 'fulfilled' && result.value) sent++
+    else if (result.status === 'rejected') {
+      console.error('[BLAST] Failed for sub:', result.reason)
+      errors.push(`Failed for sub: ${result.reason}`)
     }
   }
 
