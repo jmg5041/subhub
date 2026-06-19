@@ -595,6 +595,11 @@ export default function ManageUsersClient({
                 Download template
               </a>
             </p>
+            <p className="text-xs text-blue-600">
+              <a href="/help#login-options" className="hover:underline">
+                Help: Click here for info on ways to use CSV import (including Google SSO setup)
+              </a>
+            </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
