@@ -597,7 +597,7 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 **Deferred:**
 - Sub job-board: subs browse open positions and apply
 - Rich text for notes-to-sub
-- Google OAuth consent screen: shows raw Supabase project ID — fix in Google Cloud Console
+- ~~Google OAuth consent screen~~ — DONE: custom OAuth credentials from `substitutes-us` Google Cloud project configured in Supabase Auth → Providers → Google
 - Microsoft SSO (relevant for school districts on Microsoft 365 — Supabase toggle when needed)
 
 ---
