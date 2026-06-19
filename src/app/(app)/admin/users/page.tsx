@@ -22,7 +22,7 @@ export default async function ManageUsersPage() {
   if (!user) redirect('/auth/login')
 
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
-  if (!profile || !['admin', 'principal'].includes(profile.role)) {
+  if (!profile || (!['admin', 'principal'].includes(profile.role) && !profile.isPlatformAdmin)) {
     redirect('/dashboard')
   }
 
