@@ -387,8 +387,8 @@ function Step2DateTime({
             className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="no_hold">Notify immediately</option>
-            <option value="same_day_5am">Same day at 5:00 AM</option>
-            <option value="day_before">Day before at 5:00 PM</option>
+            <option value="same_day_5am">Notify them the morning of the absence</option>
+            <option value="day_before">Notify them the evening before (default)</option>
             <option value="admin_only">Hold — admin will assign manually</option>
           </select>
           <p className="text-xs text-gray-400">
@@ -512,8 +512,8 @@ function Step4Review({
 }) {
   const holdUntilLabels: Record<string, string> = {
     no_hold: 'Immediately',
-    same_day_5am: 'Same day at 5:00 AM',
-    day_before: 'Day before at 5:00 PM',
+    same_day_5am: 'Morning of the absence',
+    day_before: 'Evening before the absence',
     admin_only: 'Admin will assign manually',
   }
   const numDays = countWeekdays(startDate, endDate === startDate ? null : endDate)
@@ -627,7 +627,7 @@ export function CreateAbsenceWizard({
     absenceReasons.find((r) => r.isDefault)?.id || ''
   )
   const [substituteRequired, setSubstituteRequired] = useState(true)
-  const [holdUntil, setHoldUntil] = useState('no_hold')
+  const [holdUntil, setHoldUntil] = useState('day_before')
 
   // Step 3 — notes and attachments
   const [notesToAdmin, setNotesToAdmin] = useState('')

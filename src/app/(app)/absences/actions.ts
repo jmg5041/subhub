@@ -318,6 +318,12 @@ export async function createAbsence(data: {
       )
     }
 
+    // If admin chose "Notify immediately" and a sub is required, blast now
+    if (data.holdUntil === 'no_hold' && data.substituteRequired && newAbsence) {
+      const { notifyAllSubs } = await import('@/lib/notifications')
+      await notifyAllSubs([newAbsence.id])
+    }
+
     revalidatePath('/dashboard')
     revalidatePath('/absences/find-sub')
 
