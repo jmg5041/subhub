@@ -389,7 +389,7 @@ function Step2DateTime({
             <option value="no_hold">Notify immediately</option>
             <option value="same_day_5am">Notify them the morning of the absence</option>
             <option value="day_before">Notify them the evening before (default)</option>
-            <option value="admin_only">Hold — admin will assign manually</option>
+            <option value="admin_only">Don't notify — admin will assign sub manually</option>
           </select>
           <p className="text-xs text-gray-400">
             Controls when SubHub starts contacting available substitutes.
@@ -514,7 +514,7 @@ function Step4Review({
     no_hold: 'Immediately',
     same_day_5am: 'Morning of the absence',
     day_before: 'Evening before the absence',
-    admin_only: 'Admin will assign manually',
+    admin_only: 'Don\'t notify — admin will assign manually',
   }
   const numDays = countWeekdays(startDate, endDate === startDate ? null : endDate)
 
