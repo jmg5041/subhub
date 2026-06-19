@@ -19,11 +19,14 @@ type Sub = {
   }
 }
 
-export function SubDirectoryClient({ counties }: { counties: string[] }) {
+export function SubDirectoryClient({ counties, ownSubUserIds }: { counties: string[], ownSubUserIds: string[] }) {
   const [selectedCounty, setSelectedCounty] = useState<string>('')
   const [subs, setSubs] = useState<Sub[]>([])
   const [filter, setFilter] = useState('')
+  const [excludeOwn, setExcludeOwn] = useState(true)
   const [loading, setLoading] = useState(false)
+
+  const ownSet = new Set(ownSubUserIds)
 
   useEffect(() => {
     if (!selectedCounty) { setSubs([]); return }
@@ -34,6 +37,7 @@ export function SubDirectoryClient({ counties }: { counties: string[] }) {
   }, [selectedCounty])
 
   const filtered = subs.filter(s => {
+    if (excludeOwn && ownSet.has(s.user.id)) return false
     if (!filter) return true
     const q = filter.toLowerCase()
     const name = `${s.user.firstName} ${s.user.lastName}`.toLowerCase()
@@ -66,6 +70,19 @@ export function SubDirectoryClient({ counties }: { counties: string[] }) {
           ))}
         </select>
       </div>
+
+      {/* Exclude own subs toggle */}
+      {ownSubUserIds.length > 0 && (
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={excludeOwn}
+            onChange={e => setExcludeOwn(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-600">Exclude substitutes already in your roster</span>
+        </label>
+      )}
 
       {/* Search within county */}
       {selectedCounty && (

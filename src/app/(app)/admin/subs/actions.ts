@@ -20,6 +20,16 @@ async function getAdminOrgContext() {
   return { orgId, userId: user.id }
 }
 
+export async function getOrgSubUserIds(): Promise<string[]> {
+  const { orgId } = await getAdminOrgContext()
+  const rows = await db
+    .select({ userId: substitutes.userId })
+    .from(substitutes)
+    .innerJoin(users, eq(substitutes.userId, users.id))
+    .where(eq(users.organizationId, orgId))
+  return rows.map(r => r.userId)
+}
+
 export async function getSubCounties() {
   const rows = await db
     .selectDistinct({ county: substitutes.county })

@@ -1,14 +1,14 @@
 import { Users } from 'lucide-react'
-import { getPendingJoinRequests, getOrgSchools } from './actions'
-import { getSubCounties } from './actions'
+import { getPendingJoinRequests, getOrgSchools, getSubCounties, getOrgSubUserIds } from './actions'
 import { SubDirectoryClient } from './SubDirectoryClient'
 import HireSubsClient from './HireSubsClient'
 
 export default async function AdminSubDirectoryPage() {
-  const [pending, orgSchools, counties] = await Promise.all([
+  const [pending, orgSchools, counties, ownSubUserIds] = await Promise.all([
     getPendingJoinRequests(),
     getOrgSchools(),
     getSubCounties(),
+    getOrgSubUserIds(),
   ])
 
   return (
@@ -27,7 +27,7 @@ export default async function AdminSubDirectoryPage() {
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="font-semibold text-gray-900 mb-1">Browse Substitute Directory</h2>
         <p className="text-sm text-gray-500 mb-4">Find substitutes registered in SubHub by county.</p>
-        <SubDirectoryClient counties={counties} />
+        <SubDirectoryClient counties={counties} ownSubUserIds={ownSubUserIds} />
       </div>
     </div>
   )
