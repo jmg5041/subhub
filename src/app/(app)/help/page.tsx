@@ -41,6 +41,7 @@ function Note({ children }: { children: React.ReactNode }) {
 const toc = [
   { id: 'getting-started',  label: 'Getting Started' },
   { id: 'managing-users',   label: 'Managing Users' },
+  { id: 'login-options',    label: 'Google SSO vs. Password' },
   { id: 'managing-subs',    label: 'Managing Substitutes' },
   { id: 'hire-subs',        label: 'Hiring Substitutes' },
   { id: 'creating-absence', label: 'Creating an Absence' },
@@ -130,6 +131,55 @@ export default function AdminHelpPage() {
 
         <h3 className="font-semibold text-gray-800 mt-4">Deactivating a user</h3>
         <p>Deactivating a user prevents them from logging in but keeps their history. Use this instead of deleting when someone leaves — it preserves their absence records.</p>
+      </Section>
+
+      {/* ── Login Options ── */}
+      <Section id="login-options" title="Google SSO vs. Email & Password">
+        <p>
+          The SubHub login page offers two ways to sign in: <strong>email and password</strong>, or <strong>Sign in with Google</strong>.
+          Both work for teachers and substitutes. Decide which approach fits your school before you import your staff —
+          the method you use during setup determines which login method works for them.
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Option A — Email and password (traditional)</h3>
+        <p>Use this if your teachers don&apos;t have Google Workspace accounts, or if you prefer standard username/password logins.</p>
+        <Steps items={[
+          'Invite users individually, or do a CSV bulk import with "Send invite emails" checked.',
+          'Each person receives an invite email with a link to set their password.',
+          'After clicking the link they are active and log in at app.substitutes.us with their email and password.',
+        ]} />
+        <Tip>If someone can&apos;t find their invite email, use the Resend button on the Manage Users page. Invite links expire after 7 days.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Option B — Google SSO (recommended for Google Workspace schools)</h3>
+        <p>
+          Use this if your school already uses Google Workspace and your staff have school-issued Gmail accounts (e.g. <em>jsmith@southlandscs.com</em>).
+          Teachers click &quot;Sign in with Google&quot; and are in immediately — no password to remember, no invite email to dig out of spam.
+        </p>
+        <p className="mt-2 font-medium text-gray-800">How to set up a CSV import for Google SSO:</p>
+        <Steps items={[
+          'Go to Admin → Manage Users and open the Bulk import from CSV section.',
+          'Upload your CSV with names and school email addresses.',
+          'Before clicking Import, uncheck the "Send invite emails" checkbox.',
+          'Click Import — accounts are created silently with no emails sent.',
+          'Tell your teachers to go to app.substitutes.us and click "Sign in with Google."',
+          'Google matches their school Gmail address to their SubHub account and they are signed in.',
+        ]} />
+        <Note>
+          The silent import (no invite emails) is essential for the Google SSO path. If you send invite emails instead,
+          SubHub creates an email-based account that can conflict when the teacher later tries to sign in with Google.
+          Stick to one method per person.
+        </Note>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Can I mix both methods?</h3>
+        <p>
+          Yes — some staff can use Google SSO and others can use email/password. Just be consistent per person.
+          Don&apos;t send an invite email to someone you also want to use Google SSO, and don&apos;t do a silent import
+          for someone who will need to log in with a password (they&apos;d have no way to set one).
+        </p>
+        <p className="mt-2">
+          Substitutes follow the same rules. If your subs use personal Gmail accounts, the Google SSO path works for them too —
+          just make sure the email in your CSV matches the Gmail address they actually use.
+        </p>
       </Section>
 
       {/* ── Managing Substitutes ── */}
