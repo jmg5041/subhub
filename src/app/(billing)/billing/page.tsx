@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { users, organizations, employees, platformSettings } from '@/db/schema'
 import { eq, countDistinct } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
+import { getEffectiveOrgId } from '@/lib/impersonation'
 import Link from 'next/link'
 
 export default async function BillingPage() {
@@ -16,9 +17,12 @@ export default async function BillingPage() {
     db.query.platformSettings.findFirst(),
   ])
   if (!profile) redirect('/auth/login')
-  if (profile.isPlatformAdmin) redirect('/platform')
 
-  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
+  // Platform admins without impersonation have no school billing to view
+  const effectiveOrgId = await getEffectiveOrgId(user.id)
+  if (profile.isPlatformAdmin && effectiveOrgId === profile.organizationId) redirect('/platform')
+
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, effectiveOrgId ?? profile.organizationId) })
   if (!org) redirect('/auth/login')
 
   const state = getBillingState(org)
@@ -32,12 +36,12 @@ export default async function BillingPage() {
       .select({ value: countDistinct(employees.userId) })
       .from(employees)
       .innerJoin(users, eq(employees.userId, users.id))
-      .where(eq(users.organizationId, profile.organizationId))
+      .where(eq(users.organizationId, org.id))
     seats = Math.max(Number(teacherCount), 1)
   }
   const monthlyTotal = seats * pricePerSeat
 
-  const isAdmin = profile.role === 'admin' || profile.role === 'principal'
+  const isAdmin = profile.isPlatformAdmin || profile.role === 'admin' || profile.role === 'principal'
 
   const statusLabel =
     state.status === 'active'       ? 'Active' :
