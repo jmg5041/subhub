@@ -13,6 +13,23 @@ const STATUS_COLORS: Record<string, string> = {
   expired:       'bg-red-100 text-red-700',
 }
 
+type OrgRow = Awaited<ReturnType<typeof import('@/db').db.query.organizations.findMany>>[0]
+
+function getStage(org: OrgRow, schoolCount: number): { label: string; color: string } {
+  if (org.subscriptionStatus === 'active') return { label: 'Active subscriber', color: 'bg-green-100 text-green-700' }
+  if (org.onboardingCompletedAt)           return { label: 'Onboarding complete', color: 'bg-blue-100 text-blue-700' }
+  if (org.seatCount || org.stripeCustomerId || org.paymentMethod === 'check')
+                                           return { label: 'Billing configured', color: 'bg-violet-100 text-violet-700' }
+  if (schoolCount > 0)                     return { label: 'Campus added', color: 'bg-amber-100 text-amber-700' }
+  return                                          { label: 'Signed up', color: 'bg-gray-100 text-gray-500' }
+}
+
+function daysSince(date: Date | string | null): number | null {
+  if (!date) return null
+  const ms = Date.now() - new Date(date).getTime()
+  return Math.floor(ms / 86_400_000)
+}
+
 export default async function PlatformPage() {
   const { adminUserId } = await getPlatformContext()
 
@@ -172,6 +189,7 @@ export default async function PlatformPage() {
             <tr className="bg-gray-800 text-gray-400 text-xs uppercase tracking-wider">
               <th className="px-4 py-3 text-left">Organization</th>
               <th className="px-4 py-3 text-left">Created</th>
+              <th className="px-4 py-3 text-left">Stage</th>
               <th className="px-4 py-3 text-center">Schools</th>
               <th className="px-4 py-3 text-center">Users</th>
               <th className="px-4 py-3 text-left">Billing</th>
@@ -186,13 +204,24 @@ export default async function PlatformPage() {
                 state.status === 'trial_ending' ? `Trial (${state.daysLeft}d left)` :
                 state.status === 'trial'         ? `Trial (${state.daysLeft}d left)` :
                 state.status
+              const schoolCount = schoolMap.get(org.id) ?? 0
+              const stage = getStage(org, schoolCount)
+              const stuck = !org.onboardingCompletedAt ? daysSince(org.createdAt) : null
               return (
                 <tr key={org.id} className="bg-gray-900 hover:bg-gray-800 transition-colors">
                   <td className="px-4 py-3 text-white font-medium">{org.name}</td>
                   <td className="px-4 py-3 text-gray-400">
                     {org.createdAt ? new Date(org.createdAt).toLocaleDateString() : '—'}
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-300">{schoolMap.get(org.id) ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${stage.color}`}>
+                      {stage.label}
+                    </span>
+                    {stuck !== null && stuck > 2 && (
+                      <span className="ml-1.5 text-xs text-gray-500">{stuck}d</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center text-gray-300">{schoolCount}</td>
                   <td className="px-4 py-3 text-center text-gray-300">{userMap.get(org.id) ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[state.status] ?? 'bg-gray-100 text-gray-600'}`}>
