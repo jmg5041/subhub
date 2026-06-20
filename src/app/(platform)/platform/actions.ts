@@ -115,6 +115,20 @@ export async function saveStaffAlertEmail(formData: FormData) {
   redirect('/platform')
 }
 
+export async function savePricing(formData: FormData) {
+  await getPlatformContext()
+  const dollars = parseFloat((formData.get('pricePerSeat') as string) || '8')
+  const cents = Math.round(dollars * 100)
+  const stripePriceId = (formData.get('stripePriceId') as string).trim() || null
+
+  await db.insert(platformSettings)
+    .values({ id: 1, pricePerSeatCents: cents, stripePriceId })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { pricePerSeatCents: cents, stripePriceId, updatedAt: new Date() } })
+
+  revalidatePath('/platform')
+  redirect('/platform')
+}
+
 export async function saveBranding(formData: FormData) {
   await getPlatformContext()
   const appName = (formData.get('appName') as string).trim() || 'SubHub'

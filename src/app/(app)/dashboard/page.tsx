@@ -13,7 +13,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { employees, users, schools, absenceReasons, teacherTimeOff, organizations, invitations, substitutes } from '@/db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, countDistinct } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getEffectiveOrgId } from '@/lib/impersonation'
@@ -94,6 +94,20 @@ export default async function DashboardPage() {
     }
   }
 
+  // Over-seat check — only relevant if seatCount has been configured
+  let overSeatWarning: { teacherCount: number; seatCount: number } | null = null
+  if (orgRecord?.seatCount && isAdminRole) {
+    const [{ value: teacherCount }] = await db
+      .select({ value: countDistinct(employees.userId) })
+      .from(employees)
+      .innerJoin(users, eq(employees.userId, users.id))
+      .where(eq(users.organizationId, orgId ?? ''))
+    const count = Number(teacherCount)
+    if (count > orgRecord.seatCount) {
+      overSeatWarning = { teacherCount: count, seatCount: orgRecord.seatCount }
+    }
+  }
+
   // Single query for all org absences — split in JS for today/upcoming
   const allAbsences = orgId
     ? await db
@@ -161,6 +175,19 @@ export default async function DashboardPage() {
           {orgRecord?.name ?? ''} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
         </p>
       </div>
+
+      {/* Over-seat warning */}
+      {overSeatWarning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">You have {overSeatWarning.teacherCount} teachers but only {overSeatWarning.seatCount} seats.</span>
+            {' '}Your next bill will reflect your actual teacher count.
+          </p>
+          <Link href="/billing" className="text-sm font-medium text-amber-700 hover:underline whitespace-nowrap">
+            Update plan →
+          </Link>
+        </div>
+      )}
 
       {/* Setup checklist — visible until all 3 steps are done */}
       {setupChecklist && (

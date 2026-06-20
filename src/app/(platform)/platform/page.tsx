@@ -3,7 +3,7 @@ import { organizations, schools, users, platformSettings } from '@/db/schema'
 import { eq, count, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
-import { getPlatformContext, saveStaffAlertEmail, saveBranding } from './actions'
+import { getPlatformContext, saveStaffAlertEmail, saveBranding, savePricing } from './actions'
 
 const STATUS_COLORS: Record<string, string> = {
   active:        'bg-green-100 text-green-700',
@@ -109,6 +109,33 @@ export default async function PlatformPage() {
               <button type="submit"
                 className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
                 Save
+              </button>
+            </form>
+          </div>
+
+          {/* Pricing */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Seat Pricing</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Changing the price here updates display and emails only. Also update the Stripe price ID when you create a new price in Stripe.
+            </p>
+            <form action={savePricing} className="space-y-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Price per seat / month ($)</label>
+                <input type="number" name="pricePerSeat" step="0.01" min="1"
+                  defaultValue={((settings?.pricePerSeatCents ?? 800) / 100).toFixed(2)}
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Stripe Price ID</label>
+                <input type="text" name="stripePriceId"
+                  defaultValue={settings?.stripePriceId ?? ''}
+                  placeholder="price_..."
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500" />
+              </div>
+              <button type="submit"
+                className="w-full rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+                Save pricing
               </button>
             </form>
           </div>

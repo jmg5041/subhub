@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, organizations, schools } from '@/db/schema'
+import { users, organizations, schools, platformSettings } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import OnboardingWizard from './OnboardingWizard'
 
@@ -17,19 +17,18 @@ export default async function OnboardingPage({
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, profile.organizationId),
-  })
+  const [org, existingSchools, settings] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) }),
+    db.query.schools.findMany({ where: eq(schools.organizationId, profile.organizationId) }),
+    db.query.platformSettings.findFirst(),
+  ])
 
   if (org?.onboardingCompletedAt) redirect('/dashboard')
-
-  const existingSchools = await db.query.schools.findMany({
-    where: eq(schools.organizationId, profile.organizationId),
-  })
 
   const params = await searchParams
   const billingAlreadySetUp = !!org?.stripeCustomerId || org?.paymentMethod === 'check'
   const returningFromStripe = params.billing === 'done'
+  const pricePerSeatCents = settings?.pricePerSeatCents ?? 800
 
   // Resume at the right step
   const startStep =
@@ -66,6 +65,8 @@ export default async function OnboardingPage({
           }))}
           startStep={startStep}
           billingAlreadySetUp={billingAlreadySetUp}
+          pricePerSeatCents={pricePerSeatCents}
+          initialSeatCount={org?.seatCount ?? null}
         />
       </div>
     </div>

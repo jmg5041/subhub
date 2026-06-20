@@ -1,19 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { users, organizations, employees } from '@/db/schema'
+import { users, organizations, employees, platformSettings } from '@/db/schema'
 import { eq, countDistinct } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
-
-const PRICE_PER_TEACHER = 5 // dollars per teacher per month
 
 export default async function BillingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
+  const [profile, settings] = await Promise.all([
+    db.query.users.findFirst({ where: eq(users.id, user.id) }),
+    db.query.platformSettings.findFirst(),
+  ])
   if (!profile) redirect('/auth/login')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
@@ -21,15 +22,19 @@ export default async function BillingPage() {
 
   const state = getBillingState(org)
 
-  // Count distinct teachers in this org (join through users to get org filter)
-  const [{ value: teacherCount }] = await db
-    .select({ value: countDistinct(employees.userId) })
-    .from(employees)
-    .innerJoin(users, eq(employees.userId, users.id))
-    .where(eq(users.organizationId, profile.organizationId))
+  const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
 
-  const numTeachers = Math.max(Number(teacherCount), 1)
-  const monthlyTotal = numTeachers * PRICE_PER_TEACHER
+  // Use purchased seat count if set, otherwise fall back to actual teacher count
+  let seats = org.seatCount
+  if (!seats) {
+    const [{ value: teacherCount }] = await db
+      .select({ value: countDistinct(employees.userId) })
+      .from(employees)
+      .innerJoin(users, eq(employees.userId, users.id))
+      .where(eq(users.organizationId, profile.organizationId))
+    seats = Math.max(Number(teacherCount), 1)
+  }
+  const monthlyTotal = seats * pricePerSeat
 
   const isAdmin = profile.role === 'admin' || profile.role === 'principal'
 
@@ -75,7 +80,7 @@ export default async function BillingPage() {
       <div className="rounded-lg border border-gray-200 bg-white px-6 py-6">
         <h2 className="text-base font-semibold text-gray-900 mb-1">SubHub Subscription</h2>
         <p className="text-sm text-gray-500 mb-4">
-          ${PRICE_PER_TEACHER} per teacher · per month · cancel anytime
+          ${pricePerSeat.toFixed(2)} per seat · per month · cancel anytime
         </p>
 
         <div className="flex items-baseline gap-1 mb-1">
@@ -83,7 +88,7 @@ export default async function BillingPage() {
           <span className="text-gray-500 text-sm">/month</span>
         </div>
         <p className="text-xs text-gray-400 mb-6">
-          Based on {numTeachers} teacher{numTeachers === 1 ? '' : 's'} currently in your system
+          Based on {seats} seat{seats === 1 ? '' : 's'}
         </p>
 
         {state.status === 'active' ? (

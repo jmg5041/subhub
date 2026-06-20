@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   Building2, MapPin, CheckCircle, CreditCard, FileText,
-  ChevronLeft, ChevronRight, Search, Plus, X, Loader2, AlertCircle,
+  ChevronLeft, ChevronRight, Search, Plus, X, Loader2, AlertCircle, Tag, Gift, Mail,
 } from 'lucide-react'
 import {
   saveOrgBasics,
@@ -11,7 +11,7 @@ import {
   addSchoolFromDirectory,
   addSchoolManually,
   removeOnboardingSchool,
-  saveBillingPreference,
+  submitDiscountRequest,
   completeOnboarding,
 } from './actions'
 
@@ -417,25 +417,23 @@ function Step2Schools({
 
 function Step3Billing({
   alreadySetUp,
+  pricePerSeatCents,
+  initialSeatCount,
   onBack,
   onNext,
 }: {
   alreadySetUp: boolean
+  pricePerSeatCents: number
+  initialSeatCount: number | null
   onBack: () => void
   onNext: () => void
 }) {
+  const [seats, setSeats]           = useState(initialSeatCount ?? 1)
+  const [showBillForm, setShowBillForm] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const trialEndDate = new Date()
-  trialEndDate.setMonth(trialEndDate.getMonth() + 6)
-  const trialLabel = trialEndDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-
-  function handleCheck() {
-    startTransition(async () => {
-      await saveBillingPreference('check')
-      onNext()
-    })
-  }
+  const pricePerSeat = pricePerSeatCents / 100
+  const monthly = seats * pricePerSeat
 
   if (alreadySetUp) {
     return (
@@ -465,56 +463,102 @@ function Step3Billing({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Set up billing</h2>
-        <p className="text-sm text-gray-500">You won&apos;t be charged for 6 months.</p>
+        <h2 className="text-lg font-semibold text-gray-900">How many teacher seats do you need?</h2>
+        <p className="text-sm text-gray-500">You can adjust this any time from the Billing page.</p>
       </div>
 
-      {/* Trial notice */}
-      <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4">
-        <p className="font-semibold text-green-800">6 months free</p>
-        <p className="text-sm text-green-700 mt-1">
-          Your first charge won&apos;t happen until <strong>{trialLabel}</strong>.
-          Cancel any time before then and you&apos;ll never be billed.
-        </p>
+      {/* Seat count + live price */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="number" min="1" value={seats}
+            onChange={(e) => setSeats(Math.max(parseInt(e.target.value) || 1, 1))}
+            className="w-24 h-10 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+          <span className="text-sm text-gray-600">teachers</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-bold text-gray-900">${monthly.toFixed(2)}</span>
+          <span className="text-sm text-gray-500">/month</span>
+          <span className="text-xs text-gray-400 ml-1">({seats} × ${pricePerSeat.toFixed(2)}/seat)</span>
+        </div>
       </div>
 
-      {/* Pricing */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 px-5 py-4">
-        <p className="text-sm font-semibold text-gray-900">SubHub — $5 per teacher · per month</p>
-        <p className="text-xs text-gray-500 mt-1">
-          Your exact amount is based on the number of teachers you add. You can review this any time on the Billing page.
-        </p>
-        <p className="text-xs text-blue-600 mt-2">Have a promo or discount code? Enter it on the credit card screen.</p>
-      </div>
-
-      {/* Payment options */}
+      {/* Discount options */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-700">How would you like to pay after the trial?</p>
+        <p className="text-sm font-semibold text-gray-800">Want to save money?</p>
 
-        {/* Credit card */}
-        <form action="/api/stripe/checkout" method="POST">
-          <input type="hidden" name="returnTo" value="onboarding" />
-          <button type="submit"
-            className="w-full flex items-center gap-3 rounded-lg border-2 border-blue-600 bg-blue-50 px-4 py-3 text-left hover:bg-blue-100 transition-colors">
-            <CreditCard className="h-5 w-5 text-blue-600 flex-shrink-0" />
+        {/* Option A — Send your bill */}
+        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+          <button type="button" onClick={() => setShowBillForm(v => !v)}
+            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+            <Mail className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-blue-700">Credit or debit card</p>
-              <p className="text-xs text-blue-600">Secure checkout via Stripe — no charge for 6 months</p>
+              <p className="text-sm font-semibold text-gray-800">Send us your current sub software bill</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                We&apos;ll give you the steepest discount we can — up to 50% off your current bill.
+              </p>
+            </div>
+          </button>
+
+          {showBillForm && (
+            <form action={submitDiscountRequest} className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+              <input type="hidden" name="option" value="bill" />
+              <input type="hidden" name="seatCount" value={seats} />
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Current software name <span className="text-gray-400">(optional)</span></label>
+                <input type="text" name="software" placeholder="e.g. Frontline / Aesop"
+                  className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Your annual cost <span className="text-gray-400">(optional)</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                  <input type="number" name="annualCost" placeholder="4700" min="0"
+                    className="w-full h-9 rounded-md border border-gray-300 pl-6 pr-3 text-sm outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <button type="submit" disabled={isPending}
+                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50">
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Send request — we&apos;ll be in touch within 24 hours
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Option B — Request 25% off */}
+        <form action={submitDiscountRequest}>
+          <input type="hidden" name="option" value="discount25" />
+          <input type="hidden" name="seatCount" value={seats} />
+          <button type="submit" disabled={isPending}
+            className="w-full flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors disabled:opacity-50">
+            <Tag className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Request 25% off — no bill needed</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                We&apos;ll send you a promo code. Start using SubHub today while we get it to you.
+              </p>
             </div>
           </button>
         </form>
 
-        {/* Check / invoice */}
-        <button type="button" onClick={handleCheck} disabled={isPending}
-          className="w-full flex items-center gap-3 rounded-lg border-2 border-gray-200 bg-white px-4 py-3 text-left hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50">
-          {isPending
-            ? <Loader2 className="h-5 w-5 text-gray-400 animate-spin flex-shrink-0" />
-            : <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />}
-          <div>
-            <p className="text-sm font-semibold text-gray-700">Check or invoice</p>
-            <p className="text-xs text-gray-500">We&apos;ll reach out with an invoice — contact info@substitutes.us</p>
-          </div>
-        </button>
+        {/* Option C — 3 months free */}
+        <form action="/api/stripe/checkout" method="POST">
+          <input type="hidden" name="returnTo" value="onboarding" />
+          <input type="hidden" name="seatCount" value={seats} />
+          <input type="hidden" name="trialDays" value="90" />
+          <button type="submit"
+            className="w-full flex items-start gap-3 rounded-lg border-2 border-blue-600 bg-blue-50 px-4 py-3 text-left hover:bg-blue-100 transition-colors">
+            <Gift className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-blue-700">Get 3 months free — only pay if it works</p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Enter your card now, get 90 days free. Cancel any time before then and you&apos;ll never be charged.
+              </p>
+            </div>
+          </button>
+        </form>
       </div>
 
       <div className="flex justify-between items-center">
@@ -575,12 +619,16 @@ export default function OnboardingWizard({
   initialSchools,
   startStep,
   billingAlreadySetUp,
+  pricePerSeatCents,
+  initialSeatCount,
 }: {
   org: OrgData
   orgId: string
   initialSchools: School[]
   startStep: number
   billingAlreadySetUp: boolean
+  pricePerSeatCents: number
+  initialSeatCount: number | null
 }) {
   const [step, setStep] = useState(startStep)
 
@@ -600,6 +648,8 @@ export default function OnboardingWizard({
         {step === 3 && (
           <Step3Billing
             alreadySetUp={billingAlreadySetUp}
+            pricePerSeatCents={pricePerSeatCents}
+            initialSeatCount={initialSeatCount}
             onBack={() => setStep(2)}
             onNext={() => setStep(4)}
           />

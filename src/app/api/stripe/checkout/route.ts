@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, organizations, employees } from '@/db/schema'
-import { eq, countDistinct } from 'drizzle-orm'
+import { users, organizations, platformSettings } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { stripe } from '@/lib/stripe'
 
-const PRICE_ID = 'price_1Ti1dlB7AVFO3ftiA0nOLuxN'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
 export async function POST(req: NextRequest) {
@@ -18,37 +17,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, profile.organizationId),
-  })
+  const [org, settings] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) }),
+    db.query.platformSettings.findFirst(),
+  ])
   if (!org) return NextResponse.json({ error: 'Org not found' }, { status: 404 })
 
-  // Count distinct teachers in this org (employees → users to get org)
-  const [{ value: teacherCount }] = await db
-    .select({ value: countDistinct(employees.userId) })
-    .from(employees)
-    .innerJoin(users, eq(employees.userId, users.id))
-    .where(eq(users.organizationId, profile.organizationId))
-
-  const quantity = Math.max(Number(teacherCount), 1)
+  const priceId = settings?.stripePriceId
+  if (!priceId) return NextResponse.json({ error: 'Stripe price not configured' }, { status: 500 })
 
   const formData = await req.formData()
   const returnTo = formData.get('returnTo') as string | null
   const isOnboarding = returnTo === 'onboarding'
 
+  // Save seat count if provided via form (onboarding flow passes it explicitly)
+  const seatCountRaw = formData.get('seatCount')
+  if (seatCountRaw) {
+    const seatCount = Math.max(parseInt(seatCountRaw as string, 10), 1)
+    await db.update(organizations)
+      .set({ seatCount, updatedAt: new Date() })
+      .where(eq(organizations.id, org.id))
+    org.seatCount = seatCount
+  }
+
+  const quantity = Math.max(org.seatCount ?? 1, 1)
+
+  // Trial days: onboarding default is 90 days (3 months); billing page is no trial
+  const trialDaysRaw = formData.get('trialDays')
+  const trialDays = trialDaysRaw ? parseInt(trialDaysRaw as string, 10) : (isOnboarding ? 90 : null)
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    line_items: [{ price: PRICE_ID, quantity }],
-    // Onboarding flow returns to wizard; billing page flow goes to success page
+    line_items: [{ price: priceId, quantity }],
     success_url: isOnboarding
       ? `${APP_URL}/onboarding?billing=done`
       : `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: isOnboarding ? `${APP_URL}/onboarding` : `${APP_URL}/billing`,
     metadata: { orgId: org.id },
     allow_promotion_codes: true,
-    // New signups coming through onboarding get a 6-month free trial
-    ...(isOnboarding ? { subscription_data: { trial_period_days: 180 } } : {}),
-    // Reuse existing Stripe customer if we have one
+    ...(trialDays ? { subscription_data: { trial_period_days: trialDays } } : {}),
     ...(org.stripeCustomerId
       ? { customer: org.stripeCustomerId }
       : { customer_email: user.email ?? undefined }),

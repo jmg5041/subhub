@@ -1,10 +1,11 @@
 'use server'
 
 import { db } from '@/db'
-import { organizations, schools, schoolDirectory, users } from '@/db/schema'
+import { organizations, schools, schoolDirectory, users, platformSettings } from '@/db/schema'
 import { eq, or, ilike } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Resend } from 'resend'
 
 async function getOnboardingContext() {
   const supabase = await createClient()
@@ -101,6 +102,75 @@ export async function removeOnboardingSchool(schoolId: string) {
   await db.delete(schools).where(eq(schools.id, schoolId))
   return { success: true }
 }
+
+export async function saveSeatCount(seatCount: number) {
+  const { orgId } = await getOnboardingContext()
+  const count = Math.max(Math.round(seatCount), 1)
+  await db.update(organizations)
+    .set({ seatCount: count, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+}
+
+// Called when a school chooses Option A (send bill) or Option B (25% off request).
+// Saves seat count, sends staff alert, then completes onboarding on trial.
+export async function submitDiscountRequest(formData: FormData): Promise<void> {
+  const { orgId } = await getOnboardingContext()
+
+  const option     = formData.get('option') as 'bill' | 'discount25'
+  const seatCount  = Math.max(parseInt(formData.get('seatCount') as string, 10) || 1, 1)
+  const software   = (formData.get('software') as string | null)?.trim() || null
+  const annualCost = (formData.get('annualCost') as string | null)?.trim() || null
+
+  const [settings] = await Promise.all([
+    db.query.platformSettings.findFirst(),
+    db.update(organizations)
+      .set({ seatCount, paymentMethod: 'check', updatedAt: new Date() })
+      .where(eq(organizations.id, orgId)),
+  ])
+
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const admin = await db.query.users.findFirst({
+    where: eq(users.organizationId, orgId),
+    columns: { email: true, firstName: true },
+  })
+
+  const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
+  const monthlyFull = seatCount * pricePerSeat
+  const staffEmail = settings?.staffAlertEmail
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+
+  if (staffEmail && resend) {
+    const subject = option === 'bill'
+      ? `Discount Request (Option A — Send Bill): ${org?.name}`
+      : `Discount Request (Option B — 25% Off): ${org?.name}`
+
+    const bodyLines = [
+      `School: ${org?.name}`,
+      `Admin: ${admin?.firstName ?? ''} <${admin?.email ?? ''}>`,
+      `Seats: ${seatCount}`,
+      `Full monthly rate: $${monthlyFull.toFixed(2)}/month`,
+      option === 'bill'
+        ? `Current software: ${software ?? '(not provided)'}`
+        : `Requested discount: 25% off → $${(monthlyFull * 0.75).toFixed(2)}/month`,
+      annualCost ? `Current annual cost: $${annualCost}` : '',
+      '',
+      `Review: ${appUrl}/platform/${orgId}`,
+      `Action: Send them a Stripe promo code at ${admin?.email ?? 'their admin email'}`,
+    ].filter(Boolean)
+
+    await resend.emails.send({
+      from: 'SubHub <no-reply@substitutes.us>',
+      to: staffEmail,
+      subject,
+      text: bodyLines.join('\n'),
+      html: bodyLines.map(l => `<p>${l}</p>`).join(''),
+    })
+  }
+
+  redirect('/onboarding?billing=done')
+}
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 export async function saveBillingPreference(method: 'check') {
   const { orgId } = await getOnboardingContext()

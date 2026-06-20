@@ -30,6 +30,7 @@ export const organizations = pgTable('organizations', {
   stripeSubscriptionId: text('stripe_subscription_id'),
   onboardingCompletedAt: timestamp('onboarding_completed_at'), // null = wizard not finished
   cronEnabled: boolean('cron_enabled').default(true).notNull(), // kill switch: false = no blasts, no notifications
+  seatCount: integer('seat_count'), // purchased seats; null until set during onboarding
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -40,6 +41,8 @@ export const platformSettings = pgTable('platform_settings', {
   staffAlertEmail: text('staff_alert_email'), // receives billing expiry alerts
   appName: text('app_name').default('SubHub'),
   logoUrl: text('logo_url'), // URL to logo image; if null, app name text is shown
+  pricePerSeatCents: integer('price_per_seat_cents').default(800), // e.g. 800 = $8.00/seat/month
+  stripePriceId: text('stripe_price_id'), // Stripe price object ID for seat-based billing
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
