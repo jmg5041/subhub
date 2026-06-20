@@ -844,6 +844,8 @@ export async function updateAbsenceDates(
   revalidatePath(`/absences/find-sub/${timeOffId}`)
   revalidatePath('/dashboard')
   revalidatePath('/absences/approve')
+  revalidatePath('/teacher/absences')
+  revalidatePath('/teacher')
   return { success: true }
 }
 
