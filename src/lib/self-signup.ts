@@ -1,8 +1,12 @@
 import { db } from '@/db'
-import { organizations, users } from '@/db/schema'
+import { organizations, users, platformSettings } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { seedDefaultAbsenceReasons } from '@/lib/org-defaults'
 import type { User } from '@supabase/supabase-js'
+import { Resend } from 'resend'
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -56,4 +60,35 @@ export async function provisionSelfSignupOrg(authUser: User): Promise<void> {
   })
 
   await seedDefaultAbsenceReasons(org.id)
+
+  // Alert platform staff of new signup
+  const settings = await db.query.platformSettings.findFirst()
+  if (settings?.staffAlertEmail && resend) {
+    const subject = `New signup: ${orgName}`
+    const text = [
+      `New school signed up for SubHub.`,
+      ``,
+      `School: ${orgName}`,
+      `Admin: ${firstName} ${lastName} <${authUser.email}>`,
+      `Trial ends: ${paidThrough.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      ``,
+      `View in platform: ${APP_URL}/platform/${org.id}`,
+    ].join('\n')
+    const html = `
+      <p>New school signed up for SubHub.</p>
+      <ul>
+        <li><strong>School:</strong> ${orgName}</li>
+        <li><strong>Admin:</strong> ${firstName} ${lastName} &lt;${authUser.email}&gt;</li>
+        <li><strong>Trial ends:</strong> ${paidThrough.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</li>
+      </ul>
+      <p><a href="${APP_URL}/platform/${org.id}">View in platform →</a></p>
+    `
+    await resend.emails.send({
+      from: 'SubHub <no-reply@substitutes.us>',
+      to: settings.staffAlertEmail,
+      subject,
+      text,
+      html,
+    })
+  }
 }
