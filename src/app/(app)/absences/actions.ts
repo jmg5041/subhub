@@ -534,6 +534,32 @@ export async function adjustHoursAndReconcile(formData: FormData) {
   redirect('/absences/reconcile')
 }
 
+export async function getAbsencesForHeatmap(from: string, to: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  return db
+    .select({
+      startDate: teacherTimeOff.startDate,
+      endDate: teacherTimeOff.endDate,
+      teacherFirstName: users.firstName,
+      teacherLastName: users.lastName,
+      reasonName: absenceReasons.name,
+    })
+    .from(teacherTimeOff)
+    .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
+    .innerJoin(users, eq(employees.userId, users.id))
+    .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
+    .where(
+      and(
+        eq(teacherTimeOff.organizationId, orgId),
+        eq(teacherTimeOff.approvalStatus, 'approved'),
+        // Overlaps with range: starts before range ends AND ends after range starts
+        sql`${teacherTimeOff.startDate} <= ${to}`,
+        sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) >= ${from}`
+      )
+    )
+}
+
 // ─── Find Sub actions ─────────────────────────────────────────────────────────
 
 /**

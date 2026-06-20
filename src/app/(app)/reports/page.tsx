@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileBarChart, DollarSign, UserX, TrendingUp, Clock } from 'lucide-react'
+import { FileBarChart, DollarSign, UserX, TrendingUp, CalendarDays } from 'lucide-react'
 
 const reports = [
   {
@@ -24,11 +24,11 @@ const reports = [
     available: true,
   },
   {
-    title: 'Sub Hours Summary',
-    description: 'Total hours per substitute by week, month, or custom range.',
-    href: '/reports/sub-hours',
-    icon: Clock,
-    available: false,
+    title: 'Absence Calendar',
+    description: 'Daily absence volume across the school year. Hover any day to see who was absent.',
+    href: '/reports/absence-heatmap',
+    icon: CalendarDays,
+    available: true,
   },
 ]
 
