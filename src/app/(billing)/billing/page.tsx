@@ -18,9 +18,7 @@ export default async function BillingPage() {
   ])
   if (!profile) redirect('/auth/login')
 
-  // Platform admins without impersonation have no school billing to view
   const effectiveOrgId = await getEffectiveOrgId(user.id)
-  if (profile.isPlatformAdmin && effectiveOrgId === profile.organizationId) redirect('/platform')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, effectiveOrgId ?? profile.organizationId) })
   if (!org) redirect('/auth/login')
