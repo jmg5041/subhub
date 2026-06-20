@@ -16,6 +16,7 @@ export default async function BillingPage() {
     db.query.platformSettings.findFirst(),
   ])
   if (!profile) redirect('/auth/login')
+  if (profile.isPlatformAdmin) redirect('/platform')
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) })
   if (!org) redirect('/auth/login')
