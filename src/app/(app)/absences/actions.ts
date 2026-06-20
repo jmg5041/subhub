@@ -33,6 +33,7 @@ import {
   organizations,
 } from '@/db/schema'
 import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql, ne } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { countWeekdays } from '@/lib/date-utils'
 import { revalidatePath } from 'next/cache'
 import { getEffectiveOrgId } from '@/lib/impersonation'
@@ -189,7 +190,10 @@ export async function getAbsencesForReconcile() {
   const TZ = org?.timezone ?? 'America/Los_Angeles'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
 
-  return db
+  // Alias users table so we can join it twice (once for teacher, once for sub)
+  const subUser = alias(users, 'sub_user')
+
+  const rows = await db
     .select({
       id: teacherTimeOff.id,
       startDate: teacherTimeOff.startDate,
@@ -203,12 +207,20 @@ export async function getAbsencesForReconcile() {
       teacherLastName: users.lastName,
       schoolName: schools.name,
       reasonName: absenceReasons.name,
+      assignmentId: subAssignments.id,
+      subFirstName: subUser.firstName,
+      subLastName: subUser.lastName,
+      totalHours: subAssignments.totalHours,
     })
     .from(teacherTimeOff)
     .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
     .innerJoin(users, eq(employees.userId, users.id))
     .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
     .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
+    .leftJoin(assignmentTimeOff, eq(assignmentTimeOff.timeOffId, teacherTimeOff.id))
+    .leftJoin(subAssignments, eq(subAssignments.id, assignmentTimeOff.assignmentId))
+    .leftJoin(substitutes, eq(substitutes.id, subAssignments.substituteId))
+    .leftJoin(subUser, eq(subUser.id, substitutes.userId))
     .where(
       and(
         eq(teacherTimeOff.organizationId, orgId),
@@ -219,6 +231,14 @@ export async function getAbsencesForReconcile() {
       )
     )
     .orderBy(desc(teacherTimeOff.startDate))
+
+  // Deduplicate: if an absence has multiple sub assignments, keep the first row
+  const seen = new Set<string>()
+  return rows.filter(row => {
+    if (seen.has(row.id)) return false
+    seen.add(row.id)
+    return true
+  })
 }
 
 /**
@@ -407,6 +427,106 @@ export async function reconcileAbsence(formData: FormData) {
         eq(teacherTimeOff.organizationId, orgId)
       )
     )
+
+  revalidatePath('/absences/reconcile')
+  revalidatePath('/dashboard')
+}
+
+/** Client-friendly reconcile: takes an id string instead of FormData. */
+export async function reconcileAbsenceById(id: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  await db
+    .update(teacherTimeOff)
+    .set({ reconciliationStatus: 'reconciled', updatedAt: new Date() })
+    .where(and(eq(teacherTimeOff.id, id), eq(teacherTimeOff.organizationId, orgId)))
+
+  revalidatePath('/absences/reconcile')
+  revalidatePath('/dashboard')
+}
+
+/**
+ * Loads a single absence with its sub assignment details.
+ * Used on the Modify page so admins can adjust hours or mark sub as no-show.
+ */
+export async function getAbsenceForModify(absenceId: string) {
+  const { orgId } = await getOrgAndUserId()
+  const subUser = alias(users, 'sub_user')
+
+  const rows = await db
+    .select({
+      id: teacherTimeOff.id,
+      startDate: teacherTimeOff.startDate,
+      endDate: teacherTimeOff.endDate,
+      startTime: teacherTimeOff.startTime,
+      endTime: teacherTimeOff.endTime,
+      substituteRequired: teacherTimeOff.substituteRequired,
+      teacherFirstName: users.firstName,
+      teacherLastName: users.lastName,
+      schoolName: schools.name,
+      reasonName: absenceReasons.name,
+      assignmentId: subAssignments.id,
+      subFirstName: subUser.firstName,
+      subLastName: subUser.lastName,
+      totalHours: subAssignments.totalHours,
+    })
+    .from(teacherTimeOff)
+    .innerJoin(employees, eq(teacherTimeOff.employeeId, employees.id))
+    .innerJoin(users, eq(employees.userId, users.id))
+    .innerJoin(schools, eq(teacherTimeOff.schoolId, schools.id))
+    .leftJoin(absenceReasons, eq(teacherTimeOff.reasonId, absenceReasons.id))
+    .leftJoin(assignmentTimeOff, eq(assignmentTimeOff.timeOffId, teacherTimeOff.id))
+    .leftJoin(subAssignments, eq(subAssignments.id, assignmentTimeOff.assignmentId))
+    .leftJoin(substitutes, eq(substitutes.id, subAssignments.substituteId))
+    .leftJoin(subUser, eq(subUser.id, substitutes.userId))
+    .where(
+      and(eq(teacherTimeOff.id, absenceId), eq(teacherTimeOff.organizationId, orgId))
+    )
+    .limit(1)
+
+  return rows[0] ?? null
+}
+
+/**
+ * Marks the sub assignment as cancelled (sub no-show) and reconciles the absence.
+ * The cancelled assignment won't appear in the pay report.
+ */
+export async function markSubNoShow(absenceId: string, assignmentId: string) {
+  const { orgId } = await getOrgAndUserId()
+
+  await db
+    .update(subAssignments)
+    .set({ status: 'cancelled', updatedAt: new Date() })
+    .where(and(eq(subAssignments.id, assignmentId), eq(subAssignments.organizationId, orgId)))
+
+  await db
+    .update(teacherTimeOff)
+    .set({ reconciliationStatus: 'reconciled', updatedAt: new Date() })
+    .where(and(eq(teacherTimeOff.id, absenceId), eq(teacherTimeOff.organizationId, orgId)))
+
+  revalidatePath('/absences/reconcile')
+  revalidatePath('/dashboard')
+}
+
+/**
+ * Updates the sub assignment's total hours and reconciles the absence.
+ * Used when actual hours differ from the scheduled hours (e.g., sub left early).
+ */
+export async function adjustHoursAndReconcile(formData: FormData) {
+  const absenceId = formData.get('absenceId') as string
+  const assignmentId = formData.get('assignmentId') as string
+  const hours = formData.get('hours') as string
+  const { orgId } = await getOrgAndUserId()
+
+  await db
+    .update(subAssignments)
+    .set({ totalHours: hours, updatedAt: new Date() })
+    .where(and(eq(subAssignments.id, assignmentId), eq(subAssignments.organizationId, orgId)))
+
+  await db
+    .update(teacherTimeOff)
+    .set({ reconciliationStatus: 'reconciled', updatedAt: new Date() })
+    .where(and(eq(teacherTimeOff.id, absenceId), eq(teacherTimeOff.organizationId, orgId)))
 
   revalidatePath('/absences/reconcile')
   revalidatePath('/dashboard')

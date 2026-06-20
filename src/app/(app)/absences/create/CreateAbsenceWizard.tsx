@@ -389,7 +389,7 @@ function Step2DateTime({
             <option value="no_hold">Notify immediately</option>
             <option value="same_day_5am">Notify them the morning of the absence</option>
             <option value="day_before">Notify them the evening before (default)</option>
-            <option value="admin_only">Don't notify — admin will assign sub manually</option>
+            <option value="admin_only">Don&apos;t notify — admin will assign sub manually</option>
           </select>
           <p className="text-xs text-gray-400">
             Controls when SubHub starts contacting available substitutes.
