@@ -282,54 +282,88 @@ are immediately marked as declined. This prevents a sub from being double-booked
 **Past-date guard:** The sub dashboard filters out tokens for dates before today. The
 server action also rejects acceptance of past-date positions as a second line of defense.
 
-### Cron schedule (`vercel.json`)
-All times are UTC. Vercel crons fire at fixed UTC times and do NOT auto-adjust for DST.
-Vercel also deduplicates same-path entries in some cases, so the previous 7-entries-per-route
-approach was unreliable. The current design uses **2 entries per time-sensitive route** to
-cover both PDT (UTC−7) and PST (UTC−8). A `localHour` guard in each handler ensures the
-org is only processed once, at the correct local time.
+### Blast scheduling — Dispatcher + QStash architecture
 
-| Cron | Target local time | UTC entries | What it does |
-|------|-------------------|-------------|-------------|
-| Evening blast | 10:00 PM | `0 5`, `0 6` | Notifies subs for tomorrow's unfilled positions |
-| Morning blast | 6:00 AM | `0 13`, `0 14` | Blasts all unfilled positions for today (`not_started` + `sent`) |
-| Re-blast | 6:20 AM | `20 13`, `20 14` | Re-notifies non-decliners if positions still unfilled |
-| Unfilled alert | 6:30 AM | `30 13`, `30 14` | Emails admin if any position is still unfilled |
-| Complete absences | ~5:30 PM | `30 0` (next day UTC) | Stamps `completedAt`, credits subs |
+**Do not add per-timezone cron entries.** The old approach (10 cron entries with DST doubling)
+has been replaced. The new system scales to 1000+ schools across any number of timezones
+with zero configuration changes.
 
-**Total: 10 cron entries** in `vercel.json` (9 notification/completion + 1 cleanup).
-The 10th: `cleanup-invites` at `0 2 * * *` (2am UTC nightly) — deletes expired unused invitations and their dangling Supabase auth accounts.
+#### How it works
 
-How the two-entry DST pattern works: `0 13 * * *` fires at 6am PDT; `0 14 * * *` fires at
-6am PST. The `localHour === 6` check passes for exactly one of them each day depending on
-the season. The other firing is ignored.
+```
+vercel.json: 3 cron entries (was 11)
+  */5 * * * *  →  /api/dispatcher        ← runs every 5 min, timezone-agnostic
+  0 2 * * *    →  /api/cron/cleanup-invites
+  0 10 * * *   →  /api/cron/billing-alerts
 
-The timezone is configurable per org in **Settings → Timezone**. It must be set correctly
-at onboarding — all blast timing depends on it.
+/api/dispatcher (lightweight orchestrator):
+  1. Fetches all orgs where cronEnabled = true
+  2. For each org: computes current local time using org.timezone
+  3. If local time falls in a blast window: publishes one QStash job for that org
+  4. Returns in < 1 second regardless of school count
 
-**Morning blast processes both `not_started` and `sent` positions.** If the 10pm evening
-blast went out but no sub was found, the 6am blast re-notifies everyone. The 6:20am
-re-blast is a final attempt for anything still unfilled after 6am.
+QStash (upstash.com) delivers to per-org blast endpoints:
+  /api/blast/evening        — 10:00 PM local, notifies subs for tomorrow
+  /api/blast/morning        — 6:00 AM local, blasts today's unfilled positions
+  /api/blast/reblast        — 6:20 AM local, re-notifies non-decliners
+  /api/blast/unfilled-alert — 6:30 AM local, emails admin if still unfilled
+  /api/blast/complete       — 5:30 PM local, stamps completedAt + credits sub
+```
 
-### Scale architecture (parallel execution)
+Each blast endpoint handles **one org only**. If it returns 5xx, QStash automatically
+retries up to 3 times with exponential backoff. One school failing never affects another.
 
-All cron routes have `export const maxDuration = 300` (Vercel Pro — 5 minute ceiling).
+#### Blast windows (5-minute polling)
+The dispatcher checks whether the current local time falls within 5 minutes of each
+blast target. Since the dispatcher runs every 5 minutes, each window fires exactly once
+per day per org. A **deduplication key** (`orgId-blastType-localDate`) is sent with every
+QStash message — if the dispatcher fires twice in the same window, QStash silently drops
+the duplicate.
 
-**Org-level parallelism:** Every cron handler processes orgs with `Promise.allSettled` rather
-than a sequential `for` loop. At 40 schools, all orgs fire simultaneously instead of end-to-end.
+| Blast | Local time | What it does |
+|-------|-----------|-------------|
+| Evening | 10:00 PM | Finds tomorrow's `not_started` positions, calls `notifyAllSubs` |
+| Morning | 6:00 AM | Finds today's `not_started` + `sent` positions, calls `notifyAllSubs` |
+| Reblast | 6:20 AM | Finds today's still-`sent` positions, calls `reBlastNonDecliners` |
+| Unfilled alert | 6:30 AM | Finds today's still-`sent` positions, emails admin |
+| Complete | 5:30 PM | Stamps `completedAt`, marks sub assignments `completed` |
 
-**Sub-level parallelism:** Inside `notifyAllSubs`, the per-sub notification loop also uses
-`Promise.allSettled`. All eligible subs for a school receive their email/SMS/call concurrently.
-A failure for one sub (bad phone number, Resend error) is caught individually and does not
-stop the blast for the others.
+**Morning blast processes both `not_started` and `sent` positions** — covers new absences
+entered that morning AND positions blasted last night with no takers.
 
-Rough math at 40 schools × 20 subs × 200ms API latency:
-- Sequential (old): 40 × 20 × 200ms ≈ **160 seconds** → would time out
-- Parallel (current): max(200ms per sub) per org, all orgs in parallel ≈ **~1 second total**
+#### Adding a new school
+Nothing. The moment a school completes onboarding and their org row exists with
+`cronEnabled = true`, the next dispatcher run picks them up automatically. New schools
+must set their timezone during onboarding (Step 1 of the wizard) — this is what tells
+the dispatcher when 10pm is for them.
 
-Twilio voice calls are not a concurrency concern at this scale: `makeVoiceCall` fires the
-Twilio API (returns in ~100ms) and Twilio handles the actual calling in the background.
-Twilio's concurrent call limits only become relevant above several hundred simultaneous calls.
+#### Security
+- `/api/dispatcher` — protected by `Bearer {CRON_SECRET}` header (same as old cron routes)
+- `/api/blast/*` — protected by QStash signature verification (`QSTASH_CURRENT_SIGNING_KEY`,
+  `QSTASH_NEXT_SIGNING_KEY`). In development, falls back to `Bearer {CRON_SECRET}` so you
+  can test blast endpoints directly without real QStash signatures.
+
+#### Environment variables required
+| Variable | Purpose |
+|----------|---------|
+| `QSTASH_URL` | QStash regional base URL (`https://qstash-us-east-1.upstash.io`) |
+| `QSTASH_TOKEN` | Auth token for publishing messages to QStash |
+| `QSTASH_CURRENT_SIGNING_KEY` | Verifies incoming QStash requests are genuine |
+| `QSTASH_NEXT_SIGNING_KEY` | Used during key rotation |
+
+Keys are available in the Upstash QStash console → Overview → .env section.
+
+#### Observability
+QStash logs every message delivery, retry, and failure. Go to **upstash.com → QStash → Logs**
+to see real-time blast activity. Failed deliveries appear in **DLQ** (Dead Letter Queue) after
+all retries are exhausted — these represent schools whose blast failed completely and need
+manual investigation.
+
+#### Old cron routes
+`src/app/api/cron/evening-blast`, `morning-blast`, `reblast`, `unfilled-alert`,
+`complete-absences` are no longer called by Vercel (removed from `vercel.json`) but the
+files remain on disk as reference/fallback. They can be deleted once the QStash system
+has been running reliably for a few weeks.
 
 ### Manual blast
 Admin can click "Notify Subs Immediately" on any Find Sub page. This bundles all
@@ -393,14 +427,22 @@ directly (for the web link path).
 
 ## Cron Routes
 
-All cron routes check a `Bearer {CRON_SECRET}` authorization header to prevent
-unauthorized calls. Vercel sends this automatically from the cron config in `vercel.json`.
+**The primary blast system uses the QStash dispatcher — see "Blast scheduling" above.**
+The routes below are legacy files kept for reference. They are no longer called by Vercel.
 
-- `src/app/api/cron/evening-blast/route.ts` — loops all orgs, fires at 10pm local, finds tomorrow's `not_started` positions per org, calls `notifyAllSubs`. "Tomorrow" is computed in the org's local timezone (not UTC) to avoid off-by-one at night.
-- `src/app/api/cron/morning-blast/route.ts` — fires at 6am local, finds today's `not_started` AND `sent`+unfilled positions (covers both new absences and ones blasted last night with no takers)
-- `src/app/api/cron/reblast/route.ts` — fires at 6:20am local, finds today's `sent`+unfilled positions, calls `reBlastNonDecliners()` per position
-- `src/app/api/cron/unfilled-alert/route.ts` — fires at 6:30am local, emails org admin if any position is still unfilled
-- `src/app/api/cron/complete-absences/route.ts` — fires at 5:30pm local, stamps `completedAt` on absences whose last day is today (`COALESCE(endDate, startDate) = today`), marks linked `subAssignments` as `'completed'`
+- `src/app/api/dispatcher/route.ts` — **PRIMARY** — runs every 5 min, publishes per-org QStash jobs
+- `src/app/api/blast/evening/route.ts` — per-org evening blast (called by QStash)
+- `src/app/api/blast/morning/route.ts` — per-org morning blast (called by QStash)
+- `src/app/api/blast/reblast/route.ts` — per-org reblast (called by QStash)
+- `src/app/api/blast/unfilled-alert/route.ts` — per-org unfilled alert (called by QStash)
+- `src/app/api/blast/complete/route.ts` — per-org complete absences (called by QStash)
+- `src/app/api/cron/cleanup-invites/route.ts` — **ACTIVE** nightly, deletes expired invitations
+- `src/app/api/cron/billing-alerts/route.ts` — **ACTIVE** daily 10am UTC, sends billing reminder emails
+- `src/app/api/cron/evening-blast/route.ts` — LEGACY (no longer called)
+- `src/app/api/cron/morning-blast/route.ts` — LEGACY (no longer called)
+- `src/app/api/cron/reblast/route.ts` — LEGACY (no longer called)
+- `src/app/api/cron/unfilled-alert/route.ts` — LEGACY (no longer called)
+- `src/app/api/cron/complete-absences/route.ts` — LEGACY (no longer called)
 
 ---
 
