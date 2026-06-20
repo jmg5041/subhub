@@ -36,6 +36,7 @@ import { eq, and, asc, lt, lte, gte, desc, or, isNull, sql, ne } from 'drizzle-o
 import { alias } from 'drizzle-orm/pg-core'
 import { countWeekdays } from '@/lib/date-utils'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { getEffectiveOrgId } from '@/lib/impersonation'
 
 // ─── Auth Helper ─────────────────────────────────────────────────────────────
@@ -530,6 +531,7 @@ export async function adjustHoursAndReconcile(formData: FormData) {
 
   revalidatePath('/absences/reconcile')
   revalidatePath('/dashboard')
+  redirect('/absences/reconcile')
 }
 
 // ─── Find Sub actions ─────────────────────────────────────────────────────────
