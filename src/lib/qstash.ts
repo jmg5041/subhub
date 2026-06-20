@@ -1,7 +1,10 @@
 import { Client, Receiver } from '@upstash/qstash'
 
 // QStash client — used by the dispatcher to publish messages
-export const qstashClient = new Client({ token: process.env.QSTASH_TOKEN! })
+export const qstashClient = new Client({
+  token: process.env.QSTASH_TOKEN!,
+  baseUrl: process.env.QSTASH_URL,
+})
 
 const receiver = new Receiver({
   currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
