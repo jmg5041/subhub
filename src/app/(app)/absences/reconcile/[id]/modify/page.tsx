@@ -112,7 +112,7 @@ export default async function ModifyReconcilePage({ params }: { params: Promise<
       <div className="rounded-lg border border-red-100 bg-red-50 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <UserX className="h-5 w-5 text-red-600" />
-          <h2 className="font-semibold text-red-900">Sub didn't show up</h2>
+          <h2 className="font-semibold text-red-900">Sub didn&apos;t show up</h2>
         </div>
         <p className="text-sm text-red-700">
           This will cancel the sub&apos;s assignment so they are not included in payroll,
