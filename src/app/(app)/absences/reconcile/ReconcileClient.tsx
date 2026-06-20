@@ -97,7 +97,7 @@ export default function ReconcileClient({ absences }: { absences: Absence[] }) {
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-200 bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_160px] gap-4 border-b border-gray-200 bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
             <span>Teacher</span>
             <span>School · Date</span>
             <span>Substitute</span>
@@ -116,7 +116,7 @@ export default function ReconcileClient({ absences }: { absences: Absence[] }) {
             return (
               <div
                 key={absence.id}
-                className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-100 px-6 py-4 last:border-0 hover:bg-gray-50"
+                className="grid grid-cols-[1fr_1fr_1fr_1fr_160px] items-center gap-4 border-b border-gray-100 px-6 py-4 last:border-0 hover:bg-gray-50"
               >
                 {/* Teacher */}
                 <div>
