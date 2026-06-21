@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
-import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory } from '@/db/schema'
+import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory, subSchoolAssignments } from '@/db/schema'
 import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getEffectiveOrgId } from '@/lib/impersonation'
@@ -597,7 +597,15 @@ export async function bulkInviteUsers(
         if (role === 'teacher' && schoolId) {
           await db.insert(employees).values({ userId: newId, schoolId })
         } else if (role === 'substitute') {
-          await db.insert(substitutes).values({ userId: newId })
+          const [sub] = await db.insert(substitutes).values({ userId: newId }).returning()
+          if (schoolId && sub) {
+            await db.insert(subSchoolAssignments).values({
+              substituteId: sub.id,
+              schoolId,
+              organizationId: orgId,
+              status: 'active',
+            })
+          }
         }
       }
 
