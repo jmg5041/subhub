@@ -104,24 +104,52 @@ export default function AdminHelpPage() {
         ]} />
 
         <h3 className="font-semibold text-gray-800 mt-4">Bulk import from CSV</h3>
-        <p>To add many people at once, use the <strong>Bulk import from CSV</strong> toggle below the invite form. You can import everyone in a single spreadsheet — different roles and different campuses in the same file.</p>
+        <p>To add many people at once, use the <strong>Bulk import from CSV</strong> toggle below the invite form. You can import your entire staff — teachers, substitutes, admins, and staff — in a single spreadsheet with mixed roles and campuses.</p>
         <Steps items={[
           'Download the template CSV and fill it in.',
           'Required columns: First Name, Last Name, Email.',
           'Optional columns: Phone, Role, School.',
           'Upload the file — you\'ll see a preview of all rows before anything is sent.',
-          'Set a default role and default school for any rows that don\'t have those columns.',
+          'Set a default role and default school for any rows that don\'t have those columns filled in.',
+          'Choose Send invites or Silent import (see below).',
           'Review the preview, remove any rows you don\'t want, then click Import.',
         ]} />
+
+        <h3 className="font-semibold text-gray-800 mt-4">What the School column does per role</h3>
+        <p>The School column behaves differently depending on the person&apos;s role:</p>
+        <div className="space-y-2 mt-2">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Teacher</p>
+            <p>Assigns the teacher to that campus as their home school. They will appear in that school&apos;s absence and coverage lists. Required for teachers — use the default school selector if your CSV doesn&apos;t have a School column.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Substitute</p>
+            <p>Adds the substitute to that school&apos;s approved roster immediately. They will appear in that school&apos;s call priority list and be eligible for job notifications there. Leave blank if you want to assign schools manually after import.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Admin / Principal / Staff</p>
+            <p>Currently ignored — admins see all campuses in your organization regardless of school assignment.</p>
+          </div>
+        </div>
+
         <Note>
-          <strong>Role column values:</strong> Teacher, Substitute, Staff, Admin, Principal (case-insensitive).<br />
-          <strong>School column values:</strong> Any part of the campus name — &quot;Elementary&quot; matches &quot;Southlands Elementary Campus&quot;. Substitutes and admins don&apos;t need a school.<br />
-          <strong>Multi-campus teachers:</strong> Import them once with their primary campus. Then use Edit on their user card to add a second campus manually.
+          <strong>School column matching is flexible:</strong> Any part of the campus name works — &quot;Elementary&quot; matches &quot;Southlands Christian Elementary School&quot;. Casing doesn&apos;t matter. If a name can&apos;t be matched, that row will show an error in the preview and won&apos;t be imported until you fix it.<br /><br />
+          <strong>Multi-campus substitutes:</strong> A sub can only be assigned to one school per CSV row. To assign the same sub to multiple schools, import them once and then use their detail page (Substitutes → Manage &amp; Review → click their name) to add additional school assignments.
         </Note>
-        <Note>
-          <strong>Send invites</strong> emails each person a link to set their password.{' '}
-          <strong>Silent import</strong> creates their accounts immediately — tell them to visit the app and use &quot;Forgot Password&quot; with their school email to log in. Silent import is often easier when onboarding an entire staff at once.
-        </Note>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Send invites vs. Silent import</h3>
+        <div className="space-y-3">
+          <div>
+            <p className="font-semibold text-gray-800">Send invites</p>
+            <p>Emails each person a link to set their password. They click the link, create a password, and they&apos;re in. Invite links expire after 7 days — use the Resend button if someone misses theirs.</p>
+            <p className="mt-1 text-gray-500">Best for: small batches, or when you want people to set up their accounts right away.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Silent import</p>
+            <p>Creates accounts immediately with no emails sent. Tell your staff to go to <strong>app.substitutes.us</strong> and click <strong>Forgot Password</strong> using their school email address to set a password and log in.</p>
+            <p className="mt-1 text-gray-500">Best for: onboarding an entire school at once, or when using Google SSO (see the Google SSO section below — silent import is required for the Google SSO path).</p>
+          </div>
+        </div>
 
         <h3 className="font-semibold text-gray-800 mt-4">Resending an invite</h3>
         <p>If someone&apos;s invite expired (7-day window) or they can&apos;t find the email, click <strong>Resend</strong> next to their name in the Pending Invites section. This cancels the old link and sends a fresh one.</p>
@@ -372,10 +400,10 @@ export default function AdminHelpPage() {
 
       {/* ── Billing & Subscription ── */}
       <Section id="billing" title="Billing & Subscription">
-        <p>SubHub is priced at <strong>$5 per teacher per month</strong>. Your monthly amount is calculated automatically based on the number of teachers in your system.</p>
+        <p>SubHub is priced <strong>per seat per month</strong> based on the number of teacher seats you selected during onboarding. You can view your current rate on the Billing page.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Free trial</h3>
-        <p>Every new school starts with a <strong>6-month free trial</strong>. No charge is made until the trial period ends. You can cancel at any time during the trial and you will never be billed.</p>
+        <p>Every new school starts with a <strong>free trial</strong>. No charge is made until the trial period ends. You can cancel at any time during the trial and you will never be billed.</p>
 
         <h3 className="font-semibold text-gray-800 mt-4">Payment methods</h3>
         <div className="space-y-3">
