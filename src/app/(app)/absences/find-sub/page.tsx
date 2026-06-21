@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { UserSearch, CalendarDays, CheckCircle } from 'lucide-react'
-import { getApprovedUnfilledAbsences } from '../actions'
+import { getApprovedUnfilledAbsences, closeAbsenceNoSubNeeded } from '../actions'
 import { formatDateRangeShort } from '@/lib/date-utils'
 
 function formatTime(t: string) {
@@ -36,18 +36,19 @@ export default async function FindSubListPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-4 border-b border-gray-200 bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+          <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto_auto] gap-4 border-b border-gray-200 bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
             <span>Teacher</span>
             <span>School</span>
             <span>Date & Time</span>
             <span>Status</span>
+            <span></span>
             <span></span>
           </div>
 
           {absences.map((a) => {
             const status = STATUS_LABELS[a.subOutreachStatus ?? 'not_started'] ?? STATUS_LABELS.not_started
             return (
-              <div key={a.id} className="grid grid-cols-[1fr_1fr_1fr_auto_auto] items-center gap-4 border-b border-gray-100 px-6 py-4 last:border-0 hover:bg-gray-50">
+              <div key={a.id} className="grid grid-cols-[1fr_1fr_1fr_auto_auto_auto] items-center gap-4 border-b border-gray-100 px-6 py-4 last:border-0 hover:bg-gray-50">
                 <div>
                   <p className="font-medium text-gray-900">{a.teacherFirstName} {a.teacherLastName}</p>
                   {a.reasonName && <p className="text-xs text-gray-400">{a.reasonName}</p>}
@@ -66,6 +67,11 @@ export default async function FindSubListPage() {
                 >
                   {a.subOutreachStatus === 'filled' ? 'Sub Details →' : 'Find Sub →'}
                 </Link>
+                <form action={closeAbsenceNoSubNeeded.bind(null, a.id)}>
+                  <button type="submit" className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors whitespace-nowrap">
+                    Close
+                  </button>
+                </form>
               </div>
             )
           })}

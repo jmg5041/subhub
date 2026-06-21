@@ -154,6 +154,9 @@ export async function getUnapprovedAbsences() {
  */
 export async function getApprovedUnfilledAbsences() {
   const { orgId } = await getOrgAndUserId()
+  const org = await db.query.organizations.findFirst({ where: eq(organizations.id, orgId) })
+  const TZ = org?.timezone ?? 'America/Los_Angeles'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
   return db
     .select({
@@ -179,10 +182,24 @@ export async function getApprovedUnfilledAbsences() {
         eq(teacherTimeOff.organizationId, orgId),
         eq(teacherTimeOff.approvalStatus, 'approved'),
         eq(teacherTimeOff.substituteRequired, true),
-        ne(teacherTimeOff.subOutreachStatus, 'filled')
+        ne(teacherTimeOff.subOutreachStatus, 'filled'),
+        isNull(teacherTimeOff.completedAt),
+        sql`COALESCE(${teacherTimeOff.endDate}, ${teacherTimeOff.startDate}) >= ${today}`
       )
     )
     .orderBy(asc(teacherTimeOff.startDate))
+}
+
+export async function closeAbsenceNoSubNeeded(absenceId: string) {
+  const { orgId } = await getOrgAndUserId()
+  const absence = await db.query.teacherTimeOff.findFirst({ where: eq(teacherTimeOff.id, absenceId) })
+  if (!absence || absence.organizationId !== orgId) return
+
+  await db.update(teacherTimeOff)
+    .set({ completedAt: new Date(), updatedAt: new Date() })
+    .where(eq(teacherTimeOff.id, absenceId))
+
+  revalidatePath('/absences/find-sub')
 }
 
 export async function getAbsencesForReconcile() {
