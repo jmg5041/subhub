@@ -53,6 +53,7 @@ export default async function OnboardingPage({
             notifyByEmail:  org?.notifyByEmail   ?? null,
             notifyBySms:    org?.notifyBySms     ?? null,
             notifyByPhone:  org?.notifyByPhone   ?? null,
+            districtName:   org?.districtName    ?? null,
           }}
           orgId={profile.organizationId}
           initialSchools={existingSchools.map((s) => ({
@@ -60,6 +61,7 @@ export default async function OnboardingPage({
             name:         s.name,
             city:         s.city,
             county:       s.county,
+            campus:       s.campus,
             dayStartTime: s.dayStartTime,
             dayEndTime:   s.dayEndTime,
           }))}

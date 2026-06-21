@@ -2,7 +2,7 @@ import { pgTable, uuid, text, timestamp, boolean, integer, numeric, jsonb, date,
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const roleEnum = pgEnum('role', ['admin', 'principal', 'staff', 'teacher', 'substitute']);
+export const roleEnum = pgEnum('role', ['admin', 'principal', 'staff', 'teacher', 'substitute', 'district']);
 export const statusEnum = pgEnum('status', ['active', 'inactive']);
 export const approvalStatusEnum = pgEnum('approval_status', ['unapproved', 'approved', 'denied', 'partially_approved']);
 export const reconciliationStatusEnum = pgEnum('reconciliation_status', ['unreconciled', 'reconciled']);
@@ -31,6 +31,7 @@ export const organizations = pgTable('organizations', {
   onboardingCompletedAt: timestamp('onboarding_completed_at'), // null = wizard not finished
   cronEnabled: boolean('cron_enabled').default(true).notNull(), // kill switch: false = no blasts, no notifications
   seatCount: integer('seat_count'), // purchased seats; null until set during onboarding
+  districtName: text('district_name'), // formal district name, may differ from org name
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -62,6 +63,7 @@ export const schools = pgTable('schools', {
   timezone: text('timezone').default('America/Los_Angeles'),
   dayStartTime: time('day_start_time').default('07:30'),
   dayEndTime: time('day_end_time').default('15:30'),
+  campus: text('campus'), // physical campus this school is on; schools sharing a campus are co-located
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

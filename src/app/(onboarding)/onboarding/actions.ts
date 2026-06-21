@@ -28,6 +28,7 @@ export async function saveOrgBasics(data: {
   notifyByEmail: boolean
   notifyBySms: boolean
   notifyByPhone: boolean
+  districtName?: string
 }) {
   const { orgId } = await getOnboardingContext()
   await db.update(organizations)
@@ -50,7 +51,7 @@ export async function searchOrgDirectory(query: string) {
   })
 }
 
-export async function addSchoolFromDirectory(directoryEntryId: string) {
+export async function addSchoolFromDirectory(directoryEntryId: string, campus?: string) {
   const { orgId } = await getOnboardingContext()
 
   const entry = await db.query.schoolDirectory.findFirst({
@@ -67,6 +68,7 @@ export async function addSchoolFromDirectory(directoryEntryId: string) {
     zip: entry.zip ?? undefined,
     phone: entry.phone ?? undefined,
     county: entry.county,
+    campus: campus || null,
   }).returning()
 
   await db.update(schoolDirectory)
@@ -80,6 +82,7 @@ export async function addSchoolManually(data: {
   name: string
   dayStartTime: string
   dayEndTime: string
+  campus?: string
 }) {
   const { orgId } = await getOnboardingContext()
 
@@ -88,6 +91,7 @@ export async function addSchoolManually(data: {
     name: data.name,
     dayStartTime: data.dayStartTime,
     dayEndTime: data.dayEndTime,
+    campus: data.campus || null,
   }).returning()
 
   return { school }

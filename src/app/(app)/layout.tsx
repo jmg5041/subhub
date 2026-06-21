@@ -46,6 +46,11 @@ export default async function AppLayout({
     redirect('/platform')
   }
 
+  // District users have their own portal
+  if (profile?.role === 'district' && !isPlatformAdmin) {
+    redirect('/district')
+  }
+
   const orgId = impersonatedOrg?.id ?? profile?.organizationId
 
   // Billing + onboarding gates — skipped for platform admins (they're never blocked)

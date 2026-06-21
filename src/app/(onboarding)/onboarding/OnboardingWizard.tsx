@@ -26,6 +26,7 @@ type OrgData = {
   notifyByEmail: boolean | null
   notifyBySms: boolean | null
   notifyByPhone: boolean | null
+  districtName: string | null
 }
 
 type School = {
@@ -33,6 +34,7 @@ type School = {
   name: string
   city: string | null
   county: string | null
+  campus: string | null
   dayStartTime: string | null
   dayEndTime: string | null
 }
@@ -102,6 +104,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 // ─── Step 1: Org Basics ───────────────────────────────────────────────────────
 
 function Step1OrgBasics({ org, onSaved }: { org: OrgData; onSaved: () => void }) {
+  const [districtName,  setDistrictName]  = useState(org.districtName  ?? '')
   const [timezone,      setTimezone]      = useState(org.timezone      ?? 'America/Los_Angeles')
   const [subPayModel,   setSubPayModel]   = useState(org.subPayModel   ?? 'block')
   const [halfDayHours,  setHalfDayHours]  = useState(org.halfDayHours  ?? '4.0')
@@ -125,6 +128,7 @@ function Step1OrgBasics({ org, onSaved }: { org: OrgData; onSaved: () => void })
           notifyByEmail: byEmail,
           notifyBySms: bySms,
           notifyByPhone: byPhone,
+          districtName: districtName.trim() || undefined,
         })
         onSaved()
       } catch {
@@ -138,6 +142,16 @@ function Step1OrgBasics({ org, onSaved }: { org: OrgData; onSaved: () => void })
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Tell us about your school</h2>
         <p className="text-sm text-gray-500">These settings control how SubHub notifies substitutes.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-gray-700">
+          District name <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <input type="text" value={districtName} onChange={(e) => setDistrictName(e.target.value)}
+          placeholder="e.g. Southlands Christian Schools, ABC Unified School District"
+          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+        <p className="text-xs text-gray-400">The umbrella district or organization name. Leave blank to use your school name.</p>
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
@@ -242,10 +256,12 @@ function Step2Schools({
   onNext: () => void
 }) {
   const [schools, setSchools]         = useState<School[]>(initialSchools)
+  const [defaultCampus, setDefaultCampus] = useState('')
   const [query, setQuery]             = useState('')
   const [results, setResults]         = useState<DirectoryEntry[]>([])
   const [showManual, setShowManual]   = useState(false)
   const [manualName, setManualName]   = useState('')
+  const [manualCampus, setManualCampus] = useState('')
   const [manualStart, setManualStart] = useState('08:00')
   const [manualEnd, setManualEnd]     = useState('15:30')
   const [isPending, startTransition]  = useTransition()
@@ -261,7 +277,7 @@ function Step2Schools({
 
   function handleAddFromDirectory(entry: DirectoryEntry) {
     startTransition(async () => {
-      const result = await addSchoolFromDirectory(entry.id)
+      const result = await addSchoolFromDirectory(entry.id, defaultCampus.trim() || undefined)
       if ('error' in result) { setError(result.error ?? 'Unknown error'); return }
       setSchools((prev) => [...prev, result.school as School])
       setResults((prev) => prev.filter((r) => r.id !== entry.id))
@@ -271,9 +287,11 @@ function Step2Schools({
   function handleAddManually() {
     if (!manualName.trim()) return
     startTransition(async () => {
-      const result = await addSchoolManually({ name: manualName.trim(), dayStartTime: manualStart, dayEndTime: manualEnd })
+      const campus = manualCampus.trim() || defaultCampus.trim() || undefined
+      const result = await addSchoolManually({ name: manualName.trim(), dayStartTime: manualStart, dayEndTime: manualEnd, campus })
       setSchools((prev) => [...prev, result.school as School])
       setManualName('')
+      setManualCampus('')
       setShowManual(false)
     })
   }
@@ -298,6 +316,16 @@ function Step2Schools({
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Add your campuses</h2>
         <p className="text-sm text-gray-500">Search the California school directory or enter campuses manually.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-gray-700">
+          Default campus name <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <input type="text" value={defaultCampus} onChange={(e) => setDefaultCampus(e.target.value)}
+          placeholder="e.g. Main Campus, North Campus"
+          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+        <p className="text-xs text-gray-400">Applied to all schools you add below. Schools sharing the same campus name are treated as co-located.</p>
       </div>
 
       <div className="flex gap-2">
@@ -338,8 +366,11 @@ function Step2Schools({
       ) : (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
           <p className="text-sm font-medium text-gray-700">Manual entry</p>
-          <input type="text" placeholder="Campus name" value={manualName}
+          <input type="text" placeholder="School name" value={manualName}
             onChange={(e) => setManualName(e.target.value)}
+            className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-500" />
+          <input type="text" placeholder={`Campus (default: "${defaultCampus || 'none'}")`} value={manualCampus}
+            onChange={(e) => setManualCampus(e.target.value)}
             className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-500" />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -375,6 +406,7 @@ function Step2Schools({
                 <div>
                   <p className="text-sm font-medium text-gray-900">{school.name}</p>
                   <p className="text-xs text-gray-500">
+                    {school.campus ? `${school.campus} · ` : ''}
                     {school.city ? `${school.city} · ` : ''}
                     {formatTime(school.dayStartTime)} – {formatTime(school.dayEndTime)}
                   </p>

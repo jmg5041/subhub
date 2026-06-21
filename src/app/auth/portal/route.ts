@@ -14,9 +14,10 @@ import { provisionSelfSignupOrg } from '@/lib/self-signup'
 
 function roleToPortal(role: string | null | undefined): string {
   switch (role) {
-    case 'teacher': return '/teacher'
+    case 'teacher':   return '/teacher'
     case 'substitute': return '/sub/dashboard'
-    default: return '/dashboard'
+    case 'district':  return '/district'
+    default:          return '/dashboard'
   }
 }
 
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
       firstName: (meta.firstName as string) || user.email.split('@')[0],
       lastName: (meta.lastName as string) || '',
       phone: (meta.phone as string) || null,
-      role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute',
+      role: role as 'admin' | 'principal' | 'staff' | 'teacher' | 'substitute' | 'district',
       organizationId: meta.orgId as string,
       schoolId,
       isPlatformAdmin: meta.isPlatformAdmin === true,

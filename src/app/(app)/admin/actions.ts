@@ -429,6 +429,7 @@ export async function updateSchool(formData: FormData) {
     .update(schools)
     .set({
       name:         (formData.get('name') as string).trim(),
+      campus:       (formData.get('campus') as string).trim() || null,
       address:      (formData.get('address') as string).trim() || null,
       city:         (formData.get('city') as string).trim() || null,
       state:        (formData.get('state') as string).trim() || null,
