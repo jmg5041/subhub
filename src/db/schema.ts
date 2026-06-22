@@ -32,6 +32,8 @@ export const organizations = pgTable('organizations', {
   cronEnabled: boolean('cron_enabled').default(true).notNull(), // kill switch: false = no blasts, no notifications
   seatCount: integer('seat_count'), // purchased seats; null until set during onboarding
   districtName: text('district_name'), // formal district name, may differ from org name
+  billingContactName: text('billing_contact_name'), // person who handles billing (admin or bookkeeping)
+  billingContactEmail: text('billing_contact_email'), // billing emails CC'd here
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

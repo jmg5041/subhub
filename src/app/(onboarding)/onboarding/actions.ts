@@ -212,6 +212,13 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
+export async function saveBillingContact(data: { name: string; email: string }) {
+  const { orgId } = await getOnboardingContext()
+  await db.update(organizations)
+    .set({ billingContactName: data.name || null, billingContactEmail: data.email || null, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+}
+
 export async function saveBillingPreference(method: 'check') {
   const { orgId } = await getOnboardingContext()
   await db.update(organizations)

@@ -13,6 +13,7 @@ import {
   removeCampus,
   removeOnboardingSchool,
   submitDiscountRequest,
+  saveBillingContact,
   completeOnboarding,
 } from './actions'
 
@@ -567,12 +568,20 @@ function Step3Billing({
   onBack: () => void
   onNext: () => void
 }) {
-  const [seats, setSeats]           = useState(initialSeatCount ?? 1)
+  const [seats, setSeats]               = useState(initialSeatCount ?? 1)
   const [showBillForm, setShowBillForm] = useState(false)
-  const [isPending, startTransition] = useTransition()
+  const [billingName, setBillingName]   = useState('')
+  const [billingEmail, setBillingEmail] = useState('')
+  const [isPending, startTransition]    = useTransition()
 
   const pricePerSeat = pricePerSeatCents / 100
   const monthly = seats * pricePerSeat
+
+  async function saveBillingContactIfSet() {
+    if (billingName.trim() || billingEmail.trim()) {
+      await saveBillingContact({ name: billingName.trim(), email: billingEmail.trim() })
+    }
+  }
 
   if (alreadySetUp) {
     return (
@@ -625,6 +634,22 @@ function Step3Billing({
 
       {/* Discount options */}
       <div className="space-y-3">
+        {/* Billing contact */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Billing contact <span className="text-gray-400 font-normal">(optional)</span></p>
+            <p className="text-xs text-gray-400 mt-0.5">This can be an administrator or bookkeeping staff member. Billing emails will be sent here in addition to the account admin.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" placeholder="Full name" value={billingName}
+              onChange={e => setBillingName(e.target.value)}
+              className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+            <input type="email" placeholder="Email address" value={billingEmail}
+              onChange={e => setBillingEmail(e.target.value)}
+              className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+          </div>
+        </div>
+
         <p className="text-sm font-semibold text-gray-800">Want to save money?</p>
 
         {/* Option A — Send your bill */}
@@ -705,7 +730,7 @@ function Step3Billing({
           className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
           <ChevronLeft className="h-4 w-4" /> Back
         </button>
-        <button type="button" onClick={onNext}
+        <button type="button" onClick={() => startTransition(async () => { await saveBillingContactIfSet(); onNext() })}
           className="text-sm text-gray-400 hover:text-gray-600 hover:underline">
           Skip for now
         </button>
