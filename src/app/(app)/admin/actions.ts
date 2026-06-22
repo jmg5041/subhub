@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
-import { users, schools, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory, subSchoolAssignments } from '@/db/schema'
+import { users, schools, campuses, invitations, employees, substitutes, subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders, subUnavailability, teacherTimeOff, schoolDirectory, subSchoolAssignments } from '@/db/schema'
 import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getEffectiveOrgId } from '@/lib/impersonation'
@@ -414,6 +414,40 @@ export async function getOrgSchools() {
     with: { campus: { columns: { id: true, address: true, city: true, state: true, zip: true, phone: true } } },
     orderBy: (s, { asc }) => [asc(s.name)],
   })
+}
+
+export async function getOrgCampuses() {
+  const { orgId } = await getAdminContext()
+  return db.query.campuses.findMany({
+    where: eq(campuses.organizationId, orgId),
+    columns: { id: true, address: true, city: true, state: true },
+    orderBy: (c, { asc }) => [asc(c.createdAt)],
+  })
+}
+
+export async function addSchoolToCampus(data: {
+  campusId: string
+  name: string
+  dayStartTime: string
+  dayEndTime: string
+  phone?: string
+}) {
+  const { orgId } = await getAdminContext()
+  const campus = await db.query.campuses.findFirst({ where: eq(campuses.id, data.campusId) })
+  if (!campus || campus.organizationId !== orgId) return { error: 'Campus not found' }
+
+  const [school] = await db.insert(schools).values({
+    organizationId: orgId,
+    campusId: data.campusId,
+    name: data.name.trim(),
+    phone: data.phone?.trim() || null,
+    dayStartTime: data.dayStartTime,
+    dayEndTime: data.dayEndTime,
+    timesConfigured: true,
+  }).returning()
+
+  revalidatePath('/admin/schools')
+  return { school }
 }
 
 export async function updateSchool(formData: FormData) {

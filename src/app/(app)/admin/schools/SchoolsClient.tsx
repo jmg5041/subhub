@@ -10,7 +10,7 @@
 
 import { useState, useTransition } from 'react'
 import { Pencil, Check, X, Loader2, MapPin, Phone, Globe, Clock, Search, BookOpen, CheckCircle2 } from 'lucide-react'
-import { updateSchool, searchDirectory, claimDirectorySchool } from '../actions'
+import { updateSchool, searchDirectory, claimDirectorySchool, addSchoolToCampus } from '../actions'
 
 type Campus = {
   id: string
@@ -56,12 +56,102 @@ function sliceTime(t: string | null): string {
   return t?.slice(0, 5) ?? ''
 }
 
-export default function SchoolsClient({ schools, showPhoneRequired = false }: { schools: School[]; showPhoneRequired?: boolean }) {
+type OrgCampus = { id: string; address: string | null; city: string | null; state: string | null }
+
+export default function SchoolsClient({
+  schools,
+  campuses = [],
+  showPhoneRequired = false,
+}: {
+  schools: School[]
+  campuses?: OrgCampus[]
+  showPhoneRequired?: boolean
+}) {
+  const [showAdd, setShowAdd]         = useState(false)
+  const [addName, setAddName]         = useState('')
+  const [addCampusId, setAddCampusId] = useState(campuses[0]?.id ?? '')
+  const [addStart, setAddStart]       = useState('')
+  const [addEnd, setAddEnd]           = useState('')
+  const [addPhone, setAddPhone]       = useState('')
+  const [addError, setAddError]       = useState('')
+  const [isPending, startTransition]  = useTransition()
+
+  function handleAdd() {
+    if (!addName.trim()) { setAddError('School name is required.'); return }
+    if (!addCampusId)    { setAddError('Select a campus.'); return }
+    if (!addStart || !addEnd) { setAddError('School day start and end times are required.'); return }
+    setAddError('')
+    startTransition(async () => {
+      const result = await addSchoolToCampus({ campusId: addCampusId, name: addName, dayStartTime: addStart, dayEndTime: addEnd, phone: addPhone })
+      if (result && 'error' in result) { setAddError(result.error ?? 'Failed'); return }
+      setShowAdd(false)
+      setAddName(''); setAddStart(''); setAddEnd(''); setAddPhone('')
+    })
+  }
+
+  const campusLabel = (c: OrgCampus) => [c.address, c.city, c.state].filter(Boolean).join(', ') || 'Campus'
+
   return (
     <div className="space-y-3">
       {schools.map(school => (
         <SchoolCard key={school.id} school={school} showPhoneRequired={showPhoneRequired && !school.phone} />
       ))}
+
+      {/* Add school */}
+      {!showAdd ? (
+        <button type="button" onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
+          + Add another school
+        </button>
+      ) : (
+        <div className="rounded-lg border-2 border-dashed border-blue-200 bg-blue-50 p-4 space-y-3">
+          <p className="text-sm font-semibold text-gray-800">Add a school</p>
+          {addError && <p className="text-xs text-red-600">{addError}</p>}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">School name <span className="text-red-500">*</span></label>
+              <input type="text" value={addName} onChange={e => setAddName(e.target.value)}
+                placeholder="e.g. Northside High School"
+                className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+            </div>
+            {campuses.length > 1 && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Campus <span className="text-red-500">*</span></label>
+                <select value={addCampusId} onChange={e => setAddCampusId(e.target.value)}
+                  className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500">
+                  {campuses.map(c => <option key={c.id} value={c.id}>{campusLabel(c)}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Day start <span className="text-red-500">*</span></label>
+              <input type="time" value={addStart} onChange={e => setAddStart(e.target.value)}
+                className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Day end <span className="text-red-500">*</span></label>
+              <input type="time" value={addEnd} onChange={e => setAddEnd(e.target.value)}
+                className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Phone <span className="text-gray-400">(optional)</span></label>
+              <input type="tel" value={addPhone} onChange={e => setAddPhone(e.target.value)}
+                placeholder="(555) 555-5555"
+                className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={handleAdd} disabled={isPending}
+              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50">
+              {isPending ? 'Adding…' : 'Add school'}
+            </button>
+            <button type="button" onClick={() => { setShowAdd(false); setAddError('') }}
+              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
