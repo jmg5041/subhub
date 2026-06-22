@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { users, organizations, substitutes, subSchoolAssignments } from '@/db/schema'
+import { users, organizations, substitutes, subSchoolAssignments, schools, invitations } from '@/db/schema'
 import { eq, and, notExists } from 'drizzle-orm'
 import { getEffectiveOrgId } from '@/lib/impersonation'
 import Link from 'next/link'
@@ -19,6 +19,21 @@ export default async function NoticesPage() {
     where: eq(organizations.id, orgId),
     columns: { notifyBySms: true, cronEnabled: true },
   })
+
+  // 0. Setup checklist (Steps 4-6)
+  const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite] = await Promise.all([
+    db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
+    db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
+    db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
+    db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
+    db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
+  ])
+  const setupChecklist = {
+    schoolReady: !!(firstSchool?.phone || firstSchool?.address),
+    hasTeachers: !!firstTeacher || !!firstTeacherInvite,
+    hasSubs: !!firstSub || !!firstSubInvite,
+  }
+  const setupIncomplete = !setupChecklist.schoolReady || !setupChecklist.hasTeachers || !setupChecklist.hasSubs
 
   // 1. Bounced emails
   const bouncedUsers = await db.query.users.findMany({
@@ -55,7 +70,7 @@ export default async function NoticesPage() {
     : []
 
   const notificationsPaused = org?.cronEnabled === false
-  const totalCount = (notificationsPaused ? 1 : 0) + bouncedUsers.length + allSubs.length + subsNoPhone.length
+  const totalCount = (setupIncomplete ? 1 : 0) + (notificationsPaused ? 1 : 0) + bouncedUsers.length + allSubs.length + subsNoPhone.length
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -73,6 +88,60 @@ export default async function NoticesPage() {
           <p className="text-gray-500">Items that need your attention.</p>
         </div>
       </div>
+
+      {/* Welcome / finish onboarding — shown until all 3 setup steps are done */}
+      {setupIncomplete && (
+        <div className="rounded-lg border-2 border-fuchsia-400 bg-fuchsia-50 px-5 py-5 space-y-4">
+          <div>
+            <p className="font-bold text-fuchsia-900 uppercase tracking-wide">Welcome! Finish Setting Up SubHub</p>
+            <p className="text-sm text-fuchsia-700 mt-1">
+              You finished the onboarding wizard — great work! Complete these final steps to start managing absences and notifying substitutes.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {[
+              {
+                step: 4,
+                done: setupChecklist.schoolReady,
+                label: 'Configure your school',
+                description: 'Add a phone number and address to each campus so substitutes know where to go.',
+                href: '/admin/schools',
+              },
+              {
+                step: 5,
+                done: setupChecklist.hasTeachers,
+                label: 'Invite or import teachers',
+                description: 'Teachers need accounts to submit absence requests. Use Manage Users → Bulk import from CSV for fastest setup.',
+                href: '/admin/users',
+              },
+              {
+                step: 6,
+                done: setupChecklist.hasSubs,
+                label: 'Invite or import substitutes',
+                description: 'Substitutes need accounts to receive job notifications. Import them via CSV or invite individually.',
+                href: '/admin/users',
+              },
+            ].map(item => (
+              <div key={item.step} className={`flex items-start gap-3 rounded-lg border px-4 py-3 bg-white ${item.done ? 'opacity-60' : ''}`}>
+                <div className={`flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold mt-0.5 ${item.done ? 'bg-green-500 text-white' : 'bg-fuchsia-200 text-fuchsia-800'}`}>
+                  {item.done ? '✓' : item.step}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${item.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                    Step {item.step}: {item.label}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                </div>
+                {!item.done && (
+                  <Link href={item.href} className="flex-shrink-0 text-xs font-medium text-fuchsia-700 hover:underline">
+                    Go →
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Notifications paused — highest priority */}
       {notificationsPaused && (
