@@ -23,11 +23,12 @@ export default async function DistrictPage() {
   const TZ = org?.timezone ?? 'America/Los_Angeles'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 
-  // All schools in org
+  // All schools in org with their campus
   const allSchools = await db.query.schools.findMany({
     where: eq(schools.organizationId, profile.organizationId),
-    columns: { id: true, name: true, campus: true },
-    orderBy: (s, { asc }) => [asc(s.campus), asc(s.name)],
+    columns: { id: true, name: true, campusId: true },
+    with: { campus: { columns: { id: true, address: true, city: true } } },
+    orderBy: (s, { asc }) => [asc(s.name)],
   })
 
   // Teacher counts per school
@@ -70,11 +71,14 @@ export default async function DistrictPage() {
   const unfilledMap = new Map(unfilledAbsences.map(r => [r.schoolId, r.count]))
 
   // Group schools by campus
-  const campusMap = new Map<string, typeof allSchools>()
+  const campusMap = new Map<string, { label: string; schools: typeof allSchools }>()
   for (const school of allSchools) {
-    const key = school.campus || '(No campus set)'
-    if (!campusMap.has(key)) campusMap.set(key, [])
-    campusMap.get(key)!.push(school)
+    const key = school.campusId ?? 'none'
+    const label = school.campus
+      ? [school.campus.address, school.campus.city].filter(Boolean).join(', ')
+      : '(No campus set)'
+    if (!campusMap.has(key)) campusMap.set(key, { label, schools: [] })
+    campusMap.get(key)!.schools.push(school)
   }
 
   const districtName = org?.districtName || org?.name || 'District'
@@ -92,10 +96,10 @@ export default async function DistrictPage() {
         <p className="text-gray-400 text-sm">No schools configured yet.</p>
       )}
 
-      {Array.from(campusMap.entries()).map(([campus, campusSchools]) => (
-        <div key={campus}>
+      {Array.from(campusMap.entries()).map(([, { label, schools: campusSchools }]) => (
+        <div key={label}>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            {campus}
+            {label}
           </h2>
           <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
             <table className="w-full text-sm">

@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/db'
-import { organizations, schools, schoolDirectory, users, platformSettings } from '@/db/schema'
+import { organizations, schools, campuses, schoolDirectory, users, platformSettings } from '@/db/schema'
 import { eq, or, ilike } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -68,7 +68,6 @@ export async function addSchoolFromDirectory(directoryEntryId: string, campus?: 
     zip: entry.zip ?? undefined,
     phone: entry.phone ?? undefined,
     county: entry.county,
-    campus: campus || null,
   }).returning()
 
   await db.update(schoolDirectory)
@@ -82,7 +81,6 @@ export async function addSchoolManually(data: {
   name: string
   dayStartTime: string
   dayEndTime: string
-  campus?: string
 }) {
   const { orgId } = await getOnboardingContext()
 
@@ -91,7 +89,6 @@ export async function addSchoolManually(data: {
     name: data.name,
     dayStartTime: data.dayStartTime,
     dayEndTime: data.dayEndTime,
-    campus: data.campus || null,
   }).returning()
 
   return { school }
@@ -105,6 +102,45 @@ export async function removeOnboardingSchool(schoolId: string) {
 
   await db.delete(schools).where(eq(schools.id, schoolId))
   return { success: true }
+}
+
+export async function addCampus(data: {
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  phone?: string
+}) {
+  const { orgId } = await getOnboardingContext()
+  const [campus] = await db.insert(campuses).values({
+    organizationId: orgId,
+    address: data.address || null,
+    city: data.city || null,
+    state: data.state || 'CA',
+    zip: data.zip || null,
+    phone: data.phone || null,
+  }).returning()
+  return { campus }
+}
+
+export async function addSchoolToCampus(data: { campusId: string; name: string }) {
+  const { orgId } = await getOnboardingContext()
+  const [school] = await db.insert(schools).values({
+    organizationId: orgId,
+    name: data.name.trim(),
+    campusId: data.campusId,
+  }).returning()
+  return { school }
+}
+
+export async function removeCampus(campusId: string) {
+  const { orgId } = await getOnboardingContext()
+  // Delete schools on this campus first, then the campus itself
+  const campusSchools = await db.query.schools.findMany({ where: eq(schools.campusId, campusId) })
+  for (const s of campusSchools) {
+    if (s.organizationId === orgId) await db.delete(schools).where(eq(schools.id, s.id))
+  }
+  await db.delete(campuses).where(eq(campuses.id, campusId))
 }
 
 export async function saveSeatCount(seatCount: number) {

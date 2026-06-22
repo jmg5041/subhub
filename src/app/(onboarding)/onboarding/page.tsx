@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { users, organizations, schools, platformSettings } from '@/db/schema'
+import { users, organizations, campuses, platformSettings } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import OnboardingWizard from './OnboardingWizard'
 
@@ -17,9 +17,13 @@ export default async function OnboardingPage({
   const profile = await db.query.users.findFirst({ where: eq(users.id, user.id) })
   if (!profile) redirect('/auth/login')
 
-  const [org, existingSchools, settings] = await Promise.all([
+  const [org, existingCampuses, settings] = await Promise.all([
     db.query.organizations.findFirst({ where: eq(organizations.id, profile.organizationId) }),
-    db.query.schools.findMany({ where: eq(schools.organizationId, profile.organizationId) }),
+    db.query.campuses.findMany({
+      where: eq(campuses.organizationId, profile.organizationId),
+      with: { schools: { columns: { id: true, name: true } } },
+      orderBy: (c, { asc }) => [asc(c.createdAt)],
+    }),
     db.query.platformSettings.findFirst(),
   ])
 
@@ -30,10 +34,9 @@ export default async function OnboardingPage({
   const returningFromStripe = params.billing === 'done'
   const pricePerSeatCents = settings?.pricePerSeatCents ?? 800
 
-  // Resume at the right step
   const startStep =
-    returningFromStripe || (existingSchools.length > 0 && billingAlreadySetUp) ? 4
-    : existingSchools.length > 0 ? 3
+    returningFromStripe || (existingCampuses.length > 0 && billingAlreadySetUp) ? 4
+    : existingCampuses.length > 0 ? 3
     : 1
 
   return (
@@ -56,14 +59,14 @@ export default async function OnboardingPage({
             districtName:   org?.districtName    ?? null,
           }}
           orgId={profile.organizationId}
-          initialSchools={existingSchools.map((s) => ({
-            id:           s.id,
-            name:         s.name,
-            city:         s.city,
-            county:       s.county,
-            campus:       s.campus,
-            dayStartTime: s.dayStartTime,
-            dayEndTime:   s.dayEndTime,
+          initialCampuses={existingCampuses.map(c => ({
+            id:      c.id,
+            address: c.address,
+            city:    c.city,
+            state:   c.state,
+            zip:     c.zip,
+            phone:   c.phone,
+            schools: c.schools,
           }))}
           startStep={startStep}
           billingAlreadySetUp={billingAlreadySetUp}

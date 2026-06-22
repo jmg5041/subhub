@@ -47,7 +47,20 @@ export const platformSettings = pgTable('platform_settings', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
-// Schools (campuses within a district)
+// Campuses — physical locations (addresses). Schools on the same campus are co-located.
+export const campuses = pgTable('campuses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  address: text('address'),
+  city: text('city'),
+  state: text('state').default('CA'),
+  zip: text('zip'),
+  phone: text('phone'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Schools — named schools that meet on a campus (e.g. Elementary, Middle, High)
 export const schools = pgTable('schools', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
@@ -63,7 +76,7 @@ export const schools = pgTable('schools', {
   timezone: text('timezone').default('America/Los_Angeles'),
   dayStartTime: time('day_start_time').default('07:30'),
   dayEndTime: time('day_end_time').default('15:30'),
-  campus: text('campus'), // physical campus this school is on; schools sharing a campus are co-located
+  campusId: uuid('campus_id').references(() => campuses.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -330,10 +343,22 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   billingEvents: many(billingEvents),
 }));
 
+export const campusesRelations = relations(campuses, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [campuses.organizationId],
+    references: [organizations.id],
+  }),
+  schools: many(schools),
+}));
+
 export const schoolsRelations = relations(schools, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [schools.organizationId],
     references: [organizations.id],
+  }),
+  campus: one(campuses, {
+    fields: [schools.campusId],
+    references: [campuses.id],
   }),
   users: many(users),
   employees: many(employees),

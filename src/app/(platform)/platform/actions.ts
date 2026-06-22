@@ -3,7 +3,7 @@
 import { db } from '@/db'
 import {
   users, organizations, billingEvents, invitations, platformSettings,
-  schools, employees, substitutes, absenceReasons, teacherTimeOff,
+  schools, campuses, employees, substitutes, absenceReasons, teacherTimeOff,
   subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders,
   subSchoolAssignments, subUnavailability, attachments, schoolDirectory,
 } from '@/db/schema'
@@ -224,6 +224,7 @@ export async function deleteOrganization(formData: FormData) {
     await db.update(users).set({ schoolId: null }).where(inArray(users.id, orgUserIds))
 
   await db.delete(schools).where(eq(schools.organizationId, orgId))
+  await db.delete(campuses).where(eq(campuses.organizationId, orgId))
 
   // ── Step 3: Delete Supabase auth accounts then user rows ───────────────────
   for (const u of orgUsers) {

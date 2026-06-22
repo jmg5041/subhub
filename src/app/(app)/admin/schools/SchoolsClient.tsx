@@ -15,7 +15,6 @@ import { updateSchool, searchDirectory, claimDirectorySchool } from '../actions'
 type School = {
   id: string
   name: string
-  campus: string | null
   address: string | null
   city: string | null
   state: string | null
@@ -83,7 +82,6 @@ function SchoolCard({ school }: { school: School }) {
         setSaved({
           ...saved,
           name:         fd.get('name') as string,
-          campus:       (fd.get('campus') as string) || null,
           address:      (fd.get('address') as string) || null,
           city:         (fd.get('city') as string) || null,
           state:        (fd.get('state') as string) || null,
@@ -145,9 +143,6 @@ function SchoolCard({ school }: { school: School }) {
             )}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-gray-400">
-            {saved.campus && (
-              <span className="text-blue-500 font-medium">{saved.campus}</span>
-            )}
             {saved.address && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
@@ -204,13 +199,6 @@ function SchoolCard({ school }: { school: School }) {
               <label className="block text-xs font-medium text-gray-600 mb-1">School Name</label>
               <input name="name" defaultValue={saved.name} required
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Campus</label>
-              <input name="campus" defaultValue={saved.campus ?? ''} placeholder="e.g. Main Campus, North Campus"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-              <p className="text-xs text-gray-400 mt-1">Schools sharing the same campus name are treated as co-located.</p>
             </div>
 
             <div className="sm:col-span-2">
