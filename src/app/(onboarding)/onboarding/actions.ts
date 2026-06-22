@@ -143,6 +143,13 @@ export async function removeCampus(campusId: string) {
   await db.delete(campuses).where(eq(campuses.id, campusId))
 }
 
+export async function resetBilling() {
+  const { orgId } = await getOnboardingContext()
+  await db.update(organizations)
+    .set({ paymentMethod: 'stripe', seatCount: null, stripeCustomerId: null, stripeSubscriptionId: null, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+}
+
 export async function saveSeatCount(seatCount: number) {
   const { orgId } = await getOnboardingContext()
   const count = Math.max(Math.round(seatCount), 1)

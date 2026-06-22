@@ -35,7 +35,7 @@ export default async function OnboardingPage({
   const pricePerSeatCents = settings?.pricePerSeatCents ?? 800
 
   const startStep =
-    returningFromStripe || (existingCampuses.length > 0 && billingAlreadySetUp) ? 4
+    returningFromStripe ? 4
     : existingCampuses.length > 0 ? 3
     : 1
 

@@ -14,6 +14,7 @@ import {
   removeOnboardingSchool,
   submitDiscountRequest,
   saveBillingContact,
+  resetBilling,
   completeOnboarding,
 } from './actions'
 
@@ -568,6 +569,7 @@ function Step3Billing({
   const [showBillForm, setShowBillForm] = useState(false)
   const [billingName, setBillingName]   = useState('')
   const [billingEmail, setBillingEmail] = useState('')
+  const [resetDone, setResetDone]       = useState(false)
   const [isPending, startTransition]    = useTransition()
 
   const pricePerSeat = pricePerSeatCents / 100
@@ -579,7 +581,7 @@ function Step3Billing({
     }
   }
 
-  if (alreadySetUp) {
+  if (alreadySetUp && !resetDone) {
     return (
       <div className="space-y-6">
         <div>
@@ -590,6 +592,11 @@ function Step3Billing({
           <p className="font-semibold text-green-800">✓ Billing set up</p>
           <p className="text-sm text-green-700 mt-1">You can manage billing details from the Billing page after setup.</p>
         </div>
+        <button type="button" disabled={isPending}
+          onClick={() => startTransition(async () => { await resetBilling(); setResetDone(true) })}
+          className="text-sm text-blue-600 hover:underline disabled:opacity-50">
+          {isPending ? 'Resetting…' : 'Change my billing selection →'}
+        </button>
         <div className="flex justify-between">
           <button type="button" onClick={onBack}
             className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
@@ -646,16 +653,16 @@ function Step3Billing({
           </div>
         </div>
 
-        <p className="text-sm font-semibold text-gray-800">Want to save money?</p>
+        <p className="text-base font-bold text-gray-900">💰 Want to save money? Pick an option below:</p>
 
         {/* Option A — Send your bill */}
-        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 overflow-hidden">
           <button type="button" onClick={() => setShowBillForm(v => !v)}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
-            <Mail className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-amber-100 transition-colors">
+            <Mail className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-gray-800">Send us your current sub software bill</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-bold text-amber-900">Send us your current sub software bill</p>
+              <p className="text-xs text-amber-700 mt-0.5">
                 We&apos;ll give you the steepest discount we can — up to 50% off your current bill.
               </p>
             </div>
@@ -692,11 +699,11 @@ function Step3Billing({
           <input type="hidden" name="option" value="discount25" />
           <input type="hidden" name="seatCount" value={seats} />
           <button type="submit" disabled={isPending}
-            className="w-full flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors disabled:opacity-50">
-            <Tag className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+            className="w-full flex items-start gap-3 rounded-lg border-2 border-green-400 bg-green-50 px-4 py-3 text-left hover:bg-green-100 transition-colors disabled:opacity-50">
+            <Tag className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-gray-800">Request 25% off — no bill needed</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-bold text-green-900">Request 25% off — no bill needed</p>
+              <p className="text-xs text-green-700 mt-0.5">
                 We&apos;ll send you a promo code. Start using SubHub today while we get it to you.
               </p>
             </div>
