@@ -106,7 +106,7 @@ export default function SignupForm({ appName, logoUrl }: { appName: string; logo
 
           <p className="text-center text-xs text-gray-400 mt-6">
             Wrong email?{' '}
-            <button onClick={() => setSubmitted(false)} className="text-blue-600 hover:underline">
+            <button onClick={() => { setSubmitted(false); setLoading(false); }} className="text-blue-600 hover:underline">
               Go back
             </button>
           </p>
