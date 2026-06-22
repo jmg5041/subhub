@@ -123,7 +123,8 @@ export default function SignupForm({ appName, logoUrl }: { appName: string; logo
         {/* Logo */}
         <div className="text-center mb-8">
           <AppLogo appName={appName} logoUrl={logoUrl} />
-          <p className="mt-2 text-sm text-gray-500">Start your 6-month free trial</p>
+          <p className="mt-2 text-base font-medium text-gray-700">Substitute management, simplified.</p>
+          <p className="mt-1 text-sm text-gray-400">Built for school administrators. Free to try.</p>
         </div>
 
         <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-8 space-y-5">
@@ -190,7 +191,7 @@ export default function SignupForm({ appName, logoUrl }: { appName: string; logo
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          No credit card required · Cancel anytime
+          Free trial · No credit card required to start · Cancel anytime
         </p>
       </div>
     </div>
