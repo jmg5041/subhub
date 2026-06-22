@@ -422,11 +422,7 @@ function Step2Campuses({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Campuses &amp; Schools</h2>
-        <p className="text-sm text-gray-500">
-          Enter each physical campus location, then add the schools that meet on it.
-          Single-campus schools just need one entry.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900">Enter Address for Your Campus(es)</h2>
       </div>
 
       {/* Existing campuses */}
