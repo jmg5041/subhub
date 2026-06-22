@@ -265,7 +265,6 @@ function CampusCard({
   isPending: boolean
 }) {
   const [schoolInput, setSchoolInput] = useState('')
-  const [showHelp, setShowHelp] = useState(false)
 
   const addressLine = [campus.address, campus.city, campus.state, campus.zip].filter(Boolean).join(', ')
 
@@ -291,20 +290,11 @@ function CampusCard({
 
       {/* Schools section */}
       <div className="px-4 py-3 space-y-2">
-        <div className="flex items-center gap-1.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Schools on this campus</p>
-          <button type="button" onClick={() => setShowHelp(v => !v)}
-            className="text-gray-300 hover:text-gray-500">
-            <HelpCircle className="h-3.5 w-3.5" />
-          </button>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Schools on this campus</p>
+        <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800">
+          Many schools share a campus — elementary, middle, and high school may all be on the same address.
+          Naming each school separately lets you control which substitutes serve which grade levels.
         </div>
-
-        {showHelp && (
-          <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800">
-            Many schools share a campus — elementary, middle, and high school may all be on the same address.
-            Naming each school separately lets you control which substitutes serve which grade levels.
-          </div>
-        )}
 
         {campus.schools.map(school => (
           <div key={school.id} className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-2">
