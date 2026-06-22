@@ -245,18 +245,18 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
 
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                School Day Start
-                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Please verify</span>}
+                School Day Start <span className="text-red-500">*</span>
+                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Required</span>}
               </label>
-              <input name="dayStartTime" type="time" defaultValue={sliceTime(saved.dayStartTime)}
+              <input name="dayStartTime" type="time" defaultValue={sliceTime(saved.dayStartTime)} required
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${!saved.timesConfigured ? 'border-amber-400 focus:ring-amber-100 focus:border-amber-500' : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'}`} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                School Day End
-                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Please verify</span>}
+                School Day End <span className="text-red-500">*</span>
+                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Required</span>}
               </label>
-              <input name="dayEndTime" type="time" defaultValue={sliceTime(saved.dayEndTime)}
+              <input name="dayEndTime" type="time" defaultValue={sliceTime(saved.dayEndTime)} required
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${!saved.timesConfigured ? 'border-amber-400 focus:ring-amber-100 focus:border-amber-500' : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'}`} />
             </div>
           </div>

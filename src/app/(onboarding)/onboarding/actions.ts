@@ -130,6 +130,8 @@ export async function addSchoolToCampus(data: { campusId: string; name: string }
     organizationId: orgId,
     name: data.name.trim(),
     campusId: data.campusId,
+    dayStartTime: null,  // intentionally blank — admin must explicitly set during Step 4
+    dayEndTime: null,
   }).returning()
   return { school }
 }
