@@ -69,7 +69,8 @@ export async function updateSession(request: NextRequest) {
   if (user && request.nextUrl.pathname.startsWith('/auth') &&
       !request.nextUrl.pathname.startsWith('/auth/callback') &&
       !request.nextUrl.pathname.startsWith('/auth/portal') &&
-      !request.nextUrl.pathname.startsWith('/auth/confirm')) {
+      !request.nextUrl.pathname.startsWith('/auth/confirm') &&
+      !request.nextUrl.pathname.startsWith('/auth/signout')) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/portal';
     return NextResponse.redirect(url);
