@@ -46,9 +46,10 @@ export default async function BillingPage() {
   if (org.stripeSubscriptionId) {
     try {
       const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId, {
-        expand: ['discount.coupon'],
+        expand: ['discounts.coupon'],
       })
-      const coupon = (sub.discount as { coupon?: { percent_off?: number; name?: string } } | null)?.coupon
+      const firstDiscount = (sub.discounts as Array<{ coupon?: { percent_off?: number; name?: string } }>)?.[0]
+      const coupon = firstDiscount?.coupon
       if (coupon?.percent_off) {
         discountPercent = coupon.percent_off
         discountName = coupon.name ?? null
