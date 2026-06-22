@@ -214,7 +214,7 @@ export default async function DashboardPage() {
               done={setupChecklist.schoolReady}
               href="/admin/schools"
               label="Step 4: Configure your school"
-              description="Add a phone number or address so substitutes know how to reach you"
+              description="Click Edit on any school and add a phone number or address — that's all it takes to complete this step"
             />
             <SetupItem
               done={setupChecklist.hasTeachers}

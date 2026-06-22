@@ -104,7 +104,7 @@ export default async function NoticesPage() {
                 step: 4,
                 done: setupChecklist.schoolReady,
                 label: 'Configure your school',
-                description: 'Add a phone number and address to each campus so substitutes know where to go.',
+                description: 'Click Edit on any school and add a phone number or address. That\'s all it takes — this step completes immediately.',
                 href: '/admin/schools',
               },
               {
