@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import Link from 'next/link'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, LogOut } from 'lucide-react'
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -29,6 +29,12 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <Link href="/dashboard" className="text-gray-400 hover:text-white">← Back to app</Link>
           <span className="text-gray-600">|</span>
           <span className="text-gray-400">{profile.firstName}</span>
+          <span className="text-gray-600">|</span>
+          <form action="/auth/signout" method="POST">
+            <button type="submit" className="flex items-center gap-1.5 text-gray-400 hover:text-white">
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </form>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
