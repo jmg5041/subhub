@@ -710,16 +710,56 @@ export default function ManageUsersClient({
               </div>
             )}
 
-            {bulkResults && (
-              <div className={`rounded-lg border p-4 text-sm ${bulkResults.errors.length === 0 ? 'border-green-200 bg-green-50 text-green-800' : 'border-yellow-200 bg-yellow-50 text-yellow-800'}`}>
-                <p className="font-medium">{bulkResults.sent} invite{bulkResults.sent !== 1 ? 's' : ''} sent successfully.</p>
-                {bulkResults.errors.length > 0 && (
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
-                    {bulkResults.errors.map((e, i) => <li key={i}>{e}</li>)}
-                  </ul>
-                )}
-              </div>
-            )}
+            {bulkResults && (() => {
+              const schoolErrors = bulkResults.errors.filter(e => e.includes('school') && e.includes('not found'))
+              const otherErrors  = bulkResults.errors.filter(e => !(e.includes('school') && e.includes('not found')))
+              const allGood      = bulkResults.errors.length === 0
+
+              return (
+                <div className={`rounded-lg border p-4 space-y-3 text-sm ${allGood ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                  {/* Header */}
+                  <p className={`text-xs font-bold uppercase tracking-wider ${allGood ? 'text-green-700' : 'text-yellow-700'}`}>
+                    CSV Import Status
+                  </p>
+
+                  {/* Success count */}
+                  <p className={`font-semibold ${allGood ? 'text-green-800' : 'text-yellow-800'}`}>
+                    ✓ {bulkResults.sent} {bulkResults.sent === 1 ? 'person' : 'people'} imported successfully.
+                  </p>
+
+                  {/* School mismatch pattern — grouped callout */}
+                  {schoolErrors.length > 0 && (
+                    <div className="rounded-md border border-orange-200 bg-orange-50 px-4 py-3 space-y-1">
+                      <p className="font-semibold text-orange-800">
+                        ⚠ {schoolErrors.length} {schoolErrors.length === 1 ? 'person was' : 'people were'} not imported — school name not found
+                      </p>
+                      <p className="text-xs text-orange-700">
+                        The school names in your CSV don&apos;t match the school names in your account.
+                        Go to <strong>Admin → Schools</strong> to see your exact school names, then update your CSV to match and re-import.
+                      </p>
+                      <details className="mt-1">
+                        <summary className="text-xs text-orange-600 cursor-pointer hover:underline">Show affected rows ({schoolErrors.length})</summary>
+                        <ul className="mt-1 space-y-0.5 list-disc list-inside text-xs text-orange-700">
+                          {schoolErrors.map((e, i) => <li key={i}>{e}</li>)}
+                        </ul>
+                      </details>
+                    </div>
+                  )}
+
+                  {/* Other errors */}
+                  {otherErrors.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="font-medium text-yellow-800">{otherErrors.length} other {otherErrors.length === 1 ? 'error' : 'errors'}:</p>
+                      <ul className="space-y-0.5 list-disc list-inside text-xs text-yellow-800">
+                        {otherErrors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {allGood && <p className="text-xs text-green-700">No errors — all rows imported successfully.</p>}
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>
