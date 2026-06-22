@@ -7,7 +7,7 @@ import Image from 'next/image';
 
 function AppLogo({ appName, logoUrl }: { appName: string; logoUrl: string | null }) {
   if (logoUrl) {
-    return <Image src={logoUrl} alt={appName} width={160} height={48} className="mx-auto object-contain" />
+    return <Image src={logoUrl} alt={appName} width={200} height={60} className="mx-auto object-contain" />
   }
   return <span className="text-3xl font-bold text-gray-900">{appName}</span>
 }
