@@ -169,7 +169,7 @@ export default async function DashboardPage() {
       {/* Welcome header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          {greeting}, {firstName}
+          {setupChecklist ? `Welcome to your dashboard, ${firstName}!` : `${greeting}, ${firstName}`}
         </h1>
         <p className="text-gray-500">
           {orgRecord?.name ?? ''} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}
@@ -191,19 +191,19 @@ export default async function DashboardPage() {
 
       {/* Setup checklist — visible until all 3 steps are done */}
       {setupChecklist && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5">
+        <div className="rounded-lg border-2 border-fuchsia-400 bg-fuchsia-50 p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-blue-900">Get started with SubHub</h2>
-              <p className="text-sm text-blue-600 mt-0.5">Complete these steps to start managing absences</p>
+              <h2 className="font-bold text-fuchsia-900 uppercase tracking-wide">Continue Onboarding: Next Steps</h2>
+              <p className="text-sm text-fuchsia-700 mt-0.5">Complete these steps to start managing absences</p>
             </div>
             <div className="flex items-center gap-4 flex-shrink-0">
-              <span className="text-sm font-medium text-blue-700">
+              <span className="text-sm font-medium text-fuchsia-700">
                 {[setupChecklist.schoolReady, setupChecklist.hasTeachers, setupChecklist.hasSubs].filter(Boolean).length} of 3 complete
               </span>
               <form action={dismissChecklistAction}>
                 <input type="hidden" name="orgId" value={orgId ?? ''} />
-                <button type="submit" className="text-xs text-blue-400 hover:text-blue-600 hover:underline">
+                <button type="submit" className="text-xs text-fuchsia-400 hover:text-fuchsia-600 hover:underline">
                   Dismiss
                 </button>
               </form>
@@ -213,19 +213,19 @@ export default async function DashboardPage() {
             <SetupItem
               done={setupChecklist.schoolReady}
               href="/admin/schools"
-              label="Configure your school"
+              label="Step 4: Configure your school"
               description="Add a phone number or address so substitutes know how to reach you"
             />
             <SetupItem
               done={setupChecklist.hasTeachers}
               href="/admin/users"
-              label="Invite or import teachers"
+              label="Step 5: Invite or import teachers"
               description="Teachers can submit absence requests once they have an account"
             />
             <SetupItem
               done={setupChecklist.hasSubs}
               href="/admin/users"
-              label="Invite or import substitutes"
+              label="Step 6: Invite or import substitutes"
               description="Substitutes receive job notifications when absences need coverage"
             />
           </div>
