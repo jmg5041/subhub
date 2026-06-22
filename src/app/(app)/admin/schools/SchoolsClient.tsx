@@ -45,17 +45,17 @@ function sliceTime(t: string | null): string {
   return t?.slice(0, 5) ?? ''
 }
 
-export default function SchoolsClient({ schools }: { schools: School[] }) {
+export default function SchoolsClient({ schools, showPhoneRequired = false }: { schools: School[]; showPhoneRequired?: boolean }) {
   return (
     <div className="space-y-3">
       {schools.map(school => (
-        <SchoolCard key={school.id} school={school} />
+        <SchoolCard key={school.id} school={school} showPhoneRequired={showPhoneRequired && !school.phone} />
       ))}
     </div>
   )
 }
 
-function SchoolCard({ school }: { school: School }) {
+function SchoolCard({ school, showPhoneRequired = false }: { school: School; showPhoneRequired?: boolean }) {
   const [editing, setEditing]     = useState(false)
   const [saving, startSave]       = useTransition()
   const [error, setError]         = useState('')
@@ -134,8 +134,13 @@ function SchoolCard({ school }: { school: School }) {
       {/* Summary row */}
       <div className="flex items-center justify-between gap-4 px-5 py-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">{saved.name}</span>
+            {showPhoneRequired && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700">
+                Phone needed
+              </span>
+            )}
             {claimed && (
               <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
                 <CheckCircle2 className="h-3 w-3" /> Linked to directory
@@ -231,9 +236,12 @@ function SchoolCard({ school }: { school: School }) {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Main Office Phone</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Main Office Phone
+                {showPhoneRequired && <span className="ml-1 text-fuchsia-600 font-semibold">← Required for Step 4</span>}
+              </label>
               <input name="phone" type="tel" defaultValue={saved.phone ?? ''} placeholder="(555) 555-5555"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${showPhoneRequired ? 'border-fuchsia-400 focus:ring-fuchsia-100 focus:border-fuchsia-500' : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'}`} />
             </div>
 
             <div className="sm:col-span-2">

@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         .limit(1),
     ])
     const checklist = {
-      schoolReady: !!(firstSchool?.phone || firstSchool?.address),
+      schoolReady: !!firstSchool?.phone,
       hasTeachers: !!firstTeacher || !!firstTeacherInvite,
       hasSubs: !!firstSub || !!firstSubInvite || firstSubInSubsTable.length > 0,
     }
@@ -214,7 +214,7 @@ export default async function DashboardPage() {
               done={setupChecklist.schoolReady}
               href="/admin/schools"
               label="Step 4: Configure your school"
-              description="Click Edit on any school and add a phone number or address — that's all it takes to complete this step"
+              description="Add a main office phone number to any school — the campus address is already set from onboarding"
             />
             <SetupItem
               done={setupChecklist.hasTeachers}

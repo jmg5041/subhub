@@ -29,7 +29,7 @@ export default async function NoticesPage() {
     db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
   ])
   const setupChecklist = {
-    schoolReady: !!(firstSchool?.phone || firstSchool?.address),
+    schoolReady: !!firstSchool?.phone,
     hasTeachers: !!firstTeacher || !!firstTeacherInvite,
     hasSubs: !!firstSub || !!firstSubInvite,
   }
@@ -104,7 +104,7 @@ export default async function NoticesPage() {
                 step: 4,
                 done: setupChecklist.schoolReady,
                 label: 'Configure your school',
-                description: 'Click Edit on any school and add a phone number or address. That\'s all it takes — this step completes immediately.',
+                description: 'Add a main office phone number to each school. The campus address is already set from onboarding.',
                 href: '/admin/schools',
               },
               {
