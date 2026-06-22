@@ -798,6 +798,12 @@ export default function OnboardingWizard({
 
   return (
     <div className="mx-auto max-w-2xl">
+      <p className="text-base font-semibold text-blue-600 mb-4">
+        {step === 1 && 'Step 1: Set up your school info.'}
+        {step === 2 && 'Step 2: Enter your campus address(es).'}
+        {step === 3 && 'Step 3: Choose your billing plan.'}
+        {step === 4 && 'Step 4: You\'re almost done!'}
+      </p>
       <StepIndicator currentStep={step} />
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         {step === 1 && <Step1OrgBasics org={org} onSaved={() => setStep(2)} />}
