@@ -195,6 +195,15 @@ export default function ManageUsersClient({
       const text = ev.target?.result as string
       const result = parseCsv(text)
       if (typeof result === 'string') {
+        // Check if it's a warnings+rows bundle
+        try {
+          const parsed = JSON.parse(result) as { rows: typeof bulkRows; warnings: string[] }
+          if (parsed.rows && parsed.warnings) {
+            setBulkRows(parsed.rows)
+            setBulkParseError(parsed.warnings.join('\n'))
+            return
+          }
+        } catch { /* not JSON — regular error string */ }
         setBulkParseError(result)
       } else {
         setBulkRows(result)
@@ -639,7 +648,15 @@ export default function ManageUsersClient({
             </div>
 
             {bulkParseError && (
-              <p className="text-sm text-red-600">{bulkParseError}</p>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-red-700">CSV Parse Warning</p>
+                {bulkParseError.split('\n').map((line, i) => (
+                  <p key={i} className="text-sm text-red-700">{line}</p>
+                ))}
+                {bulkRows.length > 0 && (
+                  <p className="text-xs text-red-500">The {bulkRows.length} valid rows above will still be shown for import. Fix warnings before proceeding.</p>
+                )}
+              </div>
             )}
 
             {bulkRows.length > 0 && (
@@ -711,8 +728,12 @@ export default function ManageUsersClient({
             )}
 
             {bulkResults && (() => {
-              const schoolErrors = bulkResults.errors.filter(e => e.includes('school') && e.includes('not found'))
-              const otherErrors  = bulkResults.errors.filter(e => !(e.includes('school') && e.includes('not found')))
+              const schoolErrors    = bulkResults.errors.filter(e => e.includes('school') && e.includes('not found'))
+              const duplicateErrors = bulkResults.errors.filter(e => e.toLowerCase().includes('already registered') || e.toLowerCase().includes('email_exists') || e.toLowerCase().includes('already been registered'))
+              const emailErrors     = bulkResults.errors.filter(e => e.toLowerCase().includes('invalid') && e.toLowerCase().includes('email'))
+              const otherErrors     = bulkResults.errors.filter(e =>
+                !schoolErrors.includes(e) && !duplicateErrors.includes(e) && !emailErrors.includes(e)
+              )
               const allGood      = bulkResults.errors.length === 0
 
               return (
@@ -743,6 +764,31 @@ export default function ManageUsersClient({
                           {schoolErrors.map((e, i) => <li key={i}>{e}</li>)}
                         </ul>
                       </details>
+                    </div>
+                  )}
+
+                  {/* Duplicate emails */}
+                  {duplicateErrors.length > 0 && (
+                    <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 space-y-1">
+                      <p className="font-semibold text-blue-800">ℹ {duplicateErrors.length} {duplicateErrors.length === 1 ? 'person' : 'people'} already have accounts — skipped</p>
+                      <p className="text-xs text-blue-700">These email addresses are already registered. If you need to update their role or school, use the Edit button on their user card instead.</p>
+                      <details className="mt-1">
+                        <summary className="text-xs text-blue-600 cursor-pointer hover:underline">Show skipped ({duplicateErrors.length})</summary>
+                        <ul className="mt-1 space-y-0.5 list-disc list-inside text-xs text-blue-700">
+                          {duplicateErrors.map((e, i) => <li key={i}>{e}</li>)}
+                        </ul>
+                      </details>
+                    </div>
+                  )}
+
+                  {/* Invalid email format */}
+                  {emailErrors.length > 0 && (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 space-y-1">
+                      <p className="font-semibold text-red-800">✕ {emailErrors.length} {emailErrors.length === 1 ? 'row has' : 'rows have'} an invalid email address</p>
+                      <p className="text-xs text-red-700">Fix these email addresses in your CSV and re-import.</p>
+                      <ul className="mt-1 space-y-0.5 list-disc list-inside text-xs text-red-700">
+                        {emailErrors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
                     </div>
                   )}
 
@@ -925,22 +971,48 @@ function parseCsv(text: string): Array<{
   const roleIdx   = findCol(['role', 'position', 'type'])
   const schoolIdx = findCol(['school', 'campus', 'site'])
 
-  if (firstIdx === -1 || lastIdx === -1 || emailIdx === -1) {
-    return 'Could not find required columns. Make sure your CSV has "First Name", "Last Name", and "Email" columns.'
+  const missing = []
+  if (firstIdx === -1) missing.push('"First Name"')
+  if (lastIdx  === -1) missing.push('"Last Name"')
+  if (emailIdx === -1) missing.push('"Email"')
+  if (missing.length > 0) {
+    return `Missing required column${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}. Download the template to see the correct format.`
   }
 
   const rows: Array<{ firstName: string; lastName: string; email: string; phone?: string; csvRole?: string; csvSchool?: string }> = []
+  const badEmails: string[] = []
+  const unknownRoles: string[] = []
+  const validRoles = ['admin', 'principal', 'staff', 'teacher', 'substitute', 'district']
+
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
     const firstName = cells[firstIdx]?.trim()
     const lastName  = cells[lastIdx]?.trim()
     const email     = cells[emailIdx]?.trim()
     if (!firstName || !lastName || !email) continue
+
+    // Basic email validation
+    if (!email.includes('@') || !email.includes('.')) {
+      badEmails.push(`Row ${i + 1}: "${email}" is not a valid email address`)
+      continue
+    }
+
     const phone     = phoneIdx  >= 0 ? cells[phoneIdx]?.trim()  || undefined : undefined
     const csvRole   = roleIdx   >= 0 ? cells[roleIdx]?.trim()   || undefined : undefined
     const csvSchool = schoolIdx >= 0 ? cells[schoolIdx]?.trim() || undefined : undefined
+
+    // Warn about unrecognized roles (but still include the row — default role will apply)
+    if (csvRole && !validRoles.includes(csvRole.toLowerCase())) {
+      unknownRoles.push(`Row ${i + 1}: "${csvRole}" is not a valid role (valid: ${validRoles.join(', ')})`)
+    }
+
     rows.push({ firstName, lastName, email, phone, csvRole, csvSchool })
   }
 
-  return rows.length === 0 ? 'No valid rows found. Check that your CSV matches the template.' : rows
+  if (badEmails.length > 0 || unknownRoles.length > 0) {
+    // Return both the rows AND warnings as a special object
+    return JSON.stringify({ rows, warnings: [...badEmails, ...unknownRoles] })
+  }
+
+  return rows.length === 0 ? 'No valid rows found. Check that your CSV has data rows below the header, and that names and emails are filled in.' : rows
 }
