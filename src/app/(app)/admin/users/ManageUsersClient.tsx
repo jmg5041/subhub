@@ -588,7 +588,7 @@ export default function ManageUsersClient({
               Upload a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">First Name, Last Name, Email, Phone, Role, School</code>.
               Role and School columns are optional — if omitted, the defaults below are used for every row.{' '}
               <a
-                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email,Phone,Role,School\nJohn,Smith,jsmith@school.edu,555-555-1234,Teacher,Elementary Campus\nJane,Doe,jdoe@school.edu,,Substitute,\nBob,Jones,bjones@school.edu,,Admin,')}`}
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent('First Name,Last Name,Email,Phone,Role,School\nJohn,Smith,jsmith@school.edu,555-555-1234,Teacher,Northside Elementary School\nJane,Doe,jdoe@school.edu,,Substitute,Northside Elementary School\nBob,Jones,bjones@school.edu,,Admin,\nSarah,Lee,slee@school.edu,,Teacher,Northside High School')}`}
                 download="subhub-import-template.csv"
                 className="text-blue-600 hover:underline"
               >
