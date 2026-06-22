@@ -44,6 +44,7 @@ export async function provisionSelfSignupOrg(authUser: User): Promise<void> {
   const [org] = await db.insert(organizations).values({
     name: orgName,
     slug,
+    districtName: orgName, // pre-populate from signup so onboarding Step 1 is pre-filled
     subscriptionStatus: 'trial',
     paidThrough: paidThrough.toISOString().slice(0, 10),
     paymentMethod: 'stripe',
