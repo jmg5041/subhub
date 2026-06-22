@@ -16,13 +16,15 @@ const STATUS_COLORS: Record<string, string> = {
 type OrgRow = Awaited<ReturnType<typeof import('@/db').db.query.organizations.findMany>>[0]
 
 function getStage(org: OrgRow, schoolCount: number): { label: string; color: string } {
-  if (org.subscriptionStatus === 'active') return { label: 'Active subscriber', color: 'bg-green-100 text-green-700' }
-  if (org.onboardingCompletedAt)           return { label: 'Onboarding complete', color: 'bg-blue-100 text-blue-700' }
-  if (org.seatCount || org.stripeCustomerId || org.paymentMethod === 'check')
-                                           return { label: 'Billing configured', color: 'bg-violet-100 text-violet-700' }
-  if (schoolCount > 0)                     return { label: 'Campus added', color: 'bg-amber-100 text-amber-700' }
-  return                                          { label: 'Signed up', color: 'bg-gray-100 text-gray-500' }
+  if (org.subscriptionStatus === 'active')   return { label: 'Paid',       color: 'bg-green-100 text-green-700' }
+  if (org.subscriptionStatus === 'past_due') return { label: 'Due',        color: 'bg-orange-100 text-orange-700' }
+  if (org.subscriptionStatus === 'expired')  return { label: 'Expired',    color: 'bg-red-100 text-red-700' }
+  if (org.onboardingCompletedAt)             return { label: 'Signed up',  color: 'bg-blue-100 text-blue-700' }
+  return                                            { label: 'Onboarding', color: 'bg-amber-100 text-amber-700' }
 }
+
+// suppress unused warning — schoolCount kept for future sub-stage detection
+void ((_: number) => _)
 
 function daysSince(date: Date | string | null): number | null {
   if (!date) return null
