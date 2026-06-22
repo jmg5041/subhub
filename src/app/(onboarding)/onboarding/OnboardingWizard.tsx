@@ -412,7 +412,7 @@ function Step2Campuses({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Enter Address for Your Campus(es)</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Enter Address(es) for Any Campus(es). Next, type names for all schools that meet on each campus.</h2>
       </div>
 
       {/* Existing campuses */}
