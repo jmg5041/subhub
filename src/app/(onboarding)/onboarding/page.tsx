@@ -41,7 +41,7 @@ export default async function OnboardingPage({
 
   return (
     <div className="space-y-2">
-      <h1 className="text-2xl font-bold text-gray-900">Set up your school</h1>
+      <h1 className="text-2xl font-bold text-gray-900">Welcome to SubHub onboarding: Let&apos;s set up your school!</h1>
       <p className="text-sm text-gray-500">
         Complete these steps to start managing substitutes. You can always change these settings later.
       </p>
