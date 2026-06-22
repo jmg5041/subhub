@@ -12,10 +12,20 @@ import { useState, useTransition } from 'react'
 import { Pencil, Check, X, Loader2, MapPin, Phone, Globe, Clock, Search, BookOpen, CheckCircle2 } from 'lucide-react'
 import { updateSchool, searchDirectory, claimDirectorySchool } from '../actions'
 
+type Campus = {
+  id: string
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  phone: string | null
+}
+
 type School = {
   id: string
   name: string
   timesConfigured: boolean
+  campus: Campus | null
   address: string | null
   city: string | null
   state: string | null
@@ -154,11 +164,12 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
             )}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-gray-400">
-            {saved.address && (
+            {saved.campus?.address && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {saved.address}{saved.city && `, ${saved.city}`}
-                {saved.county && ` · ${saved.county} Co.`}
+                {saved.campus.address}{saved.campus.city && `, ${saved.campus.city}`}
+                {saved.campus.state && ` ${saved.campus.state}`}
+                {saved.campus.zip && ` ${saved.campus.zip}`}
               </span>
             )}
             {saved.phone && (
@@ -212,35 +223,14 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Street Address</label>
-              <input name="address" defaultValue={saved.address ?? ''} placeholder="123 Main St"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
-              <input name="city" defaultValue={saved.city ?? ''}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
-                <input name="state" defaultValue={saved.state ?? 'CA'} maxLength={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 uppercase" />
+            {saved.campus?.address && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Campus Address <span className="text-gray-400">(read-only — edit from Admin → Campuses)</span></label>
+                <div className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500">
+                  {[saved.campus.address, saved.campus.city, saved.campus.state, saved.campus.zip].filter(Boolean).join(', ')}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zip</label>
-                <input name="zip" defaultValue={saved.zip ?? ''}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">County</label>
-              <input name="county" defaultValue={saved.county ?? ''} placeholder="e.g. Los Angeles"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
-            </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Main Office Phone

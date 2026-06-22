@@ -411,6 +411,7 @@ export async function getOrgSchools() {
   const { orgId } = await getAdminContext()
   return db.query.schools.findMany({
     where: eq(schools.organizationId, orgId),
+    with: { campus: { columns: { id: true, address: true, city: true, state: true, zip: true, phone: true } } },
     orderBy: (s, { asc }) => [asc(s.name)],
   })
 }
