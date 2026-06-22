@@ -438,9 +438,18 @@ function Step2Campuses({
       {/* Campus entry panel */}
       {showEntry && (
         <div className="rounded-lg border-2 border-dashed border-blue-200 bg-blue-50 p-4 space-y-4">
-          <p className="text-sm font-medium text-gray-700">
-            {campusList.length === 0 ? 'Enter your campus address' : 'Add another campus'}
-          </p>
+          {campusList.length === 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-gray-800">This is a three-step process:</p>
+              <ol className="space-y-1.5 text-sm text-gray-600">
+                <li><span className="font-medium text-gray-800">Step 1:</span> Search or manually enter the street address for your school campus.</li>
+                <li><span className="font-medium text-gray-800">Step 2:</span> You&apos;ll be prompted to enter the names of each school that meets at that campus (e.g. TK, Middle School, High School). Many private schools have one campus with multiple schools meeting there.</li>
+                <li><span className="font-medium text-gray-800">Step 3:</span> Repeat for any additional campuses you have.</li>
+              </ol>
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-gray-700">Add another campus</p>
+          )}
 
           {/* Search / Manual toggle */}
           <div className="flex gap-1 rounded-lg bg-white border border-gray-200 p-0.5 w-fit">
