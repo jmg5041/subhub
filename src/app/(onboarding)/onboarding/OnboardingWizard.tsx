@@ -661,10 +661,8 @@ function Step3Billing({
             className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-amber-100 transition-colors">
             <Mail className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-amber-900">Send us your current sub software bill</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                We&apos;ll give you the steepest discount we can — up to 50% off your current bill.
-              </p>
+              <p className="text-sm font-bold text-amber-900">Send us your current sub software bill to get our steepest discount!</p>
+              <p className="text-xs text-amber-700 mt-0.5">Up to 50% off your current bill.</p>
             </div>
           </button>
 
@@ -702,10 +700,8 @@ function Step3Billing({
             className="w-full flex items-start gap-3 rounded-lg border-2 border-green-400 bg-green-50 px-4 py-3 text-left hover:bg-green-100 transition-colors disabled:opacity-50">
             <Tag className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-green-900">Request 25% off — no bill needed</p>
-              <p className="text-xs text-green-700 mt-0.5">
-                We&apos;ll send you a promo code. Start using SubHub today while we get it to you.
-              </p>
+              <p className="text-sm font-bold text-green-900">New to sub software? Start this week and get 25% off!</p>
+              <p className="text-xs text-green-700 mt-0.5">Click for a 25% off code if you join this week.</p>
             </div>
           </button>
         </form>
@@ -719,10 +715,8 @@ function Step3Billing({
             className="w-full flex items-start gap-3 rounded-lg border-2 border-blue-600 bg-blue-50 px-4 py-3 text-left hover:bg-blue-100 transition-colors">
             <Gift className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-blue-700">Get 3 months free — only pay if it works</p>
-              <p className="text-xs text-blue-600 mt-0.5">
-                Enter your card now, get 90 days free. Cancel any time before then and you&apos;ll never be charged.
-              </p>
+              <p className="text-sm font-bold text-blue-700">Get 3 months free — pay full price if SubHub works for you.</p>
+              <p className="text-xs text-blue-600 mt-0.5">Submit a credit card or request an invoice. Cancel any time before then and you&apos;ll never be charged.</p>
             </div>
           </button>
         </form>
