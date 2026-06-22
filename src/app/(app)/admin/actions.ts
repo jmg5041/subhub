@@ -437,9 +437,10 @@ export async function updateSchool(formData: FormData) {
       county:       (formData.get('county') as string).trim() || null,
       phone:        (formData.get('phone') as string).trim() || null,
       website:      (formData.get('website') as string).trim() || null,
-      dayStartTime: (formData.get('dayStartTime') as string) || school.dayStartTime,
-      dayEndTime:   (formData.get('dayEndTime') as string) || school.dayEndTime,
-      updatedAt:    new Date(),
+      dayStartTime:    (formData.get('dayStartTime') as string) || school.dayStartTime,
+      dayEndTime:      (formData.get('dayEndTime') as string) || school.dayEndTime,
+      timesConfigured: true, // admin has explicitly reviewed and saved the school
+      updatedAt:       new Date(),
     })
     .where(eq(schools.id, id))
 

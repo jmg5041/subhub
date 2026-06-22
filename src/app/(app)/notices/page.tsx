@@ -29,7 +29,7 @@ export default async function NoticesPage() {
     db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
   ])
   const setupChecklist = {
-    schoolReady: !!firstSchool?.phone,
+    schoolReady: !!(firstSchool?.phone && firstSchool?.timesConfigured),
     hasTeachers: !!firstTeacher || !!firstTeacherInvite,
     hasSubs: !!firstSub || !!firstSubInvite,
   }

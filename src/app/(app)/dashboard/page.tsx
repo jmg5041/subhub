@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         .limit(1),
     ])
     const checklist = {
-      schoolReady: !!firstSchool?.phone,
+      schoolReady: !!(firstSchool?.phone && firstSchool?.timesConfigured),
       hasTeachers: !!firstTeacher || !!firstTeacherInvite,
       hasSubs: !!firstSub || !!firstSubInvite || firstSubInSubsTable.length > 0,
     }

@@ -15,6 +15,7 @@ import { updateSchool, searchDirectory, claimDirectorySchool } from '../actions'
 type School = {
   id: string
   name: string
+  timesConfigured: boolean
   address: string | null
   city: string | null
   state: string | null
@@ -136,9 +137,14 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">{saved.name}</span>
-            {showPhoneRequired && (
+            {showPhoneRequired && !saved.phone && (
               <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700">
                 Phone needed
+              </span>
+            )}
+            {!saved.timesConfigured && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                Times unconfirmed
               </span>
             )}
             {claimed && (
@@ -251,14 +257,20 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">School Day Start</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                School Day Start
+                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Please verify</span>}
+              </label>
               <input name="dayStartTime" type="time" defaultValue={sliceTime(saved.dayStartTime)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${!saved.timesConfigured ? 'border-amber-400 focus:ring-amber-100 focus:border-amber-500' : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'}`} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">School Day End</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                School Day End
+                {!saved.timesConfigured && <span className="ml-1 text-amber-600 font-semibold">← Please verify</span>}
+              </label>
               <input name="dayEndTime" type="time" defaultValue={sliceTime(saved.dayEndTime)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${!saved.timesConfigured ? 'border-amber-400 focus:ring-amber-100 focus:border-amber-500' : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'}`} />
             </div>
           </div>
 

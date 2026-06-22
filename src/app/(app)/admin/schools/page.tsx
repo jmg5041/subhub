@@ -12,8 +12,9 @@ import SchoolsClient from './SchoolsClient'
 
 export default async function AdminSchoolsPage() {
   const schools = await getOrgSchools()
+  const anySchoolReady = schools.some(s => s.phone && s.timesConfigured)
   const anySchoolHasPhone = schools.some(s => s.phone)
-  const schoolsMissingPhone = schools.filter(s => !s.phone)
+  const schoolsNeedingSetup = schools.filter(s => !s.phone || !s.timesConfigured)
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -25,18 +26,22 @@ export default async function AdminSchoolsPage() {
         </div>
       </div>
 
-      {!anySchoolHasPhone && (
+      {!anySchoolReady && (
         <div className="rounded-lg border-2 border-fuchsia-300 bg-fuchsia-50 px-5 py-4 space-y-2">
-          <p className="font-bold text-fuchsia-900">Step 4: Add a phone number to your schools</p>
+          <p className="font-bold text-fuchsia-900">Step 4: Confirm your school details</p>
           <p className="text-sm text-fuchsia-700">
-            The campus address is already set from onboarding. Each school also needs a <strong>main office phone number</strong> so substitutes know who to call when they arrive.
+            For each school, click <strong>Edit</strong> and confirm or update these two required fields:
           </p>
+          <ul className="text-sm text-fuchsia-700 list-disc list-inside space-y-1">
+            <li><strong>Main office phone number</strong> — so substitutes know who to call</li>
+            <li><strong>School day start and end times</strong> — used for absence scheduling and shown to subs. The current times are defaults — please verify they match your actual school day.</li>
+          </ul>
           <p className="text-sm text-fuchsia-700">
-            Click <strong>Edit</strong> on any school below, enter the phone number, and click <strong>Save</strong>. Step 4 completes automatically once at least one school has a phone number.
+            Click <strong>Save</strong> after editing each school. Step 4 completes automatically.
           </p>
-          {schoolsMissingPhone.length > 0 && (
+          {schoolsNeedingSetup.length > 0 && (
             <p className="text-xs text-fuchsia-600 font-medium">
-              Missing phone: {schoolsMissingPhone.map(s => s.name).join(', ')}
+              Needs setup: {schoolsNeedingSetup.map(s => s.name).join(' · ')}
             </p>
           )}
         </div>
