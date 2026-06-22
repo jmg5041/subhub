@@ -40,6 +40,7 @@ function Note({ children }: { children: React.ReactNode }) {
 
 const toc = [
   { id: 'getting-started',  label: 'Getting Started' },
+  { id: 'onboarding',       label: 'District, Campus & Schools' },
   { id: 'managing-users',   label: 'Managing Users' },
   { id: 'login-options',    label: 'Google SSO vs. Password' },
   { id: 'managing-subs',    label: 'Managing Substitutes' },
@@ -89,6 +90,59 @@ export default function AdminHelpPage() {
         ]} />
         <p>The checklist disappears automatically once all three steps are done.</p>
         <Tip>Your dashboard shows today&apos;s absences and upcoming absences at a glance. Use it as your daily starting point.</Tip>
+      </Section>
+
+      {/* ── District, Campus & Schools ── */}
+      <Section id="onboarding" title="District, Campus &amp; Schools">
+        <p>
+          SubHub organizes your institution using three levels: <strong>District</strong>, <strong>Campus</strong>, and <strong>School</strong>.
+          Understanding these helps you set up the right structure during onboarding.
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">District</h3>
+        <p>
+          The district is the umbrella name for your organization — the entity that pays the bill and owns all the data.
+          For a standalone private school, the district name is just your school&apos;s name (e.g. &quot;Northside Christian Academy&quot;).
+          For a larger group, it might be a formal district name (e.g. &quot;ABC Unified School District&quot;).
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Campus</h3>
+        <p>
+          A campus is a <strong>physical address</strong> — a place where one or more schools meet.
+          Most small private schools have a single campus. A larger district might have multiple campuses at different addresses.
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-1">
+          <li><strong>Single campus:</strong> Enter one address. All your schools meet there.</li>
+          <li><strong>Multiple campuses:</strong> Add each address separately. Schools are then assigned to their campus.</li>
+        </ul>
+        <Tip>If you are a single-school organization, your district name, campus address, and school name can all represent the same place — just enter them once and move on.</Tip>
+
+        <h3 className="font-semibold text-gray-800 mt-4">Schools</h3>
+        <p>
+          Schools are the named divisions within a campus — for example, Elementary, Middle School, and High School may all share the same campus address but operate as separate schools.
+          Each school has its own teacher roster, absence tracking, and substitute call list.
+        </p>
+        <p className="mt-2">
+          Why name them separately? Because substitutes often only work with certain grade levels.
+          A sub who works exclusively with young children should only be called for the elementary school,
+          even if it shares a building with the high school. School assignments control this.
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4">How onboarding works</h3>
+        <Steps items={[
+          'Step 1 — Enter your district name and school settings (timezone, pay model, notifications).',
+          'Step 2 — Add your campus address. Search the CA school directory to auto-fill the address, or enter it manually. Then add the schools that meet on that campus (e.g. Elementary, Middle School, High School). Click "Add another campus" if you have a second location.',
+          'Step 3 — Set your seat count and billing preference.',
+          'Step 4 — Done. Add teachers and substitutes from the dashboard.',
+        ]} />
+
+        <h3 className="font-semibold text-gray-800 mt-4">District admin role</h3>
+        <p>
+          The <strong>district</strong> role is for staff who need a read-only view across all schools — typically a district office administrator or superintendent.
+          District users log in and see a dashboard showing all campuses and schools, teacher counts, today&apos;s absences, and unfilled positions.
+          They cannot create absences or manage users — that&apos;s handled by school-level admins.
+          To invite a district admin, go to <strong>Admin → Manage Users</strong> and set their role to District.
+        </p>
       </Section>
 
       {/* ── Managing Users ── */}

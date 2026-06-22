@@ -89,6 +89,31 @@ linked by the `assignment_time_off` junction table.
 This allows one substitute to cover multiple teachers in a single assignment.
 **Do NOT merge these tables or combine their data into one record.**
 
+### District / Campus / School Hierarchy
+
+Three levels of organization:
+
+| Level | Table | Purpose |
+|-------|-------|---------|
+| District | `organizations` + `organizations.district_name` | The paying entity. One org = one district = one Stripe subscription. |
+| Campus | `campuses` | Physical address. Schools on the same campus are co-located. |
+| School | `schools` + `schools.campus_id` FK | Named division (e.g. Elementary, Middle, High). Teachers and subs are assigned at the school level. |
+
+**Key rules:**
+- One org can have multiple campuses (e.g. a district with North and South campuses)
+- Each campus can have multiple schools (e.g. ES + MS + HS on one campus)
+- Subs are assigned at the school level via `sub_school_assignments`
+- Campus-based admin scoping (admins seeing only their campus) is **not yet implemented** — all admins see the full org
+- Truly separate campuses that need data isolation should use separate SubHub accounts
+
+**District role:** `users.role = 'district'` — routes to `/district` on login. Read-only dashboard showing all campuses/schools with absence stats. Does not access the admin portal.
+
+**Onboarding flow (as of migration 0022):**
+1. Step 1: org basics + district name
+2. Step 2: add campus(es) by address (search CA directory or manual) → add schools per campus inline
+3. Step 3: billing (seat count + discount options)
+4. Step 4: finish
+
 ---
 
 ## Authentication — Read This Carefully
@@ -632,7 +657,10 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - Platform impersonation for sub/teacher portals: same cookie pattern, needs `(sub)` and `(teacher)` layouts updated to respect `impersonate_org_id`
 - ~~More pages using `getEffectiveOrgId()`~~ — DONE: all `(app)` auth helpers updated; platform admins see target school's data on every page when impersonating
 - ~~Cron parallel execution~~ — DONE: orgs processed in parallel (`Promise.allSettled`), subs notified in parallel within each org, `maxDuration = 300` on all cron routes; scales to 40+ schools without timeout risk
-- Stripe payments: subscriptions, tier by school size; `/billing` page has stub tier cards ready
+- ~~Stripe payments~~ — DONE: live mode, $8/seat/month (configurable in platform settings), 90-day trial, coupon support, webhooks, customer portal
+- ~~District/campus/school hierarchy~~ — DONE: `campuses` table (migration 0022), `district` role, `/district` portal, onboarding redesigned (campus address → schools per campus inline)
+- Campus-based admin scoping: admins currently see full org; future work to filter by campus when needed
+- District-level reports: `/district` page is a stub; full reporting across schools deferred until a district customer needs it
 - Sub rating UI: DB columns exist (`subFeedbackRating`, `subFeedbackNotes` on `sub_assignments`), no UI yet
 - Sub post-assignment report/notes to teacher: no DB table or UI yet
 
@@ -641,6 +669,7 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - Rich text for notes-to-sub
 - ~~Google OAuth consent screen~~ — DONE: custom OAuth credentials from `substitutes-us` Google Cloud project configured in Supabase Auth → Providers → Google
 - Microsoft SSO (relevant for school districts on Microsoft 365 — Supabase toggle when needed)
+- "Email stalled signup" button on platform org table (fields are there, button not built)
 
 ---
 
