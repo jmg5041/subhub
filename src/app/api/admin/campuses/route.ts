@@ -25,6 +25,19 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(orgCampuses)
 }
 
+export async function POST(req: NextRequest) {
+  const orgId = await getOrgId(req)
+  if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { address, city, state, zip, phone } = await req.json()
+
+  const [campus] = await db.insert(campuses)
+    .values({ organizationId: orgId, address: address || null, city: city || null, state: state || 'CA', zip: zip || null, phone: phone || null })
+    .returning()
+
+  return NextResponse.json({ campus })
+}
+
 export async function PATCH(req: NextRequest) {
   const orgId = await getOrgId(req)
   if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
