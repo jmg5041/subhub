@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { organizations, subSchoolAssignments, users } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { organizations, subSchoolAssignments, users, substitutes } from '@/db/schema';
+import { eq, and, count, notExists } from 'drizzle-orm';
 import { getBillingState } from '@/lib/billing';
 import { BillingBanner } from '@/components/BillingBanner';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
@@ -76,6 +76,26 @@ export default async function AppLayout({
     pendingSubCount = pendingRows.length
   }
 
+  // Notices count (bounced emails + subs with no school assignment)
+  let noticesCount = 0
+  const effectiveOrgForNotices = orgId
+  if (effectiveOrgForNotices) {
+    const [bounced, unassigned] = await Promise.all([
+      db.select({ c: count() }).from(users)
+        .where(and(eq(users.organizationId, effectiveOrgForNotices), eq(users.emailBounced, true))),
+      db.select({ c: count() }).from(substitutes)
+        .innerJoin(users, eq(substitutes.userId, users.id))
+        .where(and(
+          eq(users.organizationId, effectiveOrgForNotices),
+          notExists(
+            db.select({ id: subSchoolAssignments.id }).from(subSchoolAssignments)
+              .where(eq(subSchoolAssignments.substituteId, substitutes.id))
+          )
+        )),
+    ])
+    noticesCount = Number(bounced[0]?.c ?? 0) + Number(unassigned[0]?.c ?? 0)
+  }
+
   // When impersonating, still show the pending sub badge for the impersonated org
   if (isPlatformAdmin && impersonatedOrg) {
     const pendingRows = await db.select({ id: subSchoolAssignments.id })
@@ -93,6 +113,7 @@ export default async function AppLayout({
       role={profile?.role ?? null}
       avatarUrl={profile?.avatarUrl ?? null}
       pendingSubCount={pendingSubCount}
+      noticesCount={noticesCount}
       isPlatformAdmin={isPlatformAdmin}
     >
       {impersonatedOrg && <ImpersonationBanner orgName={impersonatedOrg.name} />}

@@ -20,6 +20,7 @@ import {
   CreditCard,
   X,
   ShieldCheck,
+  Bell,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -62,6 +63,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Admin',
     items: [
+      { href: '/notices', label: 'Notices', icon: Bell },
       { href: '/settings', label: 'Settings', icon: Settings },
       { href: '/admin/users', label: 'Manage Users', icon: Users },
       { href: '/admin/schools', label: 'Schools', icon: Building2 },
@@ -75,12 +77,14 @@ export function AppSidebar({
   onClose,
   role,
   pendingSubCount,
+  noticesCount,
   isPlatformAdmin,
 }: {
   isOpen?: boolean
   onClose?: () => void
   role?: string | null
   pendingSubCount?: number
+  noticesCount?: number
   isPlatformAdmin?: boolean
 }) {
   const pathname = usePathname();
@@ -145,6 +149,11 @@ export function AppSidebar({
                   {item.href === '/admin/subs' && pendingSubCount && pendingSubCount > 0 ? (
                     <span className="ml-auto inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold h-5 w-5 flex-shrink-0">
                       {pendingSubCount}
+                    </span>
+                  ) : null}
+                  {item.href === '/notices' && noticesCount && noticesCount > 0 ? (
+                    <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold h-5 w-5 flex-shrink-0">
+                      {noticesCount > 9 ? '9+' : noticesCount}
                     </span>
                   ) : null}
                 </Link>

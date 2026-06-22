@@ -96,6 +96,8 @@ export const users = pgTable('users', {
   status: statusEnum('status').default('active'),
   avatarUrl: text('avatar_url'),
   isPlatformAdmin: boolean('is_platform_admin').default(false),
+  emailBounced: boolean('email_bounced').default(false).notNull(),
+  emailBouncedAt: timestamp('email_bounced_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

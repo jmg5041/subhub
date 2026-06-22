@@ -15,6 +15,7 @@ export function AppShell({
   role,
   avatarUrl,
   pendingSubCount,
+  noticesCount = 0,
   isPlatformAdmin,
 }: {
   children: React.ReactNode
@@ -25,6 +26,7 @@ export function AppShell({
   role: string | null
   avatarUrl?: string | null
   pendingSubCount?: number
+  noticesCount?: number
   isPlatformAdmin?: boolean
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -40,7 +42,7 @@ export function AppShell({
   return (
     <div className="flex h-[100dvh] bg-gray-50 print:block print:h-auto">
       {/* Sidebar — always visible on desktop, slide-in overlay on mobile */}
-      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} pendingSubCount={pendingSubCount} isPlatformAdmin={isPlatformAdmin} />
+      <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} pendingSubCount={pendingSubCount} noticesCount={noticesCount} isPlatformAdmin={isPlatformAdmin} />
 
       {/* Backdrop for mobile — clicking it closes the sidebar */}
       {sidebarOpen && (

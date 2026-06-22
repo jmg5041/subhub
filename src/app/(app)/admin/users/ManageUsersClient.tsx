@@ -17,6 +17,7 @@ type User = {
   schoolId: string | null
   schoolIds: string[]
   avatarUrl: string | null
+  emailBounced: boolean
 }
 
 type Invite = {
@@ -747,6 +748,11 @@ export default function ManageUsersClient({
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
                 {ROLE_LABELS[u.role] ?? u.role}
               </span>
+              {u.emailBounced && (
+                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full" title="Email bounced — delivery failed">
+                  ⚠ Bad email
+                </span>
+              )}
               {u.status === 'inactive' && (
                 <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
               )}

@@ -42,6 +42,7 @@ export async function getOrgUsers() {
         status: users.status,
         schoolId: users.schoolId,
         avatarUrl: users.avatarUrl,
+        emailBounced: users.emailBounced,
       })
       .from(users)
       .where(eq(users.organizationId, orgId))

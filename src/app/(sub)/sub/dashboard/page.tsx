@@ -102,6 +102,18 @@ export default async function SubDashboard() {
         </p>
       </div>
 
+      {/* Bounced email warning */}
+      {profile.emailBounced && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800">Your email address may be incorrect</p>
+          <p className="text-sm text-red-700 mt-0.5">
+            A recent email to <span className="font-medium">{profile.email}</span> failed to deliver.
+            You won&apos;t receive job notifications until your email is corrected.
+            Contact your school administrator to update it.
+          </p>
+        </div>
+      )}
+
       {/* Profile completion nudge — shown until phone is on file */}
       {!profile.phone && (
         <Link
