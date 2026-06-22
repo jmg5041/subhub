@@ -470,7 +470,7 @@ function Step2Campuses({
                 </button>
               </div>
               <p className="text-xs text-gray-400 italic">
-                Select a result to use its address as your campus. The school name from the directory is not used — you'll add school names below.
+                Select a result to use its address as your campus. The school name from the directory is not used — you&apos;ll add school names below.
               </p>
               {searchResults.length > 0 && (
                 <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white divide-y divide-gray-100">
