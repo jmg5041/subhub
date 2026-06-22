@@ -291,9 +291,10 @@ function CampusCard({
       {/* Schools section */}
       <div className="px-4 py-3 space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Schools on this campus</p>
-        <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800">
-          Many schools share a campus — elementary, middle, and high school may all be on the same address.
-          Naming each school separately lets you control which substitutes serve which grade levels.
+        <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800 space-y-1">
+          <p>Example: NorthPrep&apos;s two schools meet on one campus. Type:</p>
+          <p>NorthPrep Elementary → Press Add</p>
+          <p>NorthPrep Middle → Press Add</p>
         </div>
 
         {campus.schools.map(school => (
