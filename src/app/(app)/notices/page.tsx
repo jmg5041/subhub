@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { users, organizations, substitutes, subSchoolAssignments, schools, invitations } from '@/db/schema'
-import { eq, and, notExists } from 'drizzle-orm'
+import { eq, and, notExists, isNotNull } from 'drizzle-orm'
 import { getEffectiveOrgId } from '@/lib/impersonation'
 import Link from 'next/link'
 import { Bell, Mail, UserX, PhoneOff, ExternalLink } from 'lucide-react'
@@ -22,14 +22,14 @@ export default async function NoticesPage() {
 
   // 0. Setup checklist (Steps 4-6)
   const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite] = await Promise.all([
-    db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
+    db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone), eq(schools.timesConfigured, true)) }),
     db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
     db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
     db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
     db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'substitute')) }),
   ])
   const setupChecklist = {
-    schoolReady: !!(firstSchool?.phone && firstSchool?.timesConfigured),
+    schoolReady: !!firstSchool,
     hasTeachers: !!firstTeacher || !!firstTeacherInvite,
     hasSubs: !!firstSub || !!firstSubInvite,
   }

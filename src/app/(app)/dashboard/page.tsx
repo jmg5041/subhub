@@ -13,7 +13,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
 import { employees, users, schools, absenceReasons, teacherTimeOff, organizations, invitations, substitutes } from '@/db/schema'
-import { eq, and, isNull, countDistinct } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, countDistinct } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getEffectiveOrgId } from '@/lib/impersonation'
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
 
   if (orgId && isAdminRole && !checklistDismissed) {
     const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite, firstSubInSubsTable] = await Promise.all([
-      db.query.schools.findFirst({ where: eq(schools.organizationId, orgId) }),
+      db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone), eq(schools.timesConfigured, true)) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
       db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         .limit(1),
     ])
     const checklist = {
-      schoolReady: !!(firstSchool?.phone && firstSchool?.timesConfigured),
+      schoolReady: !!firstSchool,
       hasTeachers: !!firstTeacher || !!firstTeacherInvite,
       hasSubs: !!firstSub || !!firstSubInvite || firstSubInSubsTable.length > 0,
     }
