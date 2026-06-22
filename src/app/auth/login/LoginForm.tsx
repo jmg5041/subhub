@@ -61,9 +61,7 @@ export default function LoginForm({ appName, logoUrl }: { appName: string; logoU
       <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-lg">
         <div className="text-center">
           <AppLogo appName={appName} logoUrl={logoUrl} />
-          {!logoUrl && (
-            <p className="mt-2 text-sm text-gray-600">Substitute Teacher Management</p>
-          )}
+          <p className="mt-4 text-lg font-bold text-gray-800">Welcome to SubHub login!</p>
         </div>
 
         {error && (

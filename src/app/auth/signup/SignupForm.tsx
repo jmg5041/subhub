@@ -123,7 +123,7 @@ export default function SignupForm({ appName, logoUrl }: { appName: string; logo
         {/* Logo */}
         <div className="text-center mb-8">
           <AppLogo appName={appName} logoUrl={logoUrl} />
-          <p className="mt-2 text-base font-medium text-gray-700">Substitute management, simplified.</p>
+          <p className="mt-2 text-base font-medium text-gray-700">SubHub! Substitute management simplified.</p>
           <p className="mt-1 text-sm text-gray-400">Built for school administrators. Free to try.</p>
         </div>
 
