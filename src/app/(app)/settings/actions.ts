@@ -73,6 +73,20 @@ export async function getOrgSettings() {
 /**
  * Saves notification channel and auto-notify preferences for the org.
  */
+export async function saveOrgIdentity(formData: FormData) {
+  const orgId = await getOrgId()
+  const name = (formData.get('name') as string).trim()
+  const districtName = (formData.get('districtName') as string).trim() || null
+
+  if (!name) return
+
+  await db.update(organizations)
+    .set({ name, districtName, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+
+  revalidatePath('/settings')
+}
+
 export async function saveOrgSettings(formData: FormData) {
   const orgId = await getOrgId()
 

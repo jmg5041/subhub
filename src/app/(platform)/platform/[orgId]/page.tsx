@@ -2,7 +2,7 @@ import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
 import { eq, desc, and, isNull, gt, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
-import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization } from '../actions'
+import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization, updateOrgIdentity } from '../actions'
 import { setImpersonation } from '@/lib/impersonation-actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
@@ -152,6 +152,9 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
         <div>
           <Link href="/platform" className="text-gray-500 hover:text-gray-300 text-sm">← All orgs</Link>
           <h1 className="text-2xl font-bold text-white mt-2">{org.name}</h1>
+          {org.districtName && org.districtName !== org.name && (
+            <p className="text-indigo-400 text-sm">District: {org.districtName}</p>
+          )}
           <p className="text-gray-400 text-sm">slug: {org.slug} · timezone: {org.timezone}</p>
         </div>
         {org.slug !== 'subhub-platform' && (
@@ -296,6 +299,32 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
           </div>
         </div>
       )}
+      {/* Organization identity */}
+      {org.slug !== 'subhub-platform' && (
+        <div className="rounded-lg border border-gray-700 bg-gray-900 p-5 space-y-4">
+          <p className="text-xs text-gray-400 uppercase tracking-wider">Organization Identity</p>
+          <form action={updateOrgIdentity} className="space-y-3">
+            <input type="hidden" name="orgId" value={org.id} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Organization name</label>
+                <input name="name" defaultValue={org.name} required
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">District name <span className="text-gray-600">(optional)</span></label>
+                <input name="districtName" defaultValue={org.districtName ?? ''}
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+            <button type="submit"
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+              Save
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* Danger Zone */}
       <div className="rounded-lg border border-red-900 bg-gray-900 p-5 space-y-3">
         <p className="text-sm font-semibold text-red-400 uppercase tracking-wider">Danger Zone</p>

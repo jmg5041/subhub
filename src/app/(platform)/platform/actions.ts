@@ -27,6 +27,22 @@ export async function getPlatformContext() {
   return { adminUserId: profile.id }
 }
 
+export async function updateOrgIdentity(formData: FormData) {
+  await getPlatformContext()
+  const orgId      = formData.get('orgId') as string
+  const name       = (formData.get('name') as string).trim()
+  const districtName = (formData.get('districtName') as string).trim() || null
+
+  if (!name) return
+
+  await db.update(organizations)
+    .set({ name, districtName, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+
+  revalidatePath(`/platform/${orgId}`)
+  redirect(`/platform/${orgId}`)
+}
+
 export async function recordCheckPayment(formData: FormData) {
   const { adminUserId } = await getPlatformContext()
 
