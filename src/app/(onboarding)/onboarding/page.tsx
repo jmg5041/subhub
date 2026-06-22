@@ -32,6 +32,9 @@ export default async function OnboardingPage({
   const params = await searchParams
   const billingAlreadySetUp = !!org?.stripeCustomerId || org?.paymentMethod === 'check'
   const returningFromStripe = params.billing === 'done'
+  const promoCode = params.billing === 'promo'
+    ? ((params as Record<string, string>).code ?? org?.planNotes?.replace('PROMO:', '') ?? null)
+    : (org?.planNotes?.startsWith('PROMO:') ? org.planNotes.replace('PROMO:', '') : null)
   const pricePerSeatCents = settings?.pricePerSeatCents ?? 800
 
   const startStep =
@@ -70,6 +73,7 @@ export default async function OnboardingPage({
           }))}
           startStep={startStep}
           billingAlreadySetUp={billingAlreadySetUp}
+          promoCode={promoCode}
           pricePerSeatCents={pricePerSeatCents}
           initialSeatCount={org?.seatCount ?? null}
         />

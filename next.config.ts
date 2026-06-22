@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["postgres"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '20mb',
+    },
+  },
   images: {
     remotePatterns: [
       {

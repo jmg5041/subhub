@@ -554,12 +554,14 @@ function Step2Campuses({
 
 function Step3Billing({
   alreadySetUp,
+  promoCode,
   pricePerSeatCents,
   initialSeatCount,
   onBack,
   onNext,
 }: {
   alreadySetUp: boolean
+  promoCode: string | null
   pricePerSeatCents: number
   initialSeatCount: number | null
   onBack: () => void
@@ -579,6 +581,38 @@ function Step3Billing({
     if (billingName.trim() || billingEmail.trim()) {
       await saveBillingContact({ name: billingName.trim(), email: billingEmail.trim() })
     }
+  }
+
+  // ── Promo code reveal (Option B) ──────────────────────────────────────────
+  if (alreadySetUp && promoCode && !resetDone) {
+    const expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Your 25% discount code is ready!</h2>
+          <p className="text-sm text-gray-500">Use this code at checkout to save 25% every month.</p>
+        </div>
+        <div className="rounded-lg border-2 border-green-400 bg-green-50 px-6 py-6 text-center space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Your promo code</p>
+          <p className="text-3xl font-bold text-green-900 tracking-widest font-mono">{promoCode}</p>
+          <p className="text-sm text-green-700">25% off · every month · expires {expiryDate}</p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1 text-sm text-gray-600">
+          <p className="font-medium text-gray-800">How to use it:</p>
+          <ol className="list-decimal list-inside space-y-1 text-xs">
+            <li>Click <strong>Next</strong> to finish onboarding</li>
+            <li>Go to <strong>Admin → Billing</strong></li>
+            <li>Click <strong>Subscribe with Credit Card</strong></li>
+            <li>Enter <strong className="font-mono">{promoCode}</strong> in the promo code field</li>
+          </ol>
+        </div>
+        <button type="button" onClick={onNext}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-500">
+          Continue to finish setup <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    )
   }
 
   if (alreadySetUp && !resetDone) {
@@ -683,6 +717,16 @@ function Step3Billing({
                     className="w-full h-9 rounded-md border border-gray-300 pl-6 pr-3 text-sm outline-none focus:border-blue-500" />
                 </div>
               </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">
+                  Attach your bill <span className="text-gray-400">(optional — PDF, JPG, PNG · max 20MB)</span>
+                </label>
+                <input type="file" name="bill" accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200" />
+                <p className="text-xs text-gray-400 mt-1">
+                  Or email it to <a href="mailto:support@substitutes.us" className="text-blue-600 hover:underline">support@substitutes.us</a>
+                </p>
+              </div>
               <button type="submit" disabled={isPending}
                 className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50">
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -780,6 +824,7 @@ export default function OnboardingWizard({
   initialCampuses,
   startStep,
   billingAlreadySetUp,
+  promoCode,
   pricePerSeatCents,
   initialSeatCount,
 }: {
@@ -788,6 +833,7 @@ export default function OnboardingWizard({
   initialCampuses: CampusEntry[]
   startStep: number
   billingAlreadySetUp: boolean
+  promoCode: string | null
   pricePerSeatCents: number
   initialSeatCount: number | null
 }) {
@@ -814,6 +860,7 @@ export default function OnboardingWizard({
         {step === 3 && (
           <Step3Billing
             alreadySetUp={billingAlreadySetUp}
+            promoCode={promoCode}
             pricePerSeatCents={pricePerSeatCents}
             initialSeatCount={initialSeatCount}
             onBack={() => setStep(2)}

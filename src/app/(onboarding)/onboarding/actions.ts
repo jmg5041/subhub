@@ -6,6 +6,7 @@ import { eq, or, ilike } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Resend } from 'resend'
+import { stripe } from '@/lib/stripe'
 
 async function getOnboardingContext() {
   const supabase = await createClient()
@@ -159,7 +160,6 @@ export async function saveSeatCount(seatCount: number) {
 }
 
 // Called when a school chooses Option A (send bill) or Option B (25% off request).
-// Saves seat count, sends staff alert, then completes onboarding on trial.
 export async function submitDiscountRequest(formData: FormData): Promise<void> {
   const { orgId } = await getOnboardingContext()
 
@@ -167,6 +167,7 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
   const seatCount  = Math.max(parseInt(formData.get('seatCount') as string, 10) || 1, 1)
   const software   = (formData.get('software') as string | null)?.trim() || null
   const annualCost = (formData.get('annualCost') as string | null)?.trim() || null
+  const billFile   = formData.get('bill') instanceof File ? formData.get('bill') as File : null
 
   const [settings] = await Promise.all([
     db.query.platformSettings.findFirst(),
@@ -186,6 +187,29 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
   const staffEmail = settings?.staffAlertEmail
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
+  // ── Option B: generate a real Stripe promo code ────────────────────────────
+  let generatedCode: string | null = null
+  if (option === 'discount25') {
+    try {
+      const slug = (org?.slug ?? 'school').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+      const code = `SAVE25-${slug}`
+      const coupon = await stripe.coupons.create({ percent_off: 25, duration: 'forever' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (stripe.promotionCodes.create as any)({
+        coupon: coupon.id,
+        code: code,
+        expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        max_redemptions: 3,
+      })
+      generatedCode = code
+      // Save code to org planNotes so it survives page refresh
+      await db.update(organizations)
+        .set({ planNotes: `PROMO:${code}`, updatedAt: new Date() })
+        .where(eq(organizations.id, orgId))
+    } catch { /* Stripe error — continue without code, IT will handle manually */ }
+  }
+
+  // ── Send staff alert email ─────────────────────────────────────────────────
   if (staffEmail && resend) {
     const subject = option === 'bill'
       ? `Discount Request (Option A — Send Bill): ${org?.name}`
@@ -198,12 +222,18 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
       `Full monthly rate: $${monthlyFull.toFixed(2)}/month`,
       option === 'bill'
         ? `Current software: ${software ?? '(not provided)'}`
-        : `Requested discount: 25% off → $${(monthlyFull * 0.75).toFixed(2)}/month`,
+        : `Promo code generated: ${generatedCode ?? '(generation failed — create manually)'}`,
       annualCost ? `Current annual cost: $${annualCost}` : '',
       '',
       `Review: ${appUrl}/platform/${orgId}`,
-      `Action: Send them a Stripe promo code at ${admin?.email ?? 'their admin email'}`,
     ].filter(Boolean)
+
+    // Attach uploaded bill file if present (Option A)
+    const attachments: { filename: string; content: string }[] = []
+    if (billFile && billFile.size > 0 && billFile.size <= 20 * 1024 * 1024) {
+      const buffer = Buffer.from(await billFile.arrayBuffer())
+      attachments.push({ filename: billFile.name, content: buffer.toString('base64') })
+    }
 
     await resend.emails.send({
       from: 'SubHub <no-reply@substitutes.us>',
@@ -211,9 +241,13 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
       subject,
       text: bodyLines.join('\n'),
       html: bodyLines.map(l => `<p>${l}</p>`).join(''),
+      attachments: attachments.length > 0 ? attachments : undefined,
     })
   }
 
+  if (option === 'discount25' && generatedCode) {
+    redirect(`/onboarding?billing=promo&code=${encodeURIComponent(generatedCode)}`)
+  }
   redirect('/onboarding?billing=done')
 }
 
