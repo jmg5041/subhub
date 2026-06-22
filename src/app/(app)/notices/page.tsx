@@ -17,7 +17,7 @@ export default async function NoticesPage() {
 
   const org = await db.query.organizations.findFirst({
     where: eq(organizations.id, orgId),
-    columns: { notifyBySms: true },
+    columns: { notifyBySms: true, cronEnabled: true },
   })
 
   // 1. Bounced emails
@@ -54,7 +54,8 @@ export default async function NoticesPage() {
       }).then(rows => rows.filter(u => !u.phone))
     : []
 
-  const totalCount = bouncedUsers.length + allSubs.length + subsNoPhone.length
+  const notificationsPaused = org?.cronEnabled === false
+  const totalCount = (notificationsPaused ? 1 : 0) + bouncedUsers.length + allSubs.length + subsNoPhone.length
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -72,6 +73,18 @@ export default async function NoticesPage() {
           <p className="text-gray-500">Items that need your attention.</p>
         </div>
       </div>
+
+      {/* Notifications paused — highest priority */}
+      {notificationsPaused && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-5 py-4">
+          <p className="font-semibold text-red-800">⚠ Substitute notifications are paused</p>
+          <p className="text-sm text-red-700 mt-1">
+            Your school is not sending any job alerts, re-blasts, or unfilled-position notifications to substitutes.
+            This is usually caused by a billing issue. Contact <a href="mailto:info@substitutes.us" className="underline">info@substitutes.us</a> or visit your{' '}
+            <a href="/billing" className="underline">Billing page</a> to restore service.
+          </p>
+        </div>
+      )}
 
       {totalCount === 0 && (
         <div className="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center">

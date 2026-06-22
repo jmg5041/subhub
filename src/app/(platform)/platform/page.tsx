@@ -106,6 +106,13 @@ export default async function PlatformPage() {
         </div>
       )}
 
+      <div className="flex items-center justify-between mb-2">
+        <div />
+        <Link href="/platform/emails" className="text-xs text-indigo-400 hover:text-indigo-200">
+          Email reference →
+        </Link>
+      </div>
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">All Organizations</h1>

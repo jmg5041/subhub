@@ -80,7 +80,8 @@ export default async function AppLayout({
   let noticesCount = 0
   const effectiveOrgForNotices = orgId
   if (effectiveOrgForNotices) {
-    const [bounced, unassigned] = await Promise.all([
+    const [orgForNotices, bounced, unassigned] = await Promise.all([
+      db.query.organizations.findFirst({ where: eq(organizations.id, effectiveOrgForNotices), columns: { cronEnabled: true } }),
       db.select({ c: count() }).from(users)
         .where(and(eq(users.organizationId, effectiveOrgForNotices), eq(users.emailBounced, true))),
       db.select({ c: count() }).from(substitutes)
@@ -93,7 +94,8 @@ export default async function AppLayout({
           )
         )),
     ])
-    noticesCount = Number(bounced[0]?.c ?? 0) + Number(unassigned[0]?.c ?? 0)
+    const pausedCount = orgForNotices?.cronEnabled === false ? 1 : 0
+    noticesCount = pausedCount + Number(bounced[0]?.c ?? 0) + Number(unassigned[0]?.c ?? 0)
   }
 
   // When impersonating, still show the pending sub badge for the impersonated org

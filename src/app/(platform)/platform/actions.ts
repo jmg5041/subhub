@@ -7,7 +7,7 @@ import {
   subAssignments, assignmentTimeOff, subNotificationTokens, subPriorityOrders,
   subSchoolAssignments, subUnavailability, attachments, schoolDirectory,
 } from '@/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, and } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
@@ -151,6 +151,50 @@ export async function setCronEnabled(formData: FormData) {
   await db.update(organizations)
     .set({ cronEnabled: enable, updatedAt: new Date() })
     .where(eq(organizations.id, orgId))
+
+  // When notifications are turned OFF, email the school admin and billing contact
+  if (!enable) {
+    const resendClient = process.env.RESEND_API_KEY ? new (await import('resend')).Resend(process.env.RESEND_API_KEY) : null
+    const [org, admin, settings] = await Promise.all([
+      db.query.organizations.findFirst({ where: eq(organizations.id, orgId), columns: { name: true, billingContactEmail: true } }),
+      db.query.users.findFirst({
+        where: and(eq(users.organizationId, orgId), eq(users.role, 'admin')),
+        columns: { email: true, firstName: true },
+      }),
+      db.query.platformSettings.findFirst(),
+    ])
+
+    const recipients = [admin?.email, org?.billingContactEmail, settings?.staffAlertEmail].filter(Boolean) as string[]
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+
+    if (resendClient && recipients.length > 0 && org) {
+      const subject = `Substitute notifications paused — ${org.name}`
+      const text = [
+        `Hi ${admin?.firstName ?? 'there'},`,
+        ``,
+        `Substitute notifications for ${org.name} have been paused. While notifications are paused, your substitutes will not receive any job alerts, re-blasts, or unfilled-position emails.`,
+        ``,
+        `This typically happens when a billing issue is detected. To restore notifications, please contact us at info@substitutes.us or visit your Billing page:`,
+        `${appUrl}/billing`,
+        ``,
+        `— The SubHub Team`,
+      ].join('\n')
+      const html = `
+        <p>Hi ${admin?.firstName ?? 'there'},</p>
+        <p>Substitute notifications for <strong>${org.name}</strong> have been <strong>paused</strong>.</p>
+        <p>While notifications are paused, your substitutes will not receive any job alerts, re-blasts, or unfilled-position emails.</p>
+        <p>This typically happens when a billing issue is detected. To restore notifications, please contact us at <a href="mailto:info@substitutes.us">info@substitutes.us</a> or visit your <a href="${appUrl}/billing">Billing page</a>.</p>
+        <p>— The SubHub Team</p>
+      `
+      await resendClient.emails.send({
+        from: 'SubHub <no-reply@substitutes.us>',
+        to: recipients,
+        subject,
+        text,
+        html,
+      })
+    }
+  }
 
   revalidatePath(`/platform/${orgId}`)
   redirect(`/platform/${orgId}`)
