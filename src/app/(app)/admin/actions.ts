@@ -427,20 +427,18 @@ export async function updateSchool(formData: FormData) {
     return { error: 'School not found' }
   }
 
+  const get = (key: string) => (formData.get(key) as string | null)?.trim() || null
+
   await db
     .update(schools)
     .set({
-      name:         (formData.get('name') as string).trim(),
-      address:      (formData.get('address') as string).trim() || null,
-      city:         (formData.get('city') as string).trim() || null,
-      state:        (formData.get('state') as string).trim() || null,
-      zip:          (formData.get('zip') as string).trim() || null,
-      county:       (formData.get('county') as string).trim() || null,
-      phone:        (formData.get('phone') as string).trim() || null,
-      website:      (formData.get('website') as string).trim() || null,
+      name:            (formData.get('name') as string).trim(),
+      phone:           get('phone'),
+      website:         get('website'),
+      county:          get('county'),
       dayStartTime:    (formData.get('dayStartTime') as string) || school.dayStartTime,
       dayEndTime:      (formData.get('dayEndTime') as string) || school.dayEndTime,
-      timesConfigured: true, // admin has explicitly reviewed and saved the school
+      timesConfigured: true,
       updatedAt:       new Date(),
     })
     .where(eq(schools.id, id))

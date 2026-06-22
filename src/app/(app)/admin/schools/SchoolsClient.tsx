@@ -92,16 +92,13 @@ function SchoolCard({ school, showPhoneRequired = false }: { school: School; sho
       } else {
         setSaved({
           ...saved,
-          name:         fd.get('name') as string,
-          address:      (fd.get('address') as string) || null,
-          city:         (fd.get('city') as string) || null,
-          state:        (fd.get('state') as string) || null,
-          zip:          (fd.get('zip') as string) || null,
-          county:       (fd.get('county') as string) || null,
-          phone:        (fd.get('phone') as string) || null,
-          website:      (fd.get('website') as string) || null,
-          dayStartTime: (fd.get('dayStartTime') as string) || saved.dayStartTime,
-          dayEndTime:   (fd.get('dayEndTime') as string) || saved.dayEndTime,
+          name:            fd.get('name') as string,
+          phone:           (fd.get('phone') as string) || null,
+          website:         (fd.get('website') as string) || null,
+          county:          (fd.get('county') as string) || null,
+          dayStartTime:    (fd.get('dayStartTime') as string) || saved.dayStartTime,
+          dayEndTime:      (fd.get('dayEndTime') as string) || saved.dayEndTime,
+          timesConfigured: true,
         })
         setEditing(false)
       }
