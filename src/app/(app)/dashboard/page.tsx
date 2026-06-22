@@ -71,7 +71,7 @@ export default async function DashboardPage() {
 
   if (orgId && isAdminRole && !checklistDismissed) {
     const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite, firstSubInSubsTable] = await Promise.all([
-      db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone), eq(schools.timesConfigured, true)) }),
+      db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone)) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
       db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
       db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
@@ -214,7 +214,7 @@ export default async function DashboardPage() {
               done={setupChecklist.schoolReady}
               href="/admin/schools"
               label="Step 4: Configure your school"
-              description="Add a main office phone number to any school — the campus address is already set from onboarding"
+              description="Add a main office phone number to any one school so substitutes know who to call"
             />
             <SetupItem
               done={setupChecklist.hasTeachers}

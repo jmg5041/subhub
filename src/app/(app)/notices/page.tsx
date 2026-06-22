@@ -22,7 +22,7 @@ export default async function NoticesPage() {
 
   // 0. Setup checklist (Steps 4-6)
   const [firstSchool, firstTeacher, firstSub, firstTeacherInvite, firstSubInvite] = await Promise.all([
-    db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone), eq(schools.timesConfigured, true)) }),
+    db.query.schools.findFirst({ where: and(eq(schools.organizationId, orgId), isNotNull(schools.phone)) }),
     db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'teacher')) }),
     db.query.users.findFirst({ where: and(eq(users.organizationId, orgId), eq(users.role, 'substitute')) }),
     db.query.invitations.findFirst({ where: and(eq(invitations.organizationId, orgId), eq(invitations.role, 'teacher')) }),
