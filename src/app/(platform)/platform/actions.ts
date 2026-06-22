@@ -223,6 +223,13 @@ export async function deleteOrganization(formData: FormData) {
   if (orgUserIds.length > 0)
     await db.update(users).set({ schoolId: null }).where(inArray(users.id, orgUserIds))
 
+  // Delete any remaining employees referencing this org's schools (catches edge cases
+  // where employee records weren't cleaned up by the userId-based delete above)
+  const orgSchoolRows = await db.select({ id: schools.id }).from(schools).where(eq(schools.organizationId, orgId))
+  if (orgSchoolRows.length > 0) {
+    await db.delete(employees).where(inArray(employees.schoolId, orgSchoolRows.map(s => s.id)))
+  }
+
   await db.delete(schools).where(eq(schools.organizationId, orgId))
   await db.delete(campuses).where(eq(campuses.organizationId, orgId))
 
