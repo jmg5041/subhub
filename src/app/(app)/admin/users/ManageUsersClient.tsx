@@ -219,8 +219,16 @@ export default function ManageUsersClient({
     const resolved: Array<{ firstName: string; lastName: string; email: string; phone?: string; role: string; schoolId?: string }> = []
     const resolveErrors: string[] = []
 
+    const validRoles = ['admin', 'principal', 'staff', 'teacher', 'substitute', 'district']
+
     for (const row of bulkRows) {
       const role = row.csvRole?.toLowerCase().trim() || bulkRole
+
+      // Reject unrecognised roles cleanly before hitting the DB
+      if (!validRoles.includes(role)) {
+        resolveErrors.push(`${row.email}: "${row.csvRole}" is not a valid role — valid values are ${validRoles.join(', ')}`)
+        continue
+      }
 
       let schoolId: string | undefined = undefined
       if (row.csvSchool) {
