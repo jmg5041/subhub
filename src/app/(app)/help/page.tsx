@@ -158,38 +158,50 @@ export default function AdminHelpPage() {
         ]} />
 
         <h3 className="font-semibold text-gray-800 mt-4">Bulk import from CSV</h3>
-        <p>To add many people at once, use the <strong>Bulk import from CSV</strong> toggle below the invite form. You can import your entire staff — teachers, substitutes, admins, and staff — in a single spreadsheet with mixed roles and campuses.</p>
-        <Steps items={[
-          'Download the template CSV and fill it in.',
-          'Required columns: First Name, Last Name, Email.',
-          'Optional columns: Phone, Role, School.',
-          'Upload the file — you\'ll see a preview of all rows before anything is sent.',
-          'Set a default role and default school for any rows that don\'t have those columns filled in.',
-          'Choose Send invites or Silent import (see below).',
-          'Review the preview, remove any rows you don\'t want, then click Import.',
-        ]} />
+        <p>
+          Use the <strong>Bulk import from CSV</strong> toggle to add your entire staff at once —
+          teachers, substitutes, admins, and staff can all be in a single file with mixed roles and schools.
+          Only three columns are required: <strong>First Name</strong>, <strong>Last Name</strong>, and <strong>Email</strong>.
+          Everything else is optional.
+        </p>
 
-        <h3 className="font-semibold text-gray-800 mt-4">What the School column does per role</h3>
-        <p>The School column behaves differently depending on the person&apos;s role:</p>
-        <div className="space-y-2 mt-2">
+        <p className="mt-3 font-medium text-gray-800">Three ways to use it:</p>
+
+        <div className="space-y-3 mt-2">
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
-            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Teacher</p>
-            <p>Assigns the teacher to that campus as their home school. They will appear in that school&apos;s absence and coverage lists. Required for teachers — use the default school selector if your CSV doesn&apos;t have a School column.</p>
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Simple file — names and emails only</p>
+            <p>Your CSV has just First Name, Last Name, Email. Before uploading, use the <strong>Default role</strong> and <strong>Default school</strong> dropdowns to set what role and school every imported person will receive. Good for importing a single group at a time (e.g. all elementary teachers at once).</p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
-            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Substitute</p>
-            <p>Adds the substitute to that school&apos;s approved roster immediately. They will appear in that school&apos;s call priority list and be eligible for job notifications there. Leave blank if you want to assign schools manually after import.</p>
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">File with role but no school</p>
+            <p>Your CSV includes a Role column but no School column. The role comes from each row; the default school you selected in the dropdown fills in for any teachers or staff. Admins and substitutes don&apos;t need a school.</p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
-            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Admin / Principal / Staff</p>
-            <p>Currently ignored — admins see all campuses in your organization regardless of school assignment.</p>
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Full file — all columns</p>
+            <p>Your CSV includes Role and School columns. Everything is resolved from the file. The default dropdowns only apply to rows where a column is blank. This is the most common approach for a full school import — one file contains all teachers, subs, and admins together.</p>
           </div>
         </div>
 
         <Note>
-          <strong>School column matching is flexible:</strong> Any part of the campus name works — &quot;Elementary&quot; matches &quot;Southlands Christian Elementary School&quot;. Casing doesn&apos;t matter. If a name can&apos;t be matched, that row will show an error in the preview and won&apos;t be imported until you fix it.<br /><br />
-          <strong>Multi-campus substitutes:</strong> A sub can only be assigned to one school per CSV row. To assign the same sub to multiple schools, import them once and then use their detail page (Substitutes → Manage &amp; Review → click their name) to add additional school assignments.
+          <strong>School name matching is flexible.</strong> Partial names work in either direction — &quot;Elementary&quot; matches &quot;Riverside Academy Elementary School&quot;, and &quot;Riverside Elementary&quot; also matches it. Casing doesn&apos;t matter. If a name can&apos;t be matched, that row shows an error after import and is skipped — fix the school name and re-import just that row.<br /><br />
+          <strong>After uploading</strong> you&apos;ll see a preview table showing every parsed row with the resolved role and school. Remove any rows you don&apos;t want before clicking Import.
         </Note>
+
+        <h3 className="font-semibold text-gray-800 mt-4">What the School column does per role</h3>
+        <div className="space-y-2 mt-2">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Teacher</p>
+            <p>Assigns the teacher to that school as their home campus. They appear in that school&apos;s absence and coverage lists.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Substitute</p>
+            <p>Adds the sub to that school&apos;s approved roster immediately — they appear in the call priority list and receive job notifications for that school. Leave blank to assign schools manually afterward.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+            <p className="font-semibold text-gray-800 text-xs uppercase tracking-wide">Admin / Principal / Staff</p>
+            <p>School column is ignored — admins see all schools in your organization.</p>
+          </div>
+        </div>
 
         <h3 className="font-semibold text-gray-800 mt-4">Send invites vs. Silent import</h3>
         <div className="space-y-3">
