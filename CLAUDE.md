@@ -641,7 +641,7 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - ~~Sub dashboard not showing teacher name~~ — DONE: upcoming jobs card shows "Covering for [Teacher Name]"
 
 **Mid-term (before second school):**
-- ~~Admin onboarding wizard~~ — DONE: 3-step wizard (School Info → Campuses → Finish) at `/onboarding`; gate in `(app)` layout redirects unfinished orgs
+- ~~Admin onboarding wizard~~ — DONE: completely redesigned 2026-06-22. Step 2 = campuses (address via CA directory or manual) + schools per campus inline. Step 3 = seat count + billing contact + 3 discount options (A: send bill+file upload, B: Stripe promo code reveal, C: Stripe 3-month trial). Post-onboarding dashboard checklist Steps 4-6 (fuchsia box).
 - ~~Marketing/signup self-registration~~ — DONE: `/auth/signup` with 120-day free trial provisioning; `provisionSelfSignupOrg()` in `src/lib/self-signup.ts`
 - ~~Billing enforcement~~ — DONE: `getBillingState()` in `src/lib/billing.ts`; expired orgs → `/billing`; amber `BillingBanner` for trial_ending/past_due
 - ~~Platform staff dashboard~~ — DONE: `/platform` (dark theme, isPlatformAdmin gate); org table; `/platform/[orgId]` with check payment form, billing timeline, user management (reset password, clear stuck auth)
@@ -658,11 +658,19 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - ~~More pages using `getEffectiveOrgId()`~~ — DONE: all `(app)` auth helpers updated; platform admins see target school's data on every page when impersonating
 - ~~Cron parallel execution~~ — DONE: orgs processed in parallel (`Promise.allSettled`), subs notified in parallel within each org, `maxDuration = 300` on all cron routes; scales to 40+ schools without timeout risk
 - ~~Stripe payments~~ — DONE: live mode, $8/seat/month (configurable in platform settings), 90-day trial, coupon support, webhooks, customer portal
-- ~~District/campus/school hierarchy~~ — DONE: `campuses` table (migration 0022), `district` role, `/district` portal, onboarding redesigned (campus address → schools per campus inline)
-- Campus-based admin scoping: admins currently see full org; future work to filter by campus when needed
-- District-level reports: `/district` page is a stub; full reporting across schools deferred until a district customer needs it
-- Sub rating UI: DB columns exist (`subFeedbackRating`, `subFeedbackNotes` on `sub_assignments`), no UI yet
-- Sub post-assignment report/notes to teacher: no DB table or UI yet
+- ~~District/campus/school hierarchy~~ — DONE: `campuses` table (migration 0022), `district` role, `/district` portal, `/admin/campuses` page, onboarding Step 2 redesigned (campus address → schools per campus inline). Schools show campus address read-only. `schools.timesConfigured` (migration 0025) requires explicit time entry — no defaults for new schools.
+- ~~CSV import error detection~~ — DONE 2026-06-22: school mismatch (orange), duplicates (blue), bad emails (red), invalid roles (rejected before DB), missing columns — all with specific grouped callout boxes
+- ~~Notices page~~ — DONE: `/notices` shows bounced emails, subs without school, notifications paused, setup checklist
+- ~~Billing page: post-coupon pricing~~ — DONE: fetches Stripe subscription discounts, shows strikethrough + green badge
+- ~~Logo~~ — DONE: `https://substitutes.us/subhub-logo.png` on login/signup/confirmation email
+- ~~Resend webhook~~ — DONE: `/api/resend/webhook` flags `users.emailBounced`, emails IT staff
+- ~~Kill switch email~~ — DONE: fires when `cronEnabled` set to false
+- ~~Platform email reference~~ — DONE: `/platform/emails` lists every automated email
+- Campus-based admin scoping: deferred — all admins see full org
+- District-level reports: `/district` is stub only; deferred until real district customer
+- Seat management 48h window: planned — see [[subhub-next-build]]
+- Sub rating UI: DB columns exist, no UI yet
+- Sub post-assignment report: no DB table or UI yet
 
 **Deferred:**
 - Sub job-board: subs browse open positions and apply
