@@ -2,8 +2,60 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { stripe } from '@/lib/stripe'
 import { db } from '@/db'
-import { organizations, billingEvents } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { organizations, billingEvents, users, platformSettings } from '@/db/schema'
+import { eq, inArray } from 'drizzle-orm'
+import { Resend } from 'resend'
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+
+async function sendSubscriptionActivatedEmail(orgId: string, seats: number, paidThrough: string | null) {
+  if (!resend) return
+  const [org, settings, admins] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(organizations.id, orgId) }),
+    db.query.platformSettings.findFirst(),
+    db.select({ email: users.email })
+      .from(users)
+      .where(eq(users.organizationId, orgId)),
+  ])
+  if (!org) return
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+  const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
+  const monthlyTotal = (seats * pricePerSeat).toFixed(2)
+
+  const recipients = [...new Set([
+    ...admins.map(a => a.email).filter(Boolean),
+    org.billingContactEmail,
+  ].filter(Boolean) as string[])]
+
+  const subject = `Your SubHub subscription is active — ${org.name}`
+  const html = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <div style="background:#2563eb;padding:20px 24px;">
+        <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
+        <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
+      </div>
+      <div style="padding:24px;">
+        <h2 style="margin-top:0;color:#111;">Subscription Activated</h2>
+        <p style="color:#374151;">Your SubHub subscription for <strong>${org.name}</strong> is now active.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;width:160px;">Seats</td><td style="padding:8px 0;font-size:14px;">${seats}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Monthly charge</td><td style="padding:8px 0;font-size:14px;">$${monthlyTotal}/month</td></tr>
+          ${paidThrough ? `<tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">First billing date</td><td style="padding:8px 0;font-size:14px;">${paidThrough}</td></tr>` : ''}
+        </table>
+        <div style="margin:24px 0;">
+          <a href="${appUrl}/billing" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">View Billing</a>
+        </div>
+        <p style="color:#6b7280;font-size:12px;">To manage your subscription, update payment methods, or view invoices, visit your billing page.</p>
+      </div>
+    </div>`
+  const text = `Your SubHub subscription for ${org.name} is now active.\n\nSeats: ${seats}\nMonthly charge: $${monthlyTotal}/month${paidThrough ? `\nFirst billing date: ${paidThrough}` : ''}\n\nManage billing: ${appUrl}/billing`
+
+  for (const to of recipients) {
+    await resend.emails.send({ from: 'SubHub <no-reply@substitutes.us>', to, subject, html, text })
+      .catch(() => {})
+  }
+}
 
 // Next.js App Router gives us the raw body via req.text() — no bodyParser config needed
 export async function POST(req: NextRequest) {
@@ -62,6 +114,8 @@ export async function POST(req: NextRequest) {
           : `Stripe subscription started${paidThrough ? `. Billed through ${paidThrough}` : ''}.`,
         createdBy: null,
       })
+
+      await sendSubscriptionActivatedEmail(orgId, sub.items.data[0]?.quantity ?? 0, paidThrough)
       break
     }
 

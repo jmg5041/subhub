@@ -279,11 +279,77 @@ export async function saveBillingPreference(method: 'check') {
     .where(eq(organizations.id, orgId))
 }
 
-// Stamps onboarding complete and sends the user to /dashboard.
+// Stamps onboarding complete, sends confirmation email, and sends the user to /dashboard.
 export async function completeOnboarding() {
   const { orgId } = await getOnboardingContext()
   await db.update(organizations)
     .set({ onboardingCompletedAt: new Date(), updatedAt: new Date() })
     .where(eq(organizations.id, orgId))
+
+  // Send confirmation email to all admins + billing contact
+  if (resend) {
+    const [org, settings, admins, orgSchools] = await Promise.all([
+      db.query.organizations.findFirst({ where: eq(organizations.id, orgId) }),
+      db.query.platformSettings.findFirst(),
+      db.select({ email: users.email, firstName: users.firstName })
+        .from(users)
+        .where(eq(users.organizationId, orgId)),
+      db.select({ name: schools.name }).from(schools).where(eq(schools.organizationId, orgId)),
+    ])
+
+    if (org) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+      const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
+      const seats = org.seatCount ?? 0
+      const monthlyTotal = (seats * pricePerSeat).toFixed(2)
+      const schoolList = orgSchools.map(s => s.name).join(', ')
+
+      const recipients = [...new Set([
+        ...admins.map(a => a.email).filter(Boolean),
+        org.billingContactEmail,
+      ].filter(Boolean) as string[])]
+
+      const subject = `SubHub is ready for ${org.name}`
+      const html = `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+          <div style="background:#2563eb;padding:20px 24px;">
+            <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
+            <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
+          </div>
+          <div style="padding:24px;">
+            <h2 style="margin-top:0;color:#111;">You're all set up!</h2>
+            <p style="color:#374151;">Setup for <strong>${org.name}</strong> is complete. Here's a summary of your account:</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;width:140px;">Schools</td><td style="padding:8px 0;font-size:14px;">${schoolList}</td></tr>
+              <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Seats</td><td style="padding:8px 0;font-size:14px;">${seats} teacher seats</td></tr>
+              <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Monthly rate</td><td style="padding:8px 0;font-size:14px;">$${monthlyTotal}/month</td></tr>
+            </table>
+            <h3 style="color:#111;margin-top:24px;">What happens next</h3>
+            <ul style="color:#374151;padding-left:20px;line-height:1.8;">
+              <li>Substitutes will be notified at <strong>9pm</strong> the night before any approved absence</li>
+              <li>A morning re-blast goes out at <strong>6am</strong> for any still-unfilled positions</li>
+              <li>You'll be alerted at 6:30am if a position is still open</li>
+            </ul>
+            <h3 style="color:#111;margin-top:24px;">Before your first absence</h3>
+            <ul style="color:#374151;padding-left:20px;line-height:1.8;">
+              <li>Make sure each school has its start and end times configured</li>
+              <li>Import your teachers and substitutes if you haven't already</li>
+              <li>Substitutes will receive a welcome email when imported</li>
+            </ul>
+            <div style="margin:28px 0;">
+              <a href="${appUrl}/dashboard" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">Go to Dashboard</a>
+            </div>
+            <p style="color:#6b7280;font-size:12px;">Questions? Reply to this email or visit <a href="https://substitutes.us" style="color:#2563eb;">substitutes.us</a>.</p>
+          </div>
+        </div>`
+      const text = `You're all set up!\n\n${org.name} is ready on SubHub.\n\nSchools: ${schoolList}\nSeats: ${seats}\nMonthly rate: $${monthlyTotal}/month\n\nSubs will be notified at 9pm the night before any approved absence, with a 6am re-blast for unfilled positions.\n\nDashboard: ${appUrl}/dashboard`
+
+      for (const to of recipients) {
+        await resend.emails.send({ from: 'SubHub <no-reply@substitutes.us>', to, subject, html, text })
+          .catch(() => {})
+      }
+    }
+  }
+
   redirect('/dashboard')
 }

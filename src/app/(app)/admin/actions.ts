@@ -591,6 +591,11 @@ export async function bulkInviteUsers(
   const supabaseAdmin = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
+  // Pre-fetch school names for welcome emails
+  const orgSchools = await db.select({ id: schools.id, name: schools.name })
+    .from(schools).where(eq(schools.organizationId, orgId))
+  const schoolNameById = new Map(orgSchools.map(s => [s.id, s.name]))
+
   let sent = 0
   const errors: string[] = []
 
@@ -647,6 +652,38 @@ export async function bulkInviteUsers(
               status: 'active',
             })
           }
+
+          // Welcome email for silently imported subs — they have no idea they have an account
+          const { sendSubEmail } = await import('@/lib/notifications')
+          const schoolName = schoolId ? (schoolNameById.get(schoolId) ?? 'your school') : 'your school'
+          await sendSubEmail({
+            to: row.email,
+            subject: `You've been added as a substitute at ${schoolName}`,
+            html: `
+              <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+                <div style="background:#2563eb;padding:20px 24px;">
+                  <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
+                  <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
+                </div>
+                <div style="padding:24px;">
+                  <h2 style="margin-top:0;color:#111;">Hi ${row.firstName}, you're in the sub pool!</h2>
+                  <p style="color:#374151;">You've been added as a substitute at <strong>${schoolName}</strong> on SubHub — the system ${schoolName} uses to find and notify substitutes when a teacher is out.</p>
+                  <p style="color:#374151;">When a position opens up that you're eligible for, you'll receive an email, text, or phone call with the details and a one-click Accept link.</p>
+                  <h3 style="color:#111;margin-top:24px;">Getting started</h3>
+                  <ol style="color:#374151;padding-left:20px;line-height:1.8;">
+                    <li>Visit <a href="${appUrl}" style="color:#2563eb;">${appUrl}</a></li>
+                    <li>Click <strong>Forgot Password</strong> and enter this email address</li>
+                    <li>Set your password and log in</li>
+                    <li>Update your profile and mark any dates you're unavailable</li>
+                  </ol>
+                  <div style="margin:28px 0;">
+                    <a href="${appUrl}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">Go to SubHub</a>
+                  </div>
+                  <p style="color:#6b7280;font-size:13px;">Questions? Contact your school administrator.</p>
+                </div>
+              </div>`,
+            text: `Hi ${row.firstName},\n\nYou've been added as a substitute at ${schoolName} on SubHub.\n\nTo get started:\n1. Visit ${appUrl}\n2. Click "Forgot Password" and enter this email address\n3. Set your password and log in\n4. Update your profile and mark dates you're unavailable\n\nWhen a position opens that you're eligible for, you'll receive a notification with a one-click Accept link.\n\nQuestions? Contact your school administrator.`,
+          }).catch(() => {}) // don't let email failure block the import
         }
       }
 
