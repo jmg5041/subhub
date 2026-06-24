@@ -52,10 +52,9 @@ export async function acceptSubJob(token: string) {
     },
   })
 
-  if (!tokenRow) throw new Error('Token not found')
-  if (tokenRow.usedAt) throw new Error('Token already used')
-  if (new Date() > tokenRow.expiresAt) throw new Error('Token expired')
-  if (tokenRow.teacherTimeOff.subOutreachStatus === 'filled') {
+  if (!tokenRow) redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
+  if (new Date() > tokenRow.expiresAt) redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
+  if (tokenRow.usedAt || tokenRow.teacherTimeOff.subOutreachStatus === 'filled') {
     redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
   }
 
@@ -64,7 +63,7 @@ export async function acceptSubJob(token: string) {
   const TZ = org?.timezone ?? 'America/Los_Angeles'
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   if (tokenRow.teacherTimeOff.startDate < todayStr) {
-    throw new Error('This position is in the past')
+    redirect(`/sub/jobs/${token}/confirmed?already_filled=1`)
   }
 
   const absence = tokenRow.teacherTimeOff

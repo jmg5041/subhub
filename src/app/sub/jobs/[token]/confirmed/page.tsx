@@ -48,8 +48,8 @@ export default async function ConfirmedPage({
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="text-4xl mb-4">⚡</div>
-          <div className="text-xl font-semibold text-gray-900 mb-2">Position Already Filled</div>
-          <p className="text-sm text-gray-500">Someone else accepted just before you. Thank you for your quick response!</p>
+          <div className="text-xl font-semibold text-gray-900 mb-2">Position No Longer Available</div>
+          <p className="text-sm text-gray-500">This position has already been filled or this link is no longer active. No action is needed from you.</p>
         </div>
       </div>
     )
