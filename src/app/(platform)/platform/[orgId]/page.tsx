@@ -2,7 +2,7 @@ import { db } from '@/db'
 import { organizations, schools, users, billingEvents, invitations } from '@/db/schema'
 import { eq, desc, and, isNull, gt, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
-import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization, updateOrgIdentity } from '../actions'
+import { getPlatformContext, recordCheckPayment, addBillingNote, setCronEnabled, deleteOrganization, updateOrgIdentity, clearPlanNotes } from '../actions'
 import { setImpersonation } from '@/lib/impersonation-actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
@@ -83,6 +83,8 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
   }
 
   const now = new Date()
+
+  const settings = await db.query.platformSettings.findFirst()
 
   const [orgSchools, orgUsers, events, pendingInvites] = await Promise.all([
     db.query.schools.findMany({ where: eq(schools.organizationId, org.id) }),
@@ -170,6 +172,50 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
         )}
       </div>
 
+      {/* Discount request action card */}
+      {org.planNotes?.startsWith('PROMO:') && (() => {
+        const promoCode = org.planNotes.replace('PROMO:', '')
+        const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
+        const seats = org.seatCount ?? 0
+        const fullMonthly = seats * pricePerSeat
+        const discountedMonthly = fullMonthly * 0.75
+        return (
+          <div className="rounded-lg border border-yellow-600 bg-yellow-950 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-yellow-300 uppercase tracking-wider">⚡ Action Required — 25% Discount Request</p>
+              <form action={clearPlanNotes}>
+                <input type="hidden" name="orgId" value={org.id} />
+                <button type="submit" className="text-xs text-yellow-600 hover:text-yellow-400 underline">Mark as handled</button>
+              </form>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-1">
+                <p className="text-yellow-500 text-xs uppercase tracking-wide">Promo code to send</p>
+                <p className="font-mono text-white text-base font-bold">{promoCode}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-yellow-500 text-xs uppercase tracking-wide">Send to</p>
+                <p className="text-white">{org.billingContactEmail ?? org.billingContactName ?? '—'}</p>
+                {org.billingContactName && org.billingContactEmail && (
+                  <p className="text-yellow-700 text-xs">{org.billingContactName}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-yellow-500 text-xs uppercase tracking-wide">Seats × rate</p>
+                <p className="text-white">{seats} seats × ${pricePerSeat}/mo = <span className="line-through text-yellow-700">${fullMonthly.toFixed(2)}</span></p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-yellow-500 text-xs uppercase tracking-wide">After 25% off</p>
+                <p className="text-green-400 font-semibold">${discountedMonthly.toFixed(2)}/month</p>
+              </div>
+            </div>
+            <p className="text-xs text-yellow-700">
+              Apply this code in Stripe → Customers → find by email → add promotion code. Or email the code directly to the billing contact so they enter it at checkout.
+            </p>
+          </div>
+        )
+      })()}
+
       <div className="grid grid-cols-2 gap-6">
         {/* Left: org info */}
         <div className="space-y-4">
@@ -179,7 +225,10 @@ export default async function PlatformOrgPage({ params }: { params: Promise<{ or
             <div className="text-sm text-gray-400 space-y-0.5">
               <p>Method: {org.paymentMethod ?? 'stripe'}</p>
               <p>Paid through: {org.paidThrough ?? '—'}</p>
-              {org.planNotes && <p>Notes: {org.planNotes}</p>}
+              <p>Seats: {org.seatCount ?? '—'}</p>
+              {org.billingContactName && <p>Billing contact: {org.billingContactName}</p>}
+              {org.billingContactEmail && <p>Billing email: {org.billingContactEmail}</p>}
+              {org.planNotes && !org.planNotes.startsWith('PROMO:') && <p>Notes: {org.planNotes}</p>}
             </div>
           </div>
 

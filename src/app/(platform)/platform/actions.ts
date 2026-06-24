@@ -354,3 +354,13 @@ export async function addBillingNote(formData: FormData) {
   revalidatePath(`/platform/${orgId}`)
   redirect(`/platform/${orgId}`)
 }
+
+export async function clearPlanNotes(formData: FormData) {
+  await getPlatformContext()
+  const orgId = formData.get('orgId') as string
+  await db.update(organizations)
+    .set({ planNotes: null, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId))
+  revalidatePath(`/platform/${orgId}`)
+  redirect(`/platform/${orgId}`)
+}
