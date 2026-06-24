@@ -7,6 +7,7 @@ import { users, schools, campuses, invitations, employees, substitutes, subAssig
 import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getEffectiveOrgId } from '@/lib/impersonation'
+import { emailHeader } from '@/lib/email-utils'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -591,10 +592,13 @@ export async function bulkInviteUsers(
   const supabaseAdmin = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
-  // Pre-fetch school names for welcome emails
-  const orgSchools = await db.select({ id: schools.id, name: schools.name })
-    .from(schools).where(eq(schools.organizationId, orgId))
+  // Pre-fetch school names and logo for welcome emails
+  const [orgSchools, platformSettings] = await Promise.all([
+    db.select({ id: schools.id, name: schools.name }).from(schools).where(eq(schools.organizationId, orgId)),
+    db.query.platformSettings.findFirst(),
+  ])
   const schoolNameById = new Map(orgSchools.map(s => [s.id, s.name]))
+  const logoUrl = platformSettings?.logoUrl
 
   let sent = 0
   const errors: string[] = []
@@ -661,10 +665,7 @@ export async function bulkInviteUsers(
             subject: `You've been added as a substitute at ${schoolName}`,
             html: `
               <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-                <div style="background:#2563eb;padding:20px 24px;">
-                  <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
-                  <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
-                </div>
+                ${emailHeader(logoUrl)}
                 <div style="padding:24px;">
                   <h2 style="margin-top:0;color:#111;">Hi ${row.firstName}, you're in the sub pool!</h2>
                   <p style="color:#374151;">You've been added as a substitute at <strong>${schoolName}</strong> on SubHub — the system ${schoolName} uses to find and notify substitutes when a teacher is out.</p>

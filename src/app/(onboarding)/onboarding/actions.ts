@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Resend } from 'resend'
 import { stripe } from '@/lib/stripe'
+import { emailHeader } from '@/lib/email-utils'
 
 async function getOnboardingContext() {
   const supabase = await createClient()
@@ -312,10 +313,7 @@ export async function completeOnboarding() {
       const subject = `SubHub is ready for ${org.name}`
       const html = `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-          <div style="background:#2563eb;padding:20px 24px;">
-            <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
-            <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
-          </div>
+          ${emailHeader(settings?.logoUrl)}
           <div style="padding:24px;">
             <h2 style="margin-top:0;color:#111;">You're all set up!</h2>
             <p style="color:#374151;">Setup for <strong>${org.name}</strong> is complete. Here's a summary of your account:</p>

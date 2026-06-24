@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { organizations, billingEvents, users, platformSettings } from '@/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { Resend } from 'resend'
+import { emailHeader } from '@/lib/email-utils'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -31,10 +32,7 @@ async function sendSubscriptionActivatedEmail(orgId: string, seats: number, paid
   const subject = `Your SubHub subscription is active — ${org.name}`
   const html = `
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-      <div style="background:#2563eb;padding:20px 24px;">
-        <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
-        <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
-      </div>
+      ${emailHeader(settings?.logoUrl)}
       <div style="padding:24px;">
         <h2 style="margin-top:0;color:#111;">Subscription Activated</h2>
         <p style="color:#374151;">Your SubHub subscription for <strong>${org.name}</strong> is now active.</p>

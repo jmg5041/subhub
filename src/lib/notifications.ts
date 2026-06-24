@@ -35,6 +35,7 @@ import * as schema from '@/db/schema'
 import { eq, asc, and, inArray, isNull, gt } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { Resend } from 'resend'
+import { emailHeader } from './email-utils'
 import { sendSms, makeVoiceCall } from './twilio'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
@@ -172,8 +173,9 @@ type PositionEmailParams = {
 export function buildBundledEmailBody(params: {
   positions: PositionEmailParams[]
   isSpecificallyRequested: boolean
+  logoUrl?: string | null
 }): { subject: string; html: string; text: string } {
-  const { positions, isSpecificallyRequested } = params
+  const { positions, isSpecificallyRequested, logoUrl } = params
   const first = positions[0]
   const dateStr = first.endDate && first.endDate !== first.startDate
     ? `${formatDate(first.startDate)} – ${formatDate(first.endDate)}`
@@ -213,10 +215,7 @@ export function buildBundledEmailBody(params: {
 
   const html = `
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-      <div style="background:#2563eb;padding:20px 24px;">
-        <h1 style="color:white;margin:0;font-size:20px;">SubHub</h1>
-        <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">substitutes.us</p>
-      </div>
+      ${emailHeader(logoUrl)}
       <div style="padding:24px;">
         <h2 style="margin-top:0;color:#111;">${positions.length === 1 ? 'Substitute Request' : `${positions.length} Positions Available`}</h2>
         ${requestedNote}
@@ -314,6 +313,9 @@ export async function notifyAdminsOfAbsenceRequest(params: {
   const { orgId, schoolId, teacherName, schoolName, startDate, endDate, absenceId } = params
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
+  const platformSettings = await db.query.platformSettings.findFirst()
+  const logoUrl = platformSettings?.logoUrl
+
   // All admin/principal/staff users in this org
   const allAdmins = await db
     .select({ email: schema.users.email, firstName: schema.users.firstName, id: schema.users.id })
@@ -350,10 +352,7 @@ export async function notifyAdminsOfAbsenceRequest(params: {
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #111; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-      <div style="background: #2563eb; padding: 20px 24px;">
-        <h1 style="color: white; margin: 0; font-size: 20px;">SubHub</h1>
-        <p style="color: #bfdbfe; margin: 4px 0 0; font-size: 13px;">substitutes.us</p>
-      </div>
+      ${emailHeader(logoUrl)}
       <div style="padding: 24px;">
         <h2 style="color: #111; margin-top: 0;">Absence Request Submitted</h2>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
@@ -485,10 +484,12 @@ export async function notifyAllSubs(
   const orgId = absences[0].organizationId
   const absenceDate = absences[0].startDate  // all absences in a bundle are same-date
 
-  const org = await db.query.organizations.findFirst({
-    where: eq(schema.organizations.id, orgId),
-  })
+  const [org, platformSettings] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(schema.organizations.id, orgId) }),
+    db.query.platformSettings.findFirst(),
+  ])
   if (!org) return { sent: 0, errors: ['Org not found'], positionCount: 0 }
+  const logoUrl = platformSettings?.logoUrl
 
   // Build the sub pool.
   // Default (priorityCallingEnabled = false): all active subs assigned to the school
@@ -650,6 +651,7 @@ export async function notifyAllSubs(
             }
           }),
           isSpecificallyRequested,
+          logoUrl,
         })
         await sendSubEmail({ to: sub.user.email, subject, html, text })
       }
