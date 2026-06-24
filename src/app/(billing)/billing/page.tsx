@@ -2,11 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { users, organizations, employees, platformSettings } from '@/db/schema'
-import { eq, countDistinct } from 'drizzle-orm'
+import { eq, countDistinct, and } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import { getEffectiveOrgId } from '@/lib/impersonation'
 import { stripe } from '@/lib/stripe'
 import Link from 'next/link'
+import { commitSeatUpdateAction } from './actions'
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -27,16 +28,15 @@ export default async function BillingPage() {
   const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
   const hasStripeSubscription = !!org.stripeSubscriptionId
 
-  // Seat count
-  let seats = org.seatCount
-  if (!seats) {
-    const [{ value: teacherCount }] = await db
-      .select({ value: countDistinct(employees.userId) })
-      .from(employees)
-      .innerJoin(users, eq(employees.userId, users.id))
-      .where(eq(users.organizationId, org.id))
-    seats = Math.max(Number(teacherCount), 1)
-  }
+  // Seat count — always count active teachers for comparison
+  const [{ value: activeTeacherCount }] = await db
+    .select({ value: countDistinct(employees.userId) })
+    .from(employees)
+    .innerJoin(users, eq(employees.userId, users.id))
+    .where(and(eq(users.organizationId, org.id), eq(users.status, 'active')))
+  const currentTeacherCount = Math.max(Number(activeTeacherCount), 1)
+
+  let seats = org.seatCount ?? currentTeacherCount
   const monthlyFull = seats * pricePerSeat
 
   // Fetch Stripe subscription to get actual discounted price
@@ -100,6 +100,55 @@ export default async function BillingPage() {
           <p className="text-sm mt-1 opacity-80">Your last payment didn&apos;t go through. Please update your payment method.</p>
         )}
       </div>
+
+      {/* Pending seat count window */}
+      {org.pendingSeatCount !== null && org.pendingSeatUpdateAt && isAdmin && (() => {
+        const pricePerSeat = (settings?.pricePerSeatCents ?? 800) / 100
+        const pending = org.pendingSeatCount!
+        const deadline = new Date(org.pendingSeatUpdateAt)
+        const hoursLeft = Math.max(0, Math.round((deadline.getTime() - Date.now()) / 3_600_000))
+        const newMonthly = (pending * pricePerSeat).toFixed(2)
+        const oldMonthly = (seats * pricePerSeat).toFixed(2)
+        return (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-5 space-y-4">
+            <div>
+              <p className="font-semibold text-amber-900">Seat count update pending</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Your active teacher count ({pending}) no longer matches your current plan ({seats} seats).
+                This will auto-commit in <strong>{hoursLeft} hour{hoursLeft === 1 ? '' : 's'}</strong>.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-amber-600 text-xs uppercase tracking-wide mb-0.5">Current plan</p>
+                <p className="font-medium text-amber-900">{seats} seats · ${oldMonthly}/mo</p>
+              </div>
+              <div>
+                <p className="text-amber-600 text-xs uppercase tracking-wide mb-0.5">Pending update</p>
+                <p className="font-medium text-amber-900">{pending} seats · ${newMonthly}/mo</p>
+              </div>
+            </div>
+            <form action={commitSeatUpdateAction} className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-amber-700 mb-1">Or set a different seat count</label>
+                <input
+                  type="number"
+                  name="seatCount"
+                  min="1"
+                  placeholder={String(pending)}
+                  className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition-colors"
+              >
+                Commit now
+              </button>
+            </form>
+          </div>
+        )
+      })()}
 
       {/* Pricing card */}
       <div className="rounded-lg border border-gray-200 bg-white px-6 py-6">

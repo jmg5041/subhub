@@ -34,6 +34,8 @@ export const organizations = pgTable('organizations', {
   districtName: text('district_name'), // formal district name, may differ from org name
   billingContactName: text('billing_contact_name'), // person who handles billing (admin or bookkeeping)
   billingContactEmail: text('billing_contact_email'), // billing emails CC'd here
+  pendingSeatCount: integer('pending_seat_count'), // proposed new seat count during 48h window
+  pendingSeatUpdateAt: timestamp('pending_seat_update_at', { withTimezone: true }), // 48h deadline
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
