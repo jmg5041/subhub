@@ -275,18 +275,34 @@ simultaneous calls.
 - `src/app/sub/jobs/[token]/page.tsx` — public web page (no login) for email accept/decline
 - `src/app/sub/jobs/[token]/actions.ts` — server actions for web accept/decline
 
+### Sub pool — who gets notified (post 2026-06-23)
+
+**Default (priorityCallingEnabled = false on the school):**
+All subs with an active `sub_school_assignments` row for that school are in the blast.
+No configuration required — hiring a sub into a school automatically puts them in the pool.
+
+**Opt-in priority calling (priorityCallingEnabled = true):**
+Admin enables per-school via Substitutes → Manage & Review → Call Priority Order tab.
+When on, `sub_priority_orders` is used for the pool AND sets the ranking order for the IVR
+phone menu ("Press 1 for..."). If the priority list is empty despite the toggle being on,
+falls back to the open pool (all assigned subs) — never returns 0.
+
+**Auto-cleanup:** Removing a sub from a school deletes their `sub_priority_orders` rows for
+that school. Deactivating a sub clears all their priority order rows org-wide.
+
 ### How `notifyAllSubs(ids[])` works
 Called with an array of `teacherTimeOff` IDs (all for the same date):
 1. Loads each absence with school + teacher info
-2. For each school, fetches that school's active sub pool (`sub_school_assignments`)
-3. Inverts the map: for each unique sub, what positions are they eligible for?
-4. Sorts subs by their best priority rank across all schools
-5. Filters out: subs marked unavailable that day, subs already booked, skipped subs
-6. For each eligible sub → generates one UUID token per position (stored in `sub_notification_tokens`, 48h expiry)
-7. Sends ONE bundled email listing all their positions with individual Accept/Decline links
-8. Sends ONE SMS (single position: direct links; multiple: numbered list + dashboard link)
-9. Makes ONE voice call (IVR route handles multi-position selection by phone)
-10. Marks all absences as `subOutreachStatus = 'sent'`
+2. For each school, checks `priorityCallingEnabled` to determine the pool source
+3. Builds per-absence sub pools (priority order or open pool per school)
+4. Inverts the map: for each unique sub, what positions are they eligible for?
+5. Sorts subs by best priority rank (open-pool subs get rank = Infinity, sorted last)
+6. Filters out: subs marked unavailable that day, subs already booked, skipped subs
+7. For each eligible sub → generates one UUID token per position (reuses existing active token if one exists — prevents duplicates when notify is clicked multiple times)
+8. Sends ONE bundled email listing all their positions with individual Accept/Decline links
+9. Sends ONE SMS (single position: direct links; multiple: numbered list + dashboard link)
+10. Makes ONE voice call (IVR route handles multi-position selection by phone)
+11. Marks all absences as `subOutreachStatus = 'sent'`
 
 ### Token system
 Each `sub_notification_token` row represents one sub's claim on one absence. Fields:
@@ -297,6 +313,11 @@ Each `sub_notification_token` row represents one sub's claim on one absence. Fie
 - `usedAt` — set when accepted or declined
 - `action` — `'accepted'` or `'declined'`
 
+**Deduplication:** `generateNotificationToken` checks for an existing active (unexpired,
+unused) token for the same (substituteId, teacherTimeOffId) pair before inserting. Clicking
+"Notify Subs Immediately" multiple times will NOT create duplicate tokens — the existing
+token is reused and the sub gets re-notified with the same accept/decline links.
+
 **Race condition protection:** The accept update uses `WHERE usedAt IS NULL` atomically,
 so two simultaneous accepts (e.g. phone + web button at the same time) cannot both succeed.
 The second one gets redirected to the "already filled" page.
@@ -305,7 +326,12 @@ The second one gets redirected to the "already filled" page.
 are immediately marked as declined. This prevents a sub from being double-booked.
 
 **Past-date guard:** The sub dashboard filters out tokens for dates before today. The
-server action also rejects acceptance of past-date positions as a second line of defense.
+server action redirects (not throws) for past-date positions, already-used tokens, and
+expired tokens — all land on the "Position No Longer Available" page gracefully.
+
+**Admin cache invalidation:** When a sub accepts via web link or IVR, `revalidatePath` is
+called for `/absences/find-sub` and `/dashboard` so the admin sees the filled status
+immediately without a manual refresh.
 
 ### Blast scheduling — Dispatcher + QStash architecture
 
@@ -639,6 +665,10 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - ~~IVR gather route silent on acceptance~~ — DONE: `twiml()` helper was missing `<Say>` tags; Twilio silently ignored plain text in `<Response>`
 - ~~Filled absences staying on admin dashboard all day~~ — DONE: dashboard now hides filled absences once their end time has passed (real-time, no cron dependency)
 - ~~Sub dashboard not showing teacher name~~ — DONE: upcoming jobs card shows "Covering for [Teacher Name]"
+- ~~Blast notifying 0 subs on new school~~ — DONE 2026-06-23: blast now uses `sub_school_assignments` as default pool; no priority order setup required
+- ~~Duplicate tokens from multiple notify clicks~~ — DONE 2026-06-23: `generateNotificationToken` reuses existing active tokens; IVR deduplicates by absenceId
+- ~~Find Sub page showing stale data after accept~~ — DONE 2026-06-23: `revalidatePath` added to both web and IVR accept paths
+- ~~Server error when clicking already-filled accept link~~ — DONE 2026-06-23: all throws in `acceptSubJob` converted to redirects; lands on "Position No Longer Available" page
 
 **Mid-term (before second school):**
 - ~~Admin onboarding wizard~~ — DONE: completely redesigned 2026-06-22. Step 2 = campuses (address via CA directory or manual) + schools per campus inline. Step 3 = seat count + billing contact + 3 discount options (A: send bill+file upload, B: Stripe promo code reveal, C: Stripe 3-month trial). Post-onboarding dashboard checklist Steps 4-6 (fuchsia box).
