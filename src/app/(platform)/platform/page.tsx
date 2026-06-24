@@ -85,7 +85,7 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-6">
-      {/* IT Staff strip — shows logged-in user, online count, and manage link */}
+      {/* IT Staff strip — shows logged-in user and online count */}
       {platformOrg && (
         <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 px-5 py-3 flex items-center justify-between gap-4">
           <div>
@@ -102,16 +102,21 @@ export default async function PlatformPage() {
               IT Staff Online: {onlineCount}
             </p>
           )}
-          <Link href={`/platform/${platformOrg.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs flex-shrink-0">
-            Manage IT Staff →
-          </Link>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-2">
-        <div />
-        <Link href="/platform/emails" className="text-xs text-indigo-400 hover:text-indigo-200">
-          Email reference →
+      {/* Platform nav */}
+      <div className="flex items-center gap-6 text-sm border-b border-gray-800 pb-3">
+        {platformOrg && (
+          <Link href={`/platform/${platformOrg.id}`} className="text-indigo-400 hover:text-indigo-200">
+            IT Staff
+          </Link>
+        )}
+        <Link href="/platform/emails" className="text-indigo-400 hover:text-indigo-200">
+          Email Reference
+        </Link>
+        <Link href="/platform/onboarding" className="text-indigo-400 hover:text-indigo-200">
+          Onboarding Guide
         </Link>
       </div>
 
