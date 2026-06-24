@@ -669,6 +669,14 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - ~~Duplicate tokens from multiple notify clicks~~ — DONE 2026-06-23: `generateNotificationToken` reuses existing active tokens; IVR deduplicates by absenceId
 - ~~Find Sub page showing stale data after accept~~ — DONE 2026-06-23: `revalidatePath` added to both web and IVR accept paths
 - ~~Server error when clicking already-filled accept link~~ — DONE 2026-06-23: all throws in `acceptSubJob` converted to redirects; lands on "Position No Longer Available" page
+- ~~Sub welcome email (silent import)~~ — DONE 2026-06-23: fires in `bulkInviteUsers` when `sendInvites=false` and role=substitute; tells sub to use Forgot Password
+- ~~Onboarding confirmation email~~ — DONE 2026-06-23: fires in `completeOnboarding()`; sent to all admins + billing contact; summarizes schools, seats, rate, next steps
+- ~~Subscription activated email~~ — DONE 2026-06-23: fires in Stripe webhook `checkout.session.completed`; confirms seats, monthly charge, first billing date
+- ~~Logo missing from emails~~ — DONE 2026-06-23: `src/lib/email-utils.ts` `emailHeader()` helper; all emails now use `platform_settings.logoUrl` with text fallback
+- ~~Platform discount request card~~ — DONE 2026-06-23: yellow action card on platform org page when `planNotes` starts with `PROMO:`; shows code, billing contact, discounted rate; "Mark as handled" clears it
+- ~~Platform nav + Onboarding Guide~~ — DONE 2026-06-23: clean nav row (IT Staff · Email Reference · Onboarding Guide); `/platform/onboarding` documents full signup-to-live flow
+- ~~Evening blast time~~ — DONE 2026-06-23: changed from 10pm to 9pm local time
+- ~~Promo code silent failure~~ — DONE 2026-06-23: retries with -2/-3 suffix if code already exists in Stripe; errors logged instead of swallowed
 
 **Mid-term (before second school):**
 - ~~Admin onboarding wizard~~ — DONE: completely redesigned 2026-06-22. Step 2 = campuses (address via CA directory or manual) + schools per campus inline. Step 3 = seat count + billing contact + 3 discount options (A: send bill+file upload, B: Stripe promo code reveal, C: Stripe 3-month trial). Post-onboarding dashboard checklist Steps 4-6 (fuchsia box).
