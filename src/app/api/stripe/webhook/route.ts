@@ -55,6 +55,48 @@ async function sendSubscriptionActivatedEmail(orgId: string, seats: number, paid
   }
 }
 
+async function sendPaymentReceivedEmail(orgId: string, amountCents: number, paidThrough: string | null) {
+  if (!resend) return
+  const [org, settings, admins] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(organizations.id, orgId) }),
+    db.query.platformSettings.findFirst(),
+    db.select({ email: users.email }).from(users).where(eq(users.organizationId, orgId)),
+  ])
+  if (!org) return
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+  const amountDollars = (amountCents / 100).toFixed(2)
+  const nextDate = paidThrough
+    ? new Date(paidThrough + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+
+  const recipients = [...new Set([
+    ...admins.map(a => a.email).filter(Boolean),
+    org.billingContactEmail,
+  ].filter(Boolean) as string[])]
+
+  const subject = `Payment received — SubHub ${org.name}`
+  const html = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      ${emailHeader(settings?.logoUrl)}
+      <div style="padding:24px;">
+        <h2 style="margin-top:0;color:#111;">Payment Received</h2>
+        <p style="color:#374151;">Thank you — your SubHub payment for <strong>${org.name}</strong> has been received.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;width:160px;">Amount</td><td style="padding:8px 0;font-size:14px;font-weight:600;">$${amountDollars}</td></tr>
+          ${nextDate ? `<tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Next charge</td><td style="padding:8px 0;font-size:14px;">${nextDate}</td></tr>` : ''}
+        </table>
+        <a href="${appUrl}/billing" style="display:inline-block;background:#2563eb;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">View Billing</a>
+      </div>
+    </div>`
+  const text = `Payment received for ${org.name}: $${amountDollars}.${nextDate ? ` Next charge: ${nextDate}.` : ''}\n\nView billing: ${appUrl}/billing`
+
+  for (const to of recipients) {
+    await resend.emails.send({ from: 'SubHub <no-reply@substitutes.us>', to, subject, html, text })
+      .catch(() => {})
+  }
+}
+
 // Next.js App Router gives us the raw body via req.text() — no bodyParser config needed
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -152,6 +194,8 @@ export async function POST(req: NextRequest) {
         note: `Stripe renewal payment${paidThrough ? `. Billed through ${paidThrough}` : ''}.`,
         createdBy: null,
       })
+
+      await sendPaymentReceivedEmail(org.id, invoice.amount_paid, paidThrough)
       break
     }
 

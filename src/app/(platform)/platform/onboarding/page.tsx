@@ -78,7 +78,7 @@ export default async function OnboardingGuidePage() {
         <h2 className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Phase 4 — Live Operation</h2>
         <div className="rounded-lg border border-gray-700 bg-gray-900 divide-y divide-gray-800">
           <Step n="A" title="cronEnabled must be true for blasts to fire" detail="Set automatically when a school completes Stripe checkout (Option C). For check/invoice payers (Options A/B), IT staff must manually toggle it ON from the platform org page once payment is arranged." />
-          <Step n="B" title="Evening blast — 9:00 PM local" detail="Dispatcher finds tomorrow's approved unfilled absences. Notifies all assigned subs simultaneously via email + SMS + phone call." />
+          <Step n="B" title="Evening blast — 9:00 PM local" detail="Dispatcher finds tomorrow's approved unfilled absences. Notifies all assigned subs simultaneously via email + SMS + phone call. Each school fires at 9pm in its own timezone." />
           <Step n="C" title="Morning blast — 6:00 AM local" detail="Re-notifies subs for any still-unfilled positions from the evening blast or newly submitted that morning." />
           <Step n="D" title="Reblast — 6:20 AM local" detail="Sends a second round to any subs who haven't explicitly declined." />
           <Step n="E" title="Unfilled alert — 6:30 AM local" detail="Emails the admin if any positions are still unfilled. Admin can assign a sub manually." />
@@ -86,16 +86,45 @@ export default async function OnboardingGuidePage() {
         </div>
       </section>
 
+      {/* Phase 5: Ongoing billing */}
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Phase 5 — Ongoing Billing</h2>
+        <div className="rounded-lg border border-gray-700 bg-gray-900 divide-y divide-gray-800">
+          <Step n="G" title="Monthly Stripe renewal" detail="Stripe charges the card on file each month. invoice.paid webhook fires → paidThrough updated → payment received email sent to admin + billing contact." />
+          <Step n="H" title="Daily seat check — 7am UTC (midnight PST)" detail={
+            <>
+              Once per day, the system compares active teacher count to purchased seatCount for every org.
+              If they diverge:
+              <ul className="mt-2 space-y-1 list-disc list-inside text-gray-400 text-xs">
+                <li>Email sent to admin + billing contact with old vs new count and 48h deadline</li>
+                <li>Billing page shows amber &apos;Seat count update pending&apos; card</li>
+                <li>Admin can click Commit Now (or set a custom count) at any time</li>
+                <li>After 48 hours with no action: auto-commits, updates Stripe quantity, sends confirmation email</li>
+              </ul>
+              Admin can add/remove teachers freely all day — only one email fires capturing the net change.
+            </>
+          } />
+          <Step n="I" title="Trial reminders" detail="14-day and 3-day emails fire automatically from the daily billing-alerts cron. Expired trial locks access and disables notifications until payment is received." />
+        </div>
+      </section>
+
       {/* Emails triggered */}
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Emails Triggered During Onboarding</h2>
+        <h2 className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">All Automated Emails — Quick Reference</h2>
+        <p className="text-gray-500 text-xs">All emails use the logo from platform_settings.logoUrl and pull school name, admin name, seat count, and pricing from live DB data. See <Link href="/platform/emails" className="text-indigo-400 hover:text-indigo-200">Email Reference</Link> for full details.</p>
         <div className="rounded-lg border border-gray-700 bg-gray-900 divide-y divide-gray-800 text-sm">
           <EmailRow trigger="Signup" recipient="IT staff" subject="New signup alert" />
-          <EmailRow trigger="Option A or B chosen" recipient="IT staff" subject="Discount Request (Option A/B)" detail="Option A includes uploaded bill as attachment." />
+          <EmailRow trigger="Option A or B chosen" recipient="IT staff" subject="Discount Request (Option A/B)" detail="Platform org page shows yellow action card with promo code." />
           <EmailRow trigger="Wizard complete" recipient="All admins + billing contact" subject="SubHub is ready for [School]" />
           <EmailRow trigger="Stripe checkout complete" recipient="All admins + billing contact" subject="Your SubHub subscription is active" />
           <EmailRow trigger="Silent sub import" recipient="Each sub imported" subject="You've been added as a substitute at [School]" />
           <EmailRow trigger="Invite sub import" recipient="Each sub imported" subject="(Supabase invite email)" detail="Standard Supabase invite — admin can resend from Manage Users." />
+          <EmailRow trigger="Monthly Stripe renewal" recipient="All admins + billing contact" subject="Payment received — SubHub [School]" />
+          <EmailRow trigger="Teacher count diverges from seats" recipient="All admins + billing contact" subject="Seat count update — action needed" detail="Once daily at 7am UTC max. 48h window to commit." />
+          <EmailRow trigger="Seat count committed" recipient="All admins + billing contact" subject="SubHub plan updated — X seats" />
+          <EmailRow trigger="Trial ending (14d / 3d)" recipient="Org admin" subject="Trial ending reminder" />
+          <EmailRow trigger="Evening/morning blast" recipient="Assigned subs" subject="Sub request — [School] on [Date]" detail="Email + SMS + phone call per org notification settings." />
+          <EmailRow trigger="Sub accepts position" recipient="The accepting sub" subject="Confirmed: Sub position at [School]" />
         </div>
       </section>
 
