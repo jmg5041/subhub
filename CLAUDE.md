@@ -706,7 +706,7 @@ Platform admins invite new IT staff from `/platform/[subhub-platform-org-id]`:
 - ~~Platform email reference~~ — DONE: `/platform/emails` lists every automated email
 - Campus-based admin scoping: deferred — all admins see full org
 - District-level reports: `/district` is stub only; deferred until real district customer
-- Seat management 48h window: planned — see [[subhub-next-build]]
+- ~~Seat management 48h window~~ — DONE 2026-06-23: daily cron at 7am UTC (midnight PST) checks all active orgs for teacher count vs seatCount divergence. One email per day max capturing net change. 48h window to commit; auto-commits if no action. Billing page shows amber pending card with Commit Now + optional seat override. Stripe quantity updated on commit (proration_behavior: none). Migration 0027: pending_seat_count, pending_seat_update_at.
 - Sub rating UI: DB columns exist, no UI yet
 - Sub post-assignment report: no DB table or UI yet
 
