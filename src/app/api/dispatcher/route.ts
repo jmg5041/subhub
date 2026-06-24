@@ -23,7 +23,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
 
 // Each entry: [localHour, localMinute, blastType, endpoint]
 const BLAST_WINDOWS = [
-  [22, 0,  'evening',        '/api/blast/evening'],
+  [21, 0,  'evening',        '/api/blast/evening'],
   [6,  0,  'morning',        '/api/blast/morning'],
   [6,  20, 'reblast',        '/api/blast/reblast'],
   [6,  30, 'unfilled-alert', '/api/blast/unfilled-alert'],
