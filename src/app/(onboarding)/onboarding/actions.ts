@@ -192,23 +192,33 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
   // ── Option B: generate a real Stripe promo code ────────────────────────────
   let generatedCode: string | null = null
   if (option === 'discount25') {
-    try {
-      const slug = (org?.slug ?? 'school').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
-      const code = `SAVE25-${slug}`
-      const coupon = await stripe.coupons.create({ percent_off: 25, duration: 'forever' })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (stripe.promotionCodes.create as any)({
-        coupon: coupon.id,
-        code: code,
-        expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
-        max_redemptions: 3,
-      })
-      generatedCode = code
-      // Save code to org planNotes so it survives page refresh
-      await db.update(organizations)
-        .set({ planNotes: `PROMO:${code}`, updatedAt: new Date() })
-        .where(eq(organizations.id, orgId))
-    } catch { /* Stripe error — continue without code, IT will handle manually */ }
+    const slug = (org?.slug ?? 'school').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+    // Try the clean code first; if it already exists in Stripe (e.g. repeated onboarding),
+    // append a short unique suffix so we always get a working code
+    const baseCodes = [`SAVE25-${slug}`, `SAVE25-${slug}-2`, `SAVE25-${slug}-3`]
+    for (const code of baseCodes) {
+      try {
+        const coupon = await stripe.coupons.create({ percent_off: 25, duration: 'forever' })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (stripe.promotionCodes.create as any)({
+          coupon: coupon.id,
+          code,
+          expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+          max_redemptions: 3,
+        })
+        generatedCode = code
+        await db.update(organizations)
+          .set({ planNotes: `PROMO:${code}`, updatedAt: new Date() })
+          .where(eq(organizations.id, orgId))
+        break
+      } catch (err) {
+        console.error(`[PROMO CODE] Failed to create ${code}:`, err)
+        // Loop continues to try the next suffix
+      }
+    }
+    if (!generatedCode) {
+      console.error('[PROMO CODE] All attempts failed — IT must create manually')
+    }
   }
 
   // ── Send staff alert email ─────────────────────────────────────────────────
