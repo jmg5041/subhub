@@ -490,7 +490,6 @@ export async function notifyAllSubs(
 
   const priorityEnabledBySchool = new Map(schoolSettings.map(s => [s.id, s.priorityCallingEnabled]))
   const prioritySchoolIds = schoolIds.filter(id => priorityEnabledBySchool.get(id))
-  const openPoolSchoolIds = schoolIds.filter(id => !priorityEnabledBySchool.get(id))
 
   const [priorityRows, openPoolRows] = await Promise.all([
     prioritySchoolIds.length > 0

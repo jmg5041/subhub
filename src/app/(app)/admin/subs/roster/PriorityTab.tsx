@@ -163,7 +163,7 @@ export default function PriorityTab({ subs, schools, priorityBySchool, activeSub
 
         <p className="text-sm text-gray-500 mb-4">
           Set the order subs are ranked for <strong>{selectedSchool.name}</strong>.
-          All subs still get notified at the same time — this order controls the phone menu ("Press 1 for...").
+          All subs still get notified at the same time — this order controls the phone menu (&quot;Press 1 for...&quot;).
         </p>
 
         {orderedIds.length === 0 ? (
