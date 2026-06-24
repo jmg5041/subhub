@@ -40,7 +40,7 @@ export async function getRosterData() {
       .orderBy(asc(users.lastName), asc(users.firstName)),
 
     db
-      .select({ id: schools.id, name: schools.name })
+      .select({ id: schools.id, name: schools.name, priorityCallingEnabled: schools.priorityCallingEnabled })
       .from(schools)
       .where(eq(schools.organizationId, orgId))
       .orderBy(asc(schools.name)),
@@ -115,6 +115,18 @@ export async function saveSchoolPriorityOrder(orderedSubIds: string[], schoolId:
   return { success: true }
 }
 
+export async function setPriorityCallingEnabled(schoolId: string, enabled: boolean) {
+  const orgId = await getOrgId()
+
+  await db
+    .update(schools)
+    .set({ priorityCallingEnabled: enabled, updatedAt: new Date() })
+    .where(and(eq(schools.id, schoolId), eq(schools.organizationId, orgId)))
+
+  revalidatePath('/admin/subs/roster')
+  return { success: true }
+}
+
 export async function getSubDetailData(subId: string) {
   const orgId = await getOrgId()
 
@@ -142,14 +154,17 @@ export async function getSubDetailData(subId: string) {
 export async function setSubSchoolAssignments(subId: string, schoolIds: string[]) {
   const orgId = await getOrgId()
 
+  // Find which schools are being removed so we can clean up priority call lists
+  const existing = await db
+    .select({ schoolId: subSchoolAssignments.schoolId })
+    .from(subSchoolAssignments)
+    .where(and(eq(subSchoolAssignments.substituteId, subId), eq(subSchoolAssignments.organizationId, orgId)))
+
+  const removedSchoolIds = existing.map(r => r.schoolId).filter(id => !schoolIds.includes(id))
+
   await db
     .delete(subSchoolAssignments)
-    .where(
-      and(
-        eq(subSchoolAssignments.substituteId, subId),
-        eq(subSchoolAssignments.organizationId, orgId)
-      )
-    )
+    .where(and(eq(subSchoolAssignments.substituteId, subId), eq(subSchoolAssignments.organizationId, orgId)))
 
   if (schoolIds.length > 0) {
     await db.insert(subSchoolAssignments).values(
@@ -159,6 +174,13 @@ export async function setSubSchoolAssignments(subId: string, schoolIds: string[]
         organizationId: orgId,
         status: 'active' as const,
       }))
+    )
+  }
+
+  // Remove from priority call lists for any schools they were unassigned from
+  if (removedSchoolIds.length > 0) {
+    await db.delete(subPriorityOrders).where(
+      and(eq(subPriorityOrders.substituteId, subId), inArray(subPriorityOrders.schoolId, removedSchoolIds))
     )
   }
 

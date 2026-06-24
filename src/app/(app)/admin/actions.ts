@@ -281,6 +281,12 @@ export async function deactivateUser(formData: FormData) {
     .set({ status: 'inactive' })
     .where(eq(users.id, userId))
 
+  // Remove from priority call lists so they don't appear in ranked ordering
+  const sub = await db.query.substitutes.findFirst({ where: eq(substitutes.userId, userId) })
+  if (sub) {
+    await db.delete(subPriorityOrders).where(eq(subPriorityOrders.substituteId, sub.id))
+  }
+
   revalidatePath('/admin/users')
   return { success: true }
 }

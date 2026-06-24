@@ -20,7 +20,7 @@ type Sub = {
   userStatus: string | null
 }
 
-type School = { id: string; name: string }
+type School = { id: string; name: string; priorityCallingEnabled: boolean }
 
 type Props = {
   subs: Sub[]

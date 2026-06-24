@@ -80,6 +80,7 @@ export const schools = pgTable('schools', {
   dayEndTime: time('day_end_time').default('15:30'),
   campusId: uuid('campus_id').references(() => campuses.id),
   timesConfigured: boolean('times_configured').default(false).notNull(),
+  priorityCallingEnabled: boolean('priority_calling_enabled').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
