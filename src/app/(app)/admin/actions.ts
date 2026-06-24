@@ -8,7 +8,6 @@ import { eq, desc, ilike, or, and, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getEffectiveOrgId } from '@/lib/impersonation'
 import { emailHeader } from '@/lib/email-utils'
-import { checkAndTriggerSeatUpdate } from '@/lib/seat-management'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -289,12 +288,6 @@ export async function deactivateUser(formData: FormData) {
     await db.delete(subPriorityOrders).where(eq(subPriorityOrders.substituteId, sub.id))
   }
 
-  // Deactivating a teacher reduces the active count — check seat alignment
-  const target = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (target && ['teacher', 'staff'].includes(target.role)) {
-    await checkAndTriggerSeatUpdate(orgId).catch(() => {})
-  }
-
   revalidatePath('/admin/users')
   return { success: true }
 }
@@ -351,9 +344,6 @@ export async function updateUser(formData: FormData) {
       }
     }
 
-    if (toAdd.length > 0 || toRemove.length > 0) {
-      await checkAndTriggerSeatUpdate(orgId).catch(() => {})
-    }
   }
 
   revalidatePath('/admin/users')
@@ -416,13 +406,8 @@ export async function deleteUser(formData: FormData) {
   }
 
   // Delete the users row, then remove from Supabase auth
-  const wasTeacher = ['teacher', 'staff'].includes(existing.role)
   await db.delete(users).where(eq(users.id, userId))
   await supabaseAdmin.auth.admin.deleteUser(userId)
-
-  if (wasTeacher) {
-    await checkAndTriggerSeatUpdate(orgId).catch(() => {})
-  }
 
   revalidatePath('/admin/users')
   return { success: true }
@@ -711,13 +696,6 @@ export async function bulkInviteUsers(
   }
 
   revalidatePath('/admin/users')
-
-  // Check if teacher count now diverges from purchased seat count
-  const hadTeachers = rows.some(r => r.role === 'teacher')
-  if (hadTeachers) {
-    await checkAndTriggerSeatUpdate(orgId).catch(() => {})
-  }
-
   return { sent, errors }
 }
 
