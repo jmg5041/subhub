@@ -354,7 +354,7 @@ vercel.json: 3 cron entries (was 11)
   4. Returns in < 1 second regardless of school count
 
 QStash (upstash.com) delivers to per-org blast endpoints:
-  /api/blast/evening        — 10:00 PM local, notifies subs for tomorrow
+  /api/blast/evening        — 9:00 PM local, notifies subs for tomorrow
   /api/blast/morning        — 6:00 AM local, blasts today's unfilled positions
   /api/blast/reblast        — 6:20 AM local, re-notifies non-decliners
   /api/blast/unfilled-alert — 6:30 AM local, emails admin if still unfilled
@@ -373,7 +373,7 @@ the duplicate.
 
 | Blast | Local time | What it does |
 |-------|-----------|-------------|
-| Evening | 10:00 PM | Finds tomorrow's `not_started` positions, calls `notifyAllSubs` |
+| Evening | 9:00 PM | Finds tomorrow's `not_started` positions, calls `notifyAllSubs` |
 | Morning | 6:00 AM | Finds today's `not_started` + `sent` positions, calls `notifyAllSubs` |
 | Reblast | 6:20 AM | Finds today's still-`sent` positions, calls `reBlastNonDecliners` |
 | Unfilled alert | 6:30 AM | Finds today's still-`sent` positions, emails admin |
