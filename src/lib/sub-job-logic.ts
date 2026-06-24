@@ -35,6 +35,7 @@ import {
   users,
 } from '@/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
 import { countWeekdays } from '@/lib/date-utils'
 import { sendSubEmail } from '@/lib/notifications'
 
@@ -179,6 +180,9 @@ export async function performAcceptJob(token: string): Promise<AcceptResult> {
       text: `You're confirmed!\n\nSchool: ${schoolName}${teacherName ? `\nTeacher: ${teacherName}` : ''}\nDate: ${dateStr}\nTime: ${timeStr}\n\nPlease arrive a few minutes early and check in at the front office.\n\nView your dashboard: ${appUrl}/sub/dashboard`,
     }).catch(() => {})
   }
+
+  revalidatePath('/absences/find-sub')
+  revalidatePath('/dashboard')
 
   return {
     success: true,

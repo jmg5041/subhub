@@ -19,6 +19,7 @@ import {
 } from '@/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { countWeekdays } from '@/lib/date-utils'
 import { sendSubEmail } from '@/lib/notifications'
 
@@ -165,6 +166,8 @@ export async function acceptSubJob(token: string) {
     }).catch(() => {})
   }
 
+  revalidatePath('/absences/find-sub')
+  revalidatePath('/dashboard')
   redirect(`/sub/jobs/${token}/confirmed`)
 }
 
