@@ -32,7 +32,7 @@
 
 import { db } from '@/db'
 import * as schema from '@/db/schema'
-import { eq, asc, and, inArray, isNull } from 'drizzle-orm'
+import { eq, asc, and, inArray, isNull, gt } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { Resend } from 'resend'
 import { sendSms, makeVoiceCall } from './twilio'
@@ -109,6 +109,20 @@ export async function generateNotificationToken(
   teacherTimeOffId: string,
   substituteId: string
 ): Promise<string> {
+  // Reuse an existing active token to prevent duplicates when notify is clicked multiple times
+  const existing = await db
+    .select({ token: schema.subNotificationTokens.token })
+    .from(schema.subNotificationTokens)
+    .where(and(
+      eq(schema.subNotificationTokens.teacherTimeOffId, teacherTimeOffId),
+      eq(schema.subNotificationTokens.substituteId, substituteId),
+      isNull(schema.subNotificationTokens.usedAt),
+      gt(schema.subNotificationTokens.expiresAt, new Date())
+    ))
+    .limit(1)
+
+  if (existing.length > 0) return existing[0].token
+
   const token = randomUUID()
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000) // 48 hours
 

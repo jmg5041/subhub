@@ -81,6 +81,7 @@ export async function POST(
     with: { teacherTimeOff: { with: { school: true, employee: { with: { user: true } } } } },
   })
 
+  const seenAbsenceIds = new Set<string>()
   const positions = allTokens
     .filter(t =>
       t.teacherTimeOff.startDate === absenceDate &&
@@ -88,6 +89,11 @@ export async function POST(
       t.teacherTimeOff.subOutreachStatus !== 'filled'
     )
     .sort((a, b) => a.teacherTimeOff.school.name.localeCompare(b.teacherTimeOff.school.name))
+    .filter(t => {
+      if (seenAbsenceIds.has(t.teacherTimeOffId)) return false
+      seenAbsenceIds.add(t.teacherTimeOffId)
+      return true
+    })
     .slice(0, 9)
 
   if (positions.length === 0) {
