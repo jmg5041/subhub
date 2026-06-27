@@ -200,9 +200,8 @@ export async function submitDiscountRequest(formData: FormData): Promise<void> {
     for (const code of baseCodes) {
       try {
         const coupon = await stripe.coupons.create({ percent_off: 25, duration: 'forever' })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (stripe.promotionCodes.create as any)({
-          coupon: coupon.id,
+        await stripe.promotionCodes.create({
+          promotion: { type: 'coupon', coupon: coupon.id },
           code,
           expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
           max_redemptions: 3,

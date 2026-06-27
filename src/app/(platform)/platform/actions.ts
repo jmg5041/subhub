@@ -355,6 +355,56 @@ export async function addBillingNote(formData: FormData) {
   redirect(`/platform/${orgId}`)
 }
 
+export async function emailStalledSignup(formData: FormData) {
+  await getPlatformContext()
+
+  const orgId = formData.get('orgId') as string
+  const resendClient = process.env.RESEND_API_KEY
+    ? new (await import('resend')).Resend(process.env.RESEND_API_KEY)
+    : null
+  if (!resendClient) redirect('/platform')
+
+  const [org, admin] = await Promise.all([
+    db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { name: true },
+    }),
+    db.query.users.findFirst({
+      where: and(eq(users.organizationId, orgId), eq(users.role, 'admin')),
+      columns: { email: true, firstName: true },
+    }),
+  ])
+  if (!org || !admin?.email) redirect('/platform')
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.substitutes.us'
+
+  await resendClient.emails.send({
+    from: 'SubHub <no-reply@substitutes.us>',
+    to: admin.email,
+    subject: `Finish setting up SubHub for ${org.name}`,
+    text: [
+      `Hi ${admin.firstName ?? 'there'},`,
+      ``,
+      `You started setting up SubHub for ${org.name} but haven't finished yet. Pick up where you left off:`,
+      ``,
+      appUrl,
+      ``,
+      `If you have questions, reply to this email and we'll help you get started.`,
+      ``,
+      `— The SubHub Team`,
+    ].join('\n'),
+    html: `
+      <p>Hi ${admin.firstName ?? 'there'},</p>
+      <p>You started setting up SubHub for <strong>${org.name}</strong> but haven't finished yet.</p>
+      <p><a href="${appUrl}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Finish your setup →</a></p>
+      <p style="color:#6b7280;font-size:14px;">If you have questions, reply to this email and we'll help you get started.</p>
+      <p>— The SubHub Team</p>
+    `,
+  }).catch(() => {})
+
+  redirect('/platform')
+}
+
 export async function clearPlanNotes(formData: FormData) {
   await getPlatformContext()
   const orgId = formData.get('orgId') as string

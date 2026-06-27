@@ -57,6 +57,7 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/api/cron/') &&
     !request.nextUrl.pathname.startsWith('/api/dispatcher') &&
     !request.nextUrl.pathname.startsWith('/api/blast/') &&
+    !request.nextUrl.pathname.startsWith('/api/stripe/') &&
     !request.nextUrl.pathname.startsWith('/sub/jobs/') &&
     request.nextUrl.pathname !== '/'
   ) {

@@ -3,7 +3,7 @@ import { organizations, schools, users, platformSettings } from '@/db/schema'
 import { eq, count, sql } from 'drizzle-orm'
 import { getBillingState } from '@/lib/billing'
 import Link from 'next/link'
-import { getPlatformContext, saveStaffAlertEmail, saveBranding, savePricing } from './actions'
+import { getPlatformContext, saveStaffAlertEmail, saveBranding, savePricing, emailStalledSignup } from './actions'
 
 const STATUS_COLORS: Record<string, string> = {
   active:        'bg-green-100 text-green-700',
@@ -244,9 +244,19 @@ export default async function PlatformPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-400">{org.paidThrough ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/platform/${org.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs">
-                      Manage →
-                    </Link>
+                    <div className="flex items-center gap-3 justify-end">
+                      {stuck !== null && stuck > 2 && (
+                        <form action={emailStalledSignup}>
+                          <input type="hidden" name="orgId" value={org.id} />
+                          <button type="submit" className="text-xs text-amber-400 hover:text-amber-200">
+                            Nudge
+                          </button>
+                        </form>
+                      )}
+                      <Link href={`/platform/${org.id}`} className="text-indigo-400 hover:text-indigo-200 text-xs">
+                        Manage →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )
